@@ -1,0 +1,11 @@
+{
+  "name": "docpal-node-admin",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -F @docpal/admin dev",
+    "build": "pnpm -F @docpal/admin build",
+    "generate": "pnpm -F @docpal/admin generate",
+    "preview": "pnpm -F @docpal/admin preview"
+  }
+}
