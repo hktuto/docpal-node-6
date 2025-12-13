@@ -17,12 +17,15 @@ export interface Company {
   name: string;
   role: string;
 }
+const useUser = () => useState<User | null>('auth_user', () => null);
+const useToken = () => useState<string | null>('auth_token', () => null);
+const useCompanies = () => useState<Company[]>('auth_companies', () => []);
 
 export const useAuth = () => {
   // Global state (shared across all components)
-  const user = useState<User | null>('auth_user', () => null);
-  const token = useState<string | null>('auth_token', () => null);
-  const companies = useState<Company[]>('auth_companies', () => []);
+  const user = useUser();
+  const token = useToken();
+  const companies = useCompanies();
   
   // Computed
   const isAuthenticated = computed(() => !!user.value);
