@@ -3,9 +3,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "pnpm -F @docpal/admin dev",
-    "build": "pnpm -F @docpal/admin build",
-    "generate": "pnpm -F @docpal/admin generate",
-    "preview": "pnpm -F @docpal/admin preview"
+    "dev": "pnpm -F docpal dev",
+    "build": "pnpm -F docpal build",
+    "generate": "pnpm -F docpal generate",
+    "preview": "pnpm -F docpal preview"
   }
 }
