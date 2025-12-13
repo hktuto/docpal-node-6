@@ -7,12 +7,14 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "nuxt prepare",
+    "db:migrate": "node server/database/migrate.mjs",
+    "db:reset": "docker-compose -f ../../docker-compose.dev.yml down -v && docker-compose -f ../../docker-compose.dev.yml up -d && sleep 5 && pnpm db:migrate"
   },
   "dependencies": {
     "nuxt": "^4.2.2",
+    "postgres": "^3.4.7",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3"
   }
 }
-
