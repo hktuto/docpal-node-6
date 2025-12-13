@@ -16,7 +16,7 @@
 <style scoped lang="scss">
 .default-layout {
   min-height: 100vh;
-  background: var(--bg-secondary, #f8fafc);
+  background: var(--app-bg-color-page);
 }
 </style>
 

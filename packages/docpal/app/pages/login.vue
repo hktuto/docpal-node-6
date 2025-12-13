@@ -92,90 +92,92 @@ const handleSubmit = async () => {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--bg-secondary, #f8fafc);
+  background: var(--app-bg-color-page);
 }
 
 .login-card {
   width: 100%;
   max-width: 400px;
-  padding: var(--spacing-2xl, 48px);
-  background: var(--bg-primary, #ffffff);
-  border-radius: var(--border-radius-lg, 8px);
-  box-shadow: var(--shadow-lg);
+  padding: var(--app-space-xxl);
+  background: var(--app-paper);
+  border-radius: var(--app-border-radius-l);
+  box-shadow: var(--app-shadow-l);
 }
 
 .login-title {
-  font-size: var(--font-size-2xl, 24px);
-  font-weight: var(--font-weight-bold, 700);
+  font-size: var(--app-font-size-xxl);
+  font-weight: var(--app-font-weight-title);
   text-align: center;
-  margin-bottom: var(--spacing-sm, 8px);
-  color: var(--text-primary, #0f172a);
+  margin-bottom: var(--app-space-s);
+  color: var(--app-text-color-primary);
 }
 
 .login-subtitle {
-  font-size: var(--font-size-sm, 14px);
+  font-size: var(--app-font-size-s);
   text-align: center;
-  color: var(--text-secondary, #475569);
-  margin-bottom: var(--spacing-xl, 32px);
+  color: var(--app-text-color-secondary);
+  margin-bottom: var(--app-space-xl);
 }
 
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md, 16px);
+  gap: var(--app-space-m);
 }
 
 .error-message {
-  padding: var(--spacing-md, 16px);
-  background: #fee;
-  border: 1px solid #fcc;
-  border-radius: var(--border-radius, 6px);
-  color: var(--color-danger, #ef4444);
-  font-size: var(--font-size-sm, 14px);
+  padding: var(--app-space-m);
+  background: var(--app-danger-alpha-10);
+  border: 1px solid var(--app-danger-1);
+  border-radius: var(--app-border-radius-m);
+  color: var(--app-danger-color);
+  font-size: var(--app-font-size-s);
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm, 8px);
+  gap: var(--app-space-xs);
   
   label {
-    font-size: var(--font-size-sm, 14px);
-    font-weight: var(--font-weight-medium, 500);
-    color: var(--text-primary, #0f172a);
+    font-size: var(--app-font-size-s);
+    font-weight: var(--app-font-weight);
+    color: var(--app-text-color-primary);
   }
   
   input {
-    padding: var(--spacing-md, 16px) var(--spacing-md, 16px);
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: var(--border-radius, 6px);
-    font-size: var(--font-size-base, 16px);
-    transition: border-color var(--transition-fast, 150ms ease);
+    padding: var(--app-space-m);
+    border: 1px solid var(--app-border-color);
+    border-radius: var(--app-border-radius-m);
+    font-size: var(--app-font-size-m);
+    background: var(--app-paper);
+    color: var(--app-text-color-primary);
     
     &:focus {
       outline: none;
-      border-color: var(--color-primary, #3b82f6);
+      border-color: var(--app-primary-color);
     }
     
     &::placeholder {
-      color: var(--text-tertiary, #94a3b8);
+      color: var(--app-text-color-placeholder);
     }
   }
 }
 
 .submit-button {
-  padding: var(--spacing-md, 16px);
-  background: var(--color-primary, #3b82f6);
+  padding: var(--app-space-m);
+  background: var(--app-primary-color);
   color: white;
   border: none;
-  border-radius: var(--border-radius, 6px);
-  font-size: var(--font-size-base, 16px);
-  font-weight: var(--font-weight-medium, 500);
+  border-radius: var(--app-border-radius-m);
+  font-size: var(--app-font-size-m);
+  font-weight: var(--app-font-weight);
   cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
+  transition: all 150ms ease;
   
   &:hover:not(:disabled) {
-    background: var(--color-primary-hover, #2563eb);
+    background: var(--app-primary-4);
+    box-shadow: var(--app-shadow-primary-m);
   }
   
   &:disabled {
@@ -185,12 +187,12 @@ const handleSubmit = async () => {
 }
 
 .login-note {
-  margin-top: var(--spacing-lg, 24px);
-  padding-top: var(--spacing-lg, 24px);
-  border-top: 1px solid var(--border-color, #e2e8f0);
+  margin-top: var(--app-space-l);
+  padding-top: var(--app-space-l);
+  border-top: 1px solid var(--app-border-color);
   text-align: center;
-  font-size: var(--font-size-xs, 12px);
-  color: var(--text-tertiary, #94a3b8);
+  font-size: var(--app-font-size-xs);
+  color: var(--app-text-color-secondary);
 }
 </style>
 

@@ -194,34 +194,40 @@ provide('switchTab', switchTab);
 
 .tab-bar {
   display: flex;
-  background: var(--bg-primary, #ffffff);
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  background: var(--app-paper);
+  border-bottom: 1px solid var(--app-border-color);
   overflow-x: auto;
+  
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: var(--spacing-sm, 8px);
-  padding: var(--spacing-md, 16px) var(--spacing-lg, 24px);
-  border-right: 1px solid var(--border-color, #e2e8f0);
+  gap: var(--app-space-s);
+  padding: var(--app-space-m) var(--app-space-l);
+  border-right: 1px solid var(--app-border-color-light);
   cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
+  transition: all 150ms ease;
   white-space: nowrap;
+  background: var(--app-paper);
   
   &:hover {
-    background: var(--bg-hover, #f1f5f9);
+    background: var(--app-fill-color);
   }
   
   &.active {
-    background: var(--bg-secondary, #f8fafc);
-    border-bottom: 2px solid var(--color-primary, #3b82f6);
+    background: var(--app-fill-color);
+    border-bottom: 2px solid var(--app-primary-color);
+    color: var(--app-primary-color);
   }
 }
 
 .tab-label {
-  font-size: var(--font-size-sm, 14px);
-  color: var(--text-primary, #0f172a);
+  font-size: var(--app-font-size-s);
+  color: var(--app-text-color-primary);
 }
 
 .tab-close {
@@ -230,14 +236,14 @@ provide('switchTab', switchTab);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  border-radius: var(--app-border-radius-max);
   font-size: 18px;
-  color: var(--text-secondary, #475569);
-  transition: all var(--transition-fast, 150ms ease);
+  color: var(--app-text-color-secondary);
+  transition: all 150ms ease;
   
   &:hover {
-    background: var(--bg-active, #e2e8f0);
-    color: var(--text-primary, #0f172a);
+    background: var(--app-fill-color-dark);
+    color: var(--app-text-color-primary);
   }
 }
 
@@ -252,34 +258,36 @@ provide('switchTab', switchTab);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-lg, 24px);
+  gap: var(--app-space-l);
   text-align: center;
-  padding: var(--spacing-2xl, 48px);
+  padding: var(--app-space-xxl);
   
   h2 {
-    font-size: var(--font-size-2xl, 24px);
-    color: var(--text-primary, #0f172a);
+    font-size: var(--app-font-size-xxl);
+    font-weight: var(--app-font-weight-title);
+    color: var(--app-text-color-primary);
   }
   
   p {
-    font-size: var(--font-size-base, 16px);
-    color: var(--text-secondary, #475569);
+    font-size: var(--app-font-size-m);
+    color: var(--app-text-color-secondary);
   }
 }
 
 .primary-button {
-  padding: var(--spacing-md, 16px) var(--spacing-xl, 32px);
-  background: var(--color-primary, #3b82f6);
+  padding: var(--app-space-m) var(--app-space-xl);
+  background: var(--app-primary-color);
   color: white;
   border: none;
-  border-radius: var(--border-radius, 6px);
-  font-size: var(--font-size-base, 16px);
-  font-weight: var(--font-weight-medium, 500);
+  border-radius: var(--app-border-radius-m);
+  font-size: var(--app-font-size-m);
+  font-weight: var(--app-font-weight);
   cursor: pointer;
-  transition: background var(--transition-fast, 150ms ease);
+  transition: all 150ms ease;
   
   &:hover {
-    background: var(--color-primary-hover, #2563eb);
+    background: var(--app-primary-4);
+    box-shadow: var(--app-shadow-primary-m);
   }
 }
 </style>
