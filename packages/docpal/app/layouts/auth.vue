@@ -7,9 +7,13 @@
 </script>
 
 <template>
-  <div class="auth-layout">
-    <slot />
-  </div>
+    <ClientOnly>
+      <div class="auth-layout">
+        <slot />
+
+          <UiLoadingBg />
+      </div>
+    </ClientOnly>
 </template>
 
 <style scoped lang="scss">

@@ -42,66 +42,70 @@ const handleSubmit = async () => {
 </script>
 
 <template>
-  <div class="login-page">
-    <div class="login-card">
-      <h1 class="login-title">DocPal</h1>
-      <p class="login-subtitle">Sign in to your account</p>
+  <div class="login-card glass">
+    <h1 class="login-title">DocPal</h1>
+    <p class="login-subtitle">Sign in to your account</p>
+    
+    <el-form 
+      @submit.prevent="handleSubmit" 
+      class="login-form"
+      :model="form"
+      label-position="top"
+    >
+      <el-alert
+        v-if="error"
+        :title="error"
+        type="error"
+        :closable="false"
+        show-icon
+        class="error-alert"
+      />
       
-      <form @submit.prevent="handleSubmit" class="login-form">
-        <div v-if="error" class="error-message">
-          {{ error }}
-        </div>
-        
-        <div class="form-group">
-          <label for="username">Username</label>
-          <input
-            id="username"
-            v-model="form.username"
-            type="text"
-            placeholder="Enter username"
-            required
-          />
-        </div>
-        
-        <div class="form-group">
-          <label for="password">Password</label>
-          <input
-            id="password"
-            v-model="form.password"
-            type="password"
-            placeholder="Enter password"
-            required
-          />
-        </div>
-        
-        <button type="submit" :disabled="loading" class="submit-button">
+      <el-form-item label="Username" prop="username" required>
+        <el-input
+          v-model="form.username"
+          placeholder="Enter username"
+          size="large"
+          :disabled="loading"
+        />
+      </el-form-item>
+      
+      <el-form-item label="Password" prop="password" required>
+        <el-input
+          v-model="form.password"
+          type="password"
+          placeholder="Enter password"
+          size="large"
+          :disabled="loading"
+          show-password
+        />
+      </el-form-item>
+      
+      <el-form-item>
+        <el-button
+          type="primary"
+          native-type="submit"
+          :loading="loading"
+          size="large"
+          style="width: 100%"
+        >
           {{ loading ? 'Signing in...' : 'Sign in' }}
-        </button>
-      </form>
-      
-      <p class="login-note">
-        POC: Use any username/password (mock auth)
-      </p>
-    </div>
+        </el-button>
+      </el-form-item>
+    </el-form>
+    
+    <p class="login-note">
+      POC: Use any username/password (mock auth)
+    </p>
   </div>
 </template>
 
 <style scoped lang="scss">
-.login-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  background: var(--app-bg-color-page);
-}
-
 .login-card {
   width: 100%;
   max-width: 400px;
   padding: var(--app-space-xxl);
-  background: var(--app-paper);
   border-radius: var(--app-border-radius-l);
-  box-shadow: var(--app-shadow-l);
 }
 
 .login-title {
@@ -120,43 +124,35 @@ const handleSubmit = async () => {
 }
 
 .login-form {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-m);
-}
-
-.error-message {
-  padding: var(--app-space-m);
-  background: var(--app-danger-alpha-10);
-  border: 1px solid var(--app-danger-1);
-  border-radius: var(--app-border-radius-m);
-  color: var(--app-danger-color);
-  font-size: var(--app-font-size-s);
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--app-space-xs);
-  
-  label {
-    font-size: var(--app-font-size-s);
-    font-weight: var(--app-font-weight);
-    color: var(--app-text-color-primary);
+  :deep(.el-form-item) {
+    margin-bottom: var(--app-space-m);
   }
   
-  input {
-    padding: var(--app-space-m);
+  :deep(.el-form-item__label) {
+    font-size: var(--app-font-size-s);
+    color: var(--app-text-color-primary);
+    font-weight: var(--app-font-weight);
+    margin-bottom: var(--app-space-xs);
+  }
+  
+  :deep(.el-input__wrapper) {
+    background: var(--app-paper);
+    box-shadow: none;
     border: 1px solid var(--app-border-color);
     border-radius: var(--app-border-radius-m);
-    font-size: var(--app-font-size-m);
-    background: var(--app-paper);
-    color: var(--app-text-color-primary);
     
-    &:focus {
-      outline: none;
-      border-color: var(--app-primary-color);
+    &:hover {
+      border-color: var(--app-border-color-dark);
     }
+    
+    &.is-focus {
+      border-color: var(--app-primary-color);
+      box-shadow: 0 0 0 1px var(--app-primary-alpha-30);
+    }
+  }
+  
+  :deep(.el-input__inner) {
+    color: var(--app-text-color-primary);
     
     &::placeholder {
       color: var(--app-text-color-placeholder);
@@ -164,26 +160,8 @@ const handleSubmit = async () => {
   }
 }
 
-.submit-button {
-  padding: var(--app-space-m);
-  background: var(--app-primary-color);
-  color: white;
-  border: none;
-  border-radius: var(--app-border-radius-m);
-  font-size: var(--app-font-size-m);
-  font-weight: var(--app-font-weight);
-  cursor: pointer;
-  transition: all 150ms ease;
-  
-  &:hover:not(:disabled) {
-    background: var(--app-primary-4);
-    box-shadow: var(--app-shadow-primary-m);
-  }
-  
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+.error-alert {
+  margin-bottom: var(--app-space-m);
 }
 
 .login-note {
