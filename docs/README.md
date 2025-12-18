@@ -1,250 +1,152 @@
-# Documentation Index
+# DocPal Documentation
 
-Welcome to the DocPal POC documentation! Start here to navigate all documentation.
+This folder contains the essential documentation for the DocPal project.
 
----
+## 📋 Documentation Files
 
-## 🚀 Quick Start (Start Here!)
+### [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) (44KB)
+**The master plan for the entire project.**
 
-### [Quick Start Guide](./Quick-Start-Guide.md) ⭐
-**Setup and run the project in 5 minutes**
-- Prerequisites and installation
-- Docker setup (PostgreSQL + MinIO)
-- Running migrations
-- Starting the dev server
+**Contains:**
+- Complete 5-phase development roadmap
+- Detailed database schemas for each phase
+- API endpoint specifications
+- Frontend structure and components
+- Field type specifications (basic + advanced)
+- Audit logging system (Phase 2)
+- Workflow engine architecture (Phase 3)
+- Activity feed with comments and approvals (Phase 4)
+- Timeline estimates and deliverables
+- Risk mitigation strategies
 
----
-
-## 📖 Core Documentation
-
-### [API Reference](./API-Reference.md) ⭐⭐⭐
-**Complete API specification - use this to build features**
-- All endpoints with examples
-- Request/response formats
-- Authentication (mock)
-- Databases, Tables, Columns, Records, Views, Files
-
-### [Query API Spec](./Query-API-Spec.md) ⭐⭐
-**Detailed query API documentation**
-- Flexible filtering (nested AND/OR)
-- Multiple sorts
-- Field selection and link expansion
-- Grouping support
-- Cursor-based pagination
-
-### [Database Schema](./Database-Schema.md) ⭐⭐
-**Complete database schema reference**
-- 8 tables explained
-- JSONB structure for records
-- Indexes and relationships
-- Query examples
-
-### [Views & Widgets Architecture](./Views-Unified-Architecture.md) ⭐⭐
-**How views work - unified widget system**
-- Every view is a dashboard with widgets
-- 9 widget types (table, kanban, calendar, chart, number, etc.)
-- Multi-level grouping
-- Mix widgets in one view
-
-### [Column Types](./Column-Types.md) ⭐
-**All 6 column types specification**
-- text, number, boolean, date, file, link
-- Options and constraints per type
-- Storage format and validation
+**Use this for:**
+- Understanding the full project scope
+- Implementation guidance
+- Technical specifications
+- Feature planning
 
 ---
 
-## 📋 Planning & Roadmap
+### [ARCHITECTURE.md](./ARCHITECTURE.md) (27KB)
+**Key architectural decisions and system design.**
 
-### [BRD - Business Requirements](./BRD-2025-12-12.md)
-**Original product requirements document**
-- Product vision and objectives
-- Features and scope
-- Data model and permissions
+**Contains:**
+- High-level system architecture
+- Database design (two-tier: metadata + dynamic tables)
+- Company-prefixed table naming strategy (`dt_[companyId]_[tableId]`)
+- Multi-tenancy isolation approach
+- Dynamic schema management
+- Type system and field mappings
+- Query building system
+- Context provider pattern (provide/inject)
+- Permission system design
+- Security considerations
+- Performance optimization strategies
+- Caching strategy
+- Technology decisions and rationale
 
-### [Development Plan POC](./Development-Plan-POC.md)
-**Phased development plan (5 weeks)**
-- Week-by-week task breakdown
-- Deliverables per phase
-- Success criteria
-
-### [Roadmap](./Roadmap.md)
-**Long-term product roadmap (10 phases)**
-- Phase 1: POC (current)
-- Phase 2-3: Multi-user & permissions
-- Phase 4: Cross-database linking
-- Phase 5+: Advanced features
-
-### [Task Tracking](./Task-Tracking.md)
-**Checklist of all tasks**
-- Track progress as you build
-- Mark off completed tasks
-
----
-
-## 🏗️ Architecture & Design Decisions
-
-### [Access Control Design](./Access-Control-Design.md)
-**Multi-user permission system**
-- Database-scoped roles
-- Table permissions (CRUD flags)
-- Column and row rules
-- Cross-database linking (3 modes: private/public/on_request)
-
-### [Auth Implementation](./Auth-Implementation.md)
-**Authentication system (mock for POC, real for production)**
-- Mock auth endpoints
-- Frontend auth flow
-- Migration to real auth
-- Security checklist
-
-### [JSONB Analysis](./JSONB-Analysis.md)
-**Why JSONB works for dynamic schema**
-- Advanced filtering capabilities
-- Sorting and performance
-- Query examples
-- Optimization strategies
-
-### [ORM Decision](./ORM-Decision.md)
-**Why postgres.js instead of Prisma**
-- JSONB flexibility
-- Performance considerations
-- Migration management
+**Use this for:**
+- Understanding why we made specific decisions
+- Architectural reference
+- Multi-tenancy strategy
+- Scalability planning
+- Security guidelines
 
 ---
 
-## 📂 Document Organization
+## 🎯 Quick Start
 
-```
-docs/
-├── README.md (this file)           ← Navigation hub
-│
-├── 🚀 Getting Started
-│   └── Quick-Start-Guide.md        ← Setup instructions
-│
-├── 📖 Core Documentation
-│   ├── API-Reference.md            ← API spec (most important!)
-│   ├── Query-API-Spec.md           ← Query API deep dive
-│   ├── Database-Schema.md          ← Schema reference
-│   ├── Views-Unified-Architecture.md  ← Views & widgets
-│   └── Column-Types.md             ← Column types spec (7 types)
-│
-├── 📋 Planning
-│   ├── BRD-2025-12-12.md          ← Requirements
-│   ├── Development-Plan-POC.md     ← Development phases
-│   ├── Roadmap.md                  ← Long-term roadmap
-│   └── Task-Tracking.md            ← Task checklist
-│
-└── 🏗️ Architecture
-    ├── Access-Control-Design.md    ← Permission system
-    ├── Auth-Implementation.md      ← Authentication
-    ├── JSONB-Analysis.md          ← JSONB deep dive
-    └── ORM-Decision.md            ← Database client choice
-```
+For setup instructions, see the main [README.md](../README.md) in the project root.
+
+For detailed phase-by-phase implementation, start with [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
 
 ---
 
-## 🎯 What to Read Based on Your Goal
+## 📚 What's NOT Here (Intentionally)
 
-### "I want to set up the project"
-→ [Quick Start Guide](./Quick-Start-Guide.md)
+**Removed for simplicity:**
+- ~~PHASE_1_TECHNICAL_SPEC.md~~ - Details consolidated into DEVELOPMENT_PLAN.md
+- ~~GETTING_STARTED.md~~ - Setup info in main README.md
+- ~~MULTI_TENANCY_STRATEGY.md~~ - Key points in ARCHITECTURE.md
+- ~~ADVANCED_FIELD_TYPES.md~~ - Implementation details in DEVELOPMENT_PLAN.md
 
-### "I want to build the API"
-→ [API Reference](./API-Reference.md) ⭐⭐⭐
-→ [Query API Spec](./Query-API-Spec.md) ⭐⭐ (for complex queries)
-
-### "I want to understand the database"
-→ [Database Schema](./Database-Schema.md)
-→ [JSONB Analysis](./JSONB-Analysis.md)
-
-### "I want to understand views"
-→ [Views & Widgets Architecture](./Views-Unified-Architecture.md)
-
-### "I want to understand permissions"
-→ [Access Control Design](./Access-Control-Design.md)
-
-### "I want to track progress"
-→ [Task Tracking](./Task-Tracking.md)
-→ [Development Plan POC](./Development-Plan-POC.md)
+**Reason**: Keep documentation lean and maintainable. All essential information is in the 2 core docs.
 
 ---
 
-## 📝 Key Concepts Quick Reference
+## 🔄 Documentation Updates
 
-### POC Simplifications
-- ✅ Fixed admin user (no real auth)
-- ✅ Single company
-- ✅ No permissions (Phase 2+)
-- ✅ Same-database links only (cross-database in Phase 4)
+When making changes:
 
-### Tech Stack
-- **Frontend/Backend**: Nuxt 4
-- **Database**: PostgreSQL with JSONB
-- **DB Client**: postgres.js (no ORM)
-- **File Storage**: MinIO
-- **Package Manager**: pnpm
+1. **Architecture changes** → Update ARCHITECTURE.md
+2. **Feature specs/timeline** → Update DEVELOPMENT_PLAN.md
+3. **Setup/quick start** → Update main README.md
 
-### Core Architecture
-- **Dynamic schema**: Records stored as JSONB
-- **Column types**: text, number, boolean, date, file, link, computed (Phase 2)
-- **Views**: Unified widget system (every view is a dashboard)
-- **Query API**: POST-based with nested filters, multiple sorts, grouping
-- **Soft delete**: All entities use `deleted_at`
-
-### Fixed Credentials (POC)
-- **User ID**: `00000000-0000-0000-0000-000000000001`
-- **Username**: `admin` / **Password**: `admin123`
-- **Company ID**: `00000000-0000-0000-0000-000000000002`
+Keep these docs **in sync** with actual implementation.
 
 ---
 
-## 🔄 Document Status
+## 📖 Reading Order
 
-| Document | Status | Purpose |
-|----------|--------|---------|
-| Quick Start Guide | ✅ Complete | Setup instructions |
-| API Reference | ✅ Complete | API specification |
-| Query API Spec | ✅ Complete | Query API details |
-| Database Schema | ✅ Complete | Schema reference |
-| Views & Widgets | ✅ Complete | View architecture |
-| Column Types | ✅ Complete | Column specifications (7 types) |
-| Access Control | ✅ Complete | Permission design |
-| Auth Implementation | ✅ Complete | Auth system |
-| Development Plan | ✅ Complete | Development phases |
-| Roadmap | ✅ Complete | Long-term plan |
-| Task Tracking | 🔄 In Progress | Task checklist |
+**For new team members:**
+1. Main README.md (project overview)
+2. ARCHITECTURE.md (understand the system)
+3. DEVELOPMENT_PLAN.md (implementation details)
+
+**For implementation:**
+1. DEVELOPMENT_PLAN.md → Find your phase
+2. Follow the specifications
+3. Reference ARCHITECTURE.md for design decisions
 
 ---
 
-## 💡 Tips
+## 🎯 Key Features Documented
 
-1. **Start with Quick Start** - Get the project running
-2. **Use API Reference** - It has everything for building endpoints
-3. **Check Task Tracking** - Mark off tasks as you complete them
-4. **Update docs** - Keep them current as you make changes
-5. **Follow Roadmap** - Stay on track with planned phases
+### Phase 1: Dynamic Tables
+- Company-prefixed table naming
+- Runtime schema management
+- 13 field types (basic + advanced)
+- Auto-generated forms and views
+
+### Phase 2: Auth & Audit
+- Session-based authentication
+- Company management with invitations
+- **Audit logging system** (all operations tracked)
+- Magic links and invite codes
+
+### Phase 3: Workflows
+- Trigger system (record events)
+- Action engine (update, create, user forms)
+- **Workflow audit integration**
+- Execution history
+
+### Phase 4: Real-time & Activity
+- WebSocket connections
+- User presence tracking
+- **Unified activity feed** (audits + comments + workflows)
+- **Interactive workflow approvals**
+- @mentions and notifications
+- Live updates
+
+### Phase 5: Advanced
+- Temporal workflows
+- Row-level permissions
+- Dashboard builder
+- Folder system
+- Document generation
 
 ---
 
-## 📚 Related Files
+## 💡 Design Principles
 
-### In Codebase
-- `.cursor/rules/main.md` - Cursor AI context and rules
-- `packages/admin/server/database/` - Migrations and connection
-- `packages/admin/server/types/database.ts` - TypeScript types
-- `docker-compose.dev.yml` - Docker services config
+1. **Company-First**: Everything scoped to company for multi-tenancy
+2. **Dynamic by Default**: Tables, forms, views all runtime-configurable
+3. **Physical Tables**: Use real PostgreSQL tables (not JSON) for performance
+4. **Audit Everything**: Immutable audit log for compliance
+5. **Real-time Collaboration**: Activity feed brings everything together
+6. **Progressive Enhancement**: Start simple (Phase 1), add complexity incrementally
 
 ---
 
-## 🆘 Need Help?
+Last updated: December 2025
 
-1. Check the relevant doc above
-2. Review code examples in API Reference
-3. Look at migration files for schema details
-4. Check JSONB Analysis for query examples
-5. See Views & Widgets for view configuration
-
-**Most Important Docs:**
-- 🥇 [API Reference](./API-Reference.md) - Build features
-- 🥈 [Database Schema](./Database-Schema.md) - Understand data
-- 🥉 [Views & Widgets](./Views-Unified-Architecture.md) - Build views

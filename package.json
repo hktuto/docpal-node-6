@@ -1,11 +1,41 @@
 {
-  "name": "docpal-node-admin",
+  "name": "docpal-node-6",
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "pnpm -F docpal dev",
-    "build": "pnpm -F docpal build",
-    "generate": "pnpm -F docpal generate",
-    "preview": "pnpm -F docpal preview"
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "db:generate": "nuxt db generate",
+    "db:migrate": "nuxt db migrate",
+    "db:drop": "nuxt db drop",
+    "db:sql": "nuxt db sql",
+    "docker:up": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.dev.yml down",
+    "docker:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "docker:restart": "pnpm docker:down && pnpm docker:up",
+    "setup": "pnpm docker:up && sleep 3 && pnpm db:generate && pnpm db:migrate",
+    "type-check": "nuxt typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@nuxthub/core": "^0.10.3",
+    "drizzle-kit": "^0.31.8",
+    "drizzle-orm": "^0.45.1",
+    "element-plus": "^2.12.0",
+    "nuxt": "^4.2.2",
+    "postgres": "^3.4.7",
+    "typescript": "^5.9.3",
+    "vue": "^3.5.25",
+    "vue-router": "^4.6.4"
+  },
+  "packageManager": "pnpm@8.5.1+sha1.97019f5a8ec2416123506419ab36dd558e4c72eb",
+  "devDependencies": {
+    "@element-plus/nuxt": "^1.1.4",
+    "sass": "^1.97.0"
   }
 }
