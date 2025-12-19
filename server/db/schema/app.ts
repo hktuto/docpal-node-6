@@ -1,9 +1,11 @@
 import { pgTable, uuid, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
 import { companies } from './company'
+import type{ MenuItem } from '#shared/types/db'
 
 export const apps = pgTable('apps', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  slug: text('slug').notNull().unique(),
   icon: text('icon'),
   description: text('description'),
   menu: jsonb('menu').$type<MenuItem[]>(),
@@ -13,12 +15,5 @@ export const apps = pgTable('apps', {
 })
 
 // Type for menu structure
-export interface MenuItem {
-  id: string
-  label: string
-  type: 'folder' | 'table' | 'view' | 'dashboard'
-  itemId?: string
-  children?: MenuItem[]
-  order: number
-}
+
 

@@ -14,10 +14,8 @@ const emit = defineEmits<{
 const router = useRouter()
 
 const handleClick = () => {
-  router.push(`/apps/${props.app.id}`)
+  router.push(`/apps/${props.app.slug}`)
 }
-
-
 
 const handleCommand = (command: string) => {
   switch (command) {
@@ -25,7 +23,7 @@ const handleCommand = (command: string) => {
       emit('edit', props.app)
       break
     case 'settings':
-      router.push(`/apps/${props.app.id}/settings`)
+      router.push(`/apps/${props.app.slug}/settings`)
       break
     case 'delete':
       emit('delete', props.app)

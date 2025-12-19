@@ -29,8 +29,8 @@ const footerMenu:MenuItem[] = [
         url: '/settings',
     },
     {
-        label: () => expandState.value ? 'Collapse' : 'Expand',
-        icon: () => expandState.value ? 'lucide:chevron-left' : 'lucide:chevron-right',
+        label: () => (expandState.value ? 'Collapse' : 'Expand'),
+        icon: () => (expandState.value ? 'lucide:chevron-left' : 'lucide:chevron-right'),
         action: () => toggleExpand(),
     }
 ]
@@ -51,6 +51,19 @@ function handleClick(item: any) {
         return
     }
 }
+
+// Check if route is active (exact match or child route)
+function isRouteActive(itemUrl?: any): boolean {
+    if (!itemUrl || typeof itemUrl !== 'string') return false
+    
+    // Exact match
+    if (route.path === itemUrl) return true
+    
+    // Child route match (e.g., /apps is active when on /apps/123)
+    if (itemUrl !== '/' && route.path.startsWith(itemUrl + '/')) return true
+    
+    return false
+}
 </script>
 
 <template>
@@ -60,23 +73,23 @@ function handleClick(item: any) {
         </div>
         <div class="menuContent">
             <CommonMenuItem 
-                v-for="item in menu" 
-                :key="item.label" 
+                v-for="(item, index) in menu" 
+                :key="'menu-'+index" 
                 :expandState="expandState"
                 :label="item.label" 
                 :icon="item.icon"
-                :selected="route.path === item.url"
+                :selected="isRouteActive(item.url)"
                 @click="handleClick(item)"
             />
         </div>
         <div class="menuFooter">
             <CommonMenuItem 
-                v-for="item in footerMenu" 
-                :key="item.label" 
+                v-for="(item, index) in footerMenu" 
+                :key="'footer-'+index" 
                 :expandState="expandState"
                 :label="item.label" 
                 :icon="item.icon"
-                :selected="route.path === item.url"
+                :selected="isRouteActive(item.url)"
                 @click="handleClick(item)"
             />
             <slot name="footer" />

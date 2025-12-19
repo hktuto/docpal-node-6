@@ -11,3 +11,12 @@ export type NewCompany = typeof companies.$inferInsert
 // Apps
 export type App = typeof apps.$inferSelect
 export type NewApp = typeof apps.$inferInsert
+
+export interface MenuItem {
+    id: string
+    label: string
+    type: 'folder' | 'table' | 'view' | 'dashboard'
+    itemId?: string
+    children?: MenuItem[]
+    order: number
+  }

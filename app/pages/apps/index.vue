@@ -98,7 +98,7 @@
         }
       )
 
-      await $fetch(`/api/apps/${app.id}`, {
+      await $fetch(`/api/apps/${app.slug}`, {
         method: 'DELETE' as any
       })
 

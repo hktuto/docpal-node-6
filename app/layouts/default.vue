@@ -10,13 +10,7 @@ function toggleExpand() {
 <template>
     <div class="appContainer">
        <aside class="sidebar">
-         <CommonMenu v-model:expandState="expandState" >
-            <template #header>
-            </template>
-            <template #footer>
-              
-            </template>
-          </CommonMenu>
+         <CommonMenu v-model:expandState="expandState" />
        </aside>
        <main>
             <slot />

@@ -5,10 +5,10 @@ definePageMeta({
 
 const route = useRoute()
 const router = useRouter()
-const appId = route.params.appId as string
+const appSlug = route.params.appSlug as string
 
 // Fetch app data
-const { data: app, pending, refresh } = await useFetch<App>(`/api/apps/${appId}`)
+const { data: app, pending, refresh } = await useFetch<App>(`/api/apps/${appSlug}`)
 
 // Form state
 const form = ref({
@@ -54,7 +54,7 @@ const saveSettings = async () => {
   try {
     await formRef.value.validate()
 
-    await $fetch(`/api/apps/${appId}`, {
+    await $fetch(`/api/apps/${appSlug}`, {
       method: 'PUT',
       body: {
         name: form.value.name,
@@ -112,7 +112,7 @@ const handleDelete = async () => {
       }
     )
 
-    await $fetch(`/api/apps/${appId}`, {
+    await $fetch(`/api/apps/${appSlug}`, {
       method: 'DELETE'
     })
 

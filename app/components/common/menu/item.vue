@@ -1,8 +1,8 @@
 <script setup lang="ts">
     const props = defineProps<{
         expandState: boolean
-        label: string
-        icon: string
+        label: string | Function
+        icon: string | Function
         selected: boolean
     }>()
     const emit = defineEmits(['click'])
