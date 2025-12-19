@@ -18,7 +18,19 @@ const menu:MenuItem[] = [
         label: 'Apps',
         icon: 'lucide:database',
         url: '/apps',
-    },
+    },{
+        label: "Chat",
+        icon: 'lucide:message-circle',
+        url: '/chat',
+    },{
+        label: "Calendar",
+        icon: 'lucide:calendar',
+        url: '/calendar',
+    },{
+        label: "Files",
+        icon: 'lucide:folder',
+        url: '/files',
+    }
     
 ]
 

@@ -13,7 +13,6 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
-const showCreateMenu = ref(false)
 
 // Local copy of menu for drag and drop
 const localMenu = ref<MenuItem[]>([])
@@ -57,10 +56,9 @@ function navigateToItem(item: MenuItem) {
   navigateTo(`${basePath}/${item.type}s/${item.itemId}`)
 }
 
-// Create new item
-function createItem(type: 'folder' | 'table' | 'view' | 'dashboard') {
-  showCreateMenu.value = false
-  emit('create', type)
+// Handle dropdown command
+function handleCreateCommand(command: string) {
+  emit('create', command as 'folder' | 'table' | 'view' | 'dashboard')
 }
 
 function getIcon(type: string): string {
@@ -78,32 +76,31 @@ function getIcon(type: string): string {
   <div class="app-menu">
     <div class="menu-header">
       <span class="menu-title">Menu</span>
-      <button 
-        class="add-btn"
-        @click="showCreateMenu = !showCreateMenu"
-      >
-        <Icon name="lucide:plus" size="16" />
-      </button>
-    </div>
-    
-    <!-- Create Menu Dropdown -->
-    <div v-if="showCreateMenu" class="create-menu">
-      <button @click="createItem('folder')" class="create-item">
-        <Icon name="lucide:folder" size="16" />
-        <span>New Folder</span>
-      </button>
-      <button @click="createItem('table')" class="create-item">
-        <Icon name="lucide:table" size="16" />
-        <span>New Table</span>
-      </button>
-      <button @click="createItem('view')" class="create-item">
-        <Icon name="lucide:layout-dashboard" size="16" />
-        <span>New View</span>
-      </button>
-      <button @click="createItem('dashboard')" class="create-item">
-        <Icon name="lucide:bar-chart" size="16" />
-        <span>New Dashboard</span>
-      </button>
+      <el-dropdown trigger="click" @command="handleCreateCommand">
+        <button class="add-btn">
+          <Icon name="lucide:plus" size="16" />
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="folder">
+              <Icon name="lucide:folder" size="16" class="dropdown-icon" />
+              New Folder
+            </el-dropdown-item>
+            <el-dropdown-item command="table">
+              <Icon name="lucide:table" size="16" class="dropdown-icon" />
+              New Table
+            </el-dropdown-item>
+            <el-dropdown-item command="view">
+              <Icon name="lucide:layout-dashboard" size="16" class="dropdown-icon" />
+              New View
+            </el-dropdown-item>
+            <el-dropdown-item command="dashboard">
+              <Icon name="lucide:bar-chart" size="16" class="dropdown-icon" />
+              New Dashboard
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
     
     <!-- Menu Items -->
@@ -195,38 +192,6 @@ function getIcon(type: string): string {
       border-radius: var(--app-border-radius-s);
       cursor: pointer;
       transition: all 0.2s;
-      
-      &:hover {
-        background: var(--app-fill-color-light);
-        color: var(--app-primary-color);
-      }
-    }
-  }
-  
-  .create-menu {
-    position: relative;
-    background: var(--app-bg-color);
-    border: 1px solid var(--app-border-color);
-    border-radius: var(--app-border-radius-m);
-    padding: var(--app-space-xxs);
-    margin: 0 var(--app-space-m);
-    box-shadow: var(--app-shadow-m);
-    z-index: 10;
-    
-    .create-item {
-      display: flex;
-      align-items: center;
-      gap: var(--app-space-xs);
-      width: 100%;
-      padding: var(--app-space-xs) var(--app-space-m);
-      border: none;
-      background: transparent;
-      color: var(--app-text-color-primary);
-      text-align: left;
-      border-radius: var(--app-border-radius-s);
-      cursor: pointer;
-      transition: all 0.2s;
-      font-size: var(--app-font-size-s);
       
       &:hover {
         background: var(--app-fill-color-light);
@@ -362,6 +327,12 @@ function getIcon(type: string): string {
       }
     }
   }
+}
+
+// Dropdown icon styling
+.dropdown-icon {
+  margin-right: var(--app-space-xs);
+  vertical-align: middle;
 }
 </style>
 

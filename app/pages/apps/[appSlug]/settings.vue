@@ -3,12 +3,10 @@ definePageMeta({
   layout: 'app'
 })
 
-const route = useRoute()
 const router = useRouter()
-const appSlug = route.params.appSlug as string
 
-// Fetch app data
-const { data: app, pending, refresh } = await useFetch<App>(`/api/apps/${appSlug}`)
+// Access app context from layout
+const { app, appSlug, pending, refreshApp, updateApp, deleteApp } = useAppContext()
 
 // Form state
 const form = ref({
@@ -18,7 +16,7 @@ const form = ref({
 })
 
 const formRef = ref()
-const isEditing = ref(false)
+const isSaving = ref(false)
 
 // Watch app data and populate form
 watch(app, (newApp) => {
@@ -53,19 +51,19 @@ const saveSettings = async () => {
 
   try {
     await formRef.value.validate()
+    isSaving.value = true
 
-    await $fetch(`/api/apps/${appSlug}`, {
-      method: 'PUT',
-      body: {
-        name: form.value.name,
-        description: form.value.description,
-        icon: form.value.icon
-      }
+    const result = await updateApp({
+      name: form.value.name,
+      description: form.value.description,
+      icon: form.value.icon
     })
 
-    isEditing.value = false
-    await refresh()
-    ElMessage.success('App settings updated successfully')
+    if (result) {
+      ElMessage.success('App settings updated successfully')
+    } else {
+      ElMessage.error('Failed to update app settings')
+    }
   } catch (error: any) {
     if (error?.data?.message) {
       ElMessage.error(error.data.message)
@@ -73,20 +71,9 @@ const saveSettings = async () => {
       console.error('Error updating app:', error)
       ElMessage.error('Failed to update app settings')
     }
+  } finally {
+    isSaving.value = false
   }
-}
-
-// Cancel editing
-const cancelEdit = () => {
-  if (app.value) {
-    form.value = {
-      name: app.value.name || '',
-      description: app.value.description || '',
-      icon: app.value.icon || 'lucide:grid-3x3'
-    }
-  }
-  formRef.value?.clearValidate()
-  isEditing.value = false
 }
 
 // Delete app
@@ -112,12 +99,14 @@ const handleDelete = async () => {
       }
     )
 
-    await $fetch(`/api/apps/${appSlug}`, {
-      method: 'DELETE'
-    })
-
-    ElMessage.success('App deleted successfully')
-    router.push('/apps')
+    const success = await deleteApp()
+    
+    if (success) {
+      ElMessage.success('App deleted successfully')
+      router.push('/apps')
+    } else {
+      ElMessage.error('Failed to delete app')
+    }
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('Error deleting app:', error)
@@ -156,32 +145,26 @@ const handleDelete = async () => {
             Manage your app configuration and preferences
           </p>
         </div>
-        <div class="header-actions">
-          <el-button
-            v-if="!isEditing"
-            type="primary"
-            @click="isEditing = true"
-          >
-            <Icon name="lucide:edit" class="button-icon" />
-            Edit
-          </el-button>
-          <template v-else>
-            <el-button @click="cancelEdit">Cancel</el-button>
-            <el-button type="primary" @click="saveSettings">
-              <Icon name="lucide:check" class="button-icon" />
-              Save Changes
-            </el-button>
-          </template>
-        </div>
       </div>
 
       <!-- Settings Form -->
       <div class="app-settings-page__form">
         <el-card>
           <template #header>
-            <div class="card-header">
-              <Icon name="lucide:info" size="20" />
-              <span>Basic Information</span>
+            <div class="card-header-with-actions">
+              <div class="card-header">
+                <Icon name="lucide:info" size="20" />
+                <span>Basic Information</span>
+              </div>
+              <el-button 
+                type="primary" 
+                size="default"
+                :loading="isSaving"
+                @click="saveSettings"
+              >
+                <Icon name="lucide:save" class="button-icon" />
+                Save
+              </el-button>
             </div>
           </template>
 
@@ -189,7 +172,6 @@ const handleDelete = async () => {
             ref="formRef"
             :model="form"
             label-width="120px"
-            :disabled="!isEditing"
           >
             <el-form-item
               label="App Name"
@@ -230,7 +212,7 @@ const handleDelete = async () => {
                   :key="icon"
                   class="icon-option"
                   :class="{ 'icon-option--selected': form.icon === icon }"
-                  @click="isEditing && (form.icon = icon)"
+                  @click="form.icon = icon"
                 >
                   <Icon :name="icon" size="24" />
                 </div>
@@ -317,13 +299,15 @@ const handleDelete = async () => {
   flex: 1;
 }
 
-.header-actions {
-  display: flex;
-  gap: var(--app-space-s);
-}
-
 .button-icon {
   margin-right: var(--app-space-xs);
+}
+
+.card-header-with-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
 }
 
 .card-header {
@@ -418,15 +402,6 @@ const handleDelete = async () => {
       flex-direction: column;
       align-items: stretch;
     }
-
-    .header-actions {
-      width: 100%;
-      justify-content: stretch;
-
-      .el-button {
-        flex: 1;
-      }
-    }
   }
 
   .danger-content {
@@ -436,6 +411,16 @@ const handleDelete = async () => {
 
   .icon-selector {
     grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .card-header-with-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--app-space-m);
+    
+    .el-button {
+      width: 100%;
+    }
   }
 }
 </style>

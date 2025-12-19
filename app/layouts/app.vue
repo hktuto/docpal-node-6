@@ -1,12 +1,98 @@
 <script setup lang="ts">
+import type { AppContext } from '~/composables/useAppContext'
+import { AppContextKey } from '~/composables/useAppContext'
+
 const route = useRoute()
+const router = useRouter()
 const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
+
 // Fetch app data
 const { data: app, pending, refresh: refreshApp } = await useFetch<App>(() => `/api/apps/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
+
+// ==================== App Context Methods ====================
+
+// Update app
+async function updateApp(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
+  try {
+    const updated = await $fetch(`/api/apps/${appSlug.value}`, {
+      method: 'PUT',
+      body: data
+    })
+    
+    await refreshApp()
+    return updated as App
+  } catch (error) {
+    console.error('Failed to update app:', error)
+    return null
+  }
+}
+
+// Delete app
+async function deleteApp(): Promise<boolean> {
+  try {
+    await $fetch(`/api/apps/${appSlug.value}`, {
+      method: 'DELETE'
+    })
+    return true
+  } catch (error) {
+    console.error('Failed to delete app:', error)
+    return false
+  }
+}
+
+// Update menu
+async function updateMenu(newMenu: any[]) {
+  try {
+    await updateApp({ menu: newMenu })
+  } catch (error) {
+    console.error('Failed to update menu:', error)
+  }
+}
+
+// Navigation helpers
+function getAppPath(subPath?: string): string {
+  const base = `/apps/${appSlug.value}`
+  return subPath ? `${base}/${subPath}` : base
+}
+
+async function navigateToApp() {
+  await router.push(getAppPath())
+}
+
+async function navigateToSettings() {
+  await router.push(getAppPath('settings'))
+}
+
+// Provide app context to all child components
+const appContext: AppContext = {
+  // Data
+  app: computed(() => app.value),
+  appSlug: computed(() => appSlug.value),
+  appId: computed(() => app.value?.id),
+  appName: computed(() => app.value?.name || ''),
+  
+  // State
+  pending,
+  
+  // Methods
+  refreshApp,
+  updateApp,
+  deleteApp,
+  updateMenu,
+  
+  // Navigation
+  navigateToApp,
+  navigateToSettings,
+  getAppPath,
+}
+
+provide(AppContextKey, appContext)
+
+// ==================== Menu Handlers ====================
 
 // Handle menu creation
 async function handleCreateMenuItem(type: 'folder' | 'table' | 'view' | 'dashboard') {
@@ -18,9 +104,7 @@ async function handleCreateMenuItem(type: 'folder' | 'table' | 'view' | 'dashboa
 
 // Handle menu update (drag & drop)
 async function handleMenuUpdate(newMenu: any[]) {
-  console.log('Menu updated:', newMenu)
-  // TODO: Save to database
-  // For now, just log
+  await updateMenu(newMenu)
 }
 
 // Check if menu item is active
@@ -84,23 +168,18 @@ const staticNav = [
             </div>
             <div v-if="app.name" class="app-info">
               <h2 class="app-name">{{ app.name }}</h2>
-              <p v-if="app.description" class="app-description">{{ app.description }}</p>
+              <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
             </div>
+            <button 
+              class="app-header-settings"
+              @click="navigateToSettings"
+              title="App Settings"
+            >
+              <Icon name="lucide:settings" size="18" />
+            </button>
           </div>
           
-          <!-- Static Navigation -->
-          <nav class="static-nav">
-            <NuxtLink
-              v-for="item in staticNav"
-              :key="item.url.value"
-              :to="item.url.value"
-              class="nav-item"
-              :class="{ active: isMenuActive(item.url.value) }"
-            >
-              <Icon :name="item.icon" size="20" />
-              <span>{{ item.label }}</span>
-            </NuxtLink>
-          </nav>
+          
           
           <!-- Dynamic App Menu -->
           <AppMenu
@@ -193,7 +272,7 @@ main {
   overflow-y: auto;
   
   .app-header {
-    padding: var(--app-space-l);
+    padding: var(--app-space-s) var(--app-space-m);
     border-bottom: 1px solid var(--app-border-color);
     display: flex;
     gap: var(--app-space-m);
@@ -224,6 +303,28 @@ main {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+    }
+    
+    .app-header-settings {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      color: var(--app-text-color-secondary);
+      border-radius: var(--app-border-radius-s);
+      cursor: pointer;
+      transition: all 0.2s;
+      
+      &:hover {
+        background: var(--app-fill-color-light);
+        color: var(--app-primary-color);
+      }
+      
+      &:active {
+        transform: scale(0.95);
       }
     }
   }

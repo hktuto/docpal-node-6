@@ -3,10 +3,8 @@ definePageMeta({
   layout: 'app'
 })
 
-const route = useRoute()
-const appSlug = route.params.appSlug as string
-
-// App data is now provided by the layout
+// Access app context from layout
+const { app, appSlug, getAppPath } = useAppContext()
 </script>
 
 <template>
@@ -44,15 +42,15 @@ const appSlug = route.params.appSlug as string
     <div class="quick-actions">
       <h3>Quick Actions</h3>
       <div class="action-buttons">
-        <NuxtLink :to="`/apps/${appSlug}/tables`" class="action-btn">
+        <NuxtLink :to="getAppPath('tables')" class="action-btn">
           <Icon name="lucide:plus" />
           Create Table
         </NuxtLink>
-        <NuxtLink :to="`/apps/${appSlug}/views`" class="action-btn">
+        <NuxtLink :to="getAppPath('views')" class="action-btn">
           <Icon name="lucide:plus" />
           Create View
         </NuxtLink>
-        <NuxtLink :to="`/apps/${appSlug}/dashboards`" class="action-btn">
+        <NuxtLink :to="getAppPath('dashboards')" class="action-btn">
           <Icon name="lucide:plus" />
           Create Dashboard
         </NuxtLink>
