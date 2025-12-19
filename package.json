@@ -17,12 +17,14 @@
     "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
     "docker:restart": "pnpm docker:down && pnpm docker:up",
     "setup": "pnpm docker:up && sleep 3 && pnpm db:generate && pnpm db:migrate",
+    "seed": "bash scripts/seed.sh",
     "type-check": "nuxt typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
+    "@nuxt/icon": "2.1.1",
     "@nuxthub/core": "^0.10.3",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
@@ -36,6 +38,8 @@
   "packageManager": "pnpm@8.5.1+sha1.97019f5a8ec2416123506419ab36dd558e4c72eb",
   "devDependencies": {
     "@element-plus/nuxt": "^1.1.4",
+    "@iconify-json/lucide": "^1.2.81",
+    "@iconify-json/tabler": "^1.2.24",
     "sass": "^1.97.0"
   }
 }

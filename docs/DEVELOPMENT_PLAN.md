@@ -220,8 +220,14 @@ await db.execute(sql)
 - POST `/api/apps` - Create app
 - GET `/api/apps` - List apps
 - GET `/api/apps/:id` - Get app details
-- PUT `/api/apps/:id` - Update app (including menu structure)
+- PUT `/api/apps/:id` - Update app (name, description, icon, menu structure)
 - DELETE `/api/apps/:id` - Delete app
+
+**App Settings:**
+- Accessible via `/apps/:appId/settings`
+- Edit app name, description, and icon
+- Delete app (with confirmation)
+- Quick actions available from app card dropdown menu (Edit, Settings, Delete)
 
 **Folder Management:**
 - POST `/api/apps/:appId/folders` - Create folder
@@ -296,10 +302,12 @@ When a table is created, auto-generate:
 
 ```
 pages/
-  index.vue                      # App list
+  index.vue                      # App list (or redirect to home)
+  home.vue                       # User home dashboard (Phase 5)
   apps/
     [appId]/
       index.vue                  # App home (provides app context)
+      settings.vue               # App settings (name, icon, description, delete)
       tables/
         [tableId]/
           index.vue              # Table data view (cards/table)
@@ -1478,8 +1486,10 @@ dashboards
   - id: uuid
   - name: string
   - description: text
-  - app_id: uuid
+  - app_id: uuid (nullable - null for user home dashboards)
   - company_id: uuid
+  - user_id: uuid (nullable - null for app dashboards, set for user home dashboards)
+  - dashboard_type: enum (app, user_home) -- 'app' for app dashboards, 'user_home' for user home page
   - content: jsonb (widget layout)
   - created_by: uuid
   - created_at: timestamp
@@ -1506,6 +1516,38 @@ dashboard_widgets
 - Image
 - Text Block
 - Markdown
+
+**User Home Dashboard:**
+
+Each user gets a personalized "Home" dashboard that serves as their landing page after login. This is separate from app-specific dashboards and allows users to configure widgets across multiple apps or company-wide data.
+
+**Features:**
+- **Automatic Creation**: A user home dashboard is automatically created when a user first logs in
+- **Widget Customization**: Users can add, remove, resize, and rearrange widgets
+- **Cross-App Widgets**: Users can add widgets from different apps to their home dashboard
+- **Personalized Layout**: Each user has their own home dashboard (stored via `user_id`)
+- **Edit Mode**: Toggle edit mode to add/configure widgets, similar to app dashboards
+- **Default Widgets**: Optionally provide default widgets (e.g., recent activity, assigned tasks, quick stats)
+
+**API Endpoints:**
+- GET `/api/user/home` - Get current user's home dashboard (creates if doesn't exist)
+- PUT `/api/user/home` - Update home dashboard layout/widgets
+- GET `/api/user/home/widgets/available` - Get list of available widgets user can add
+
+**UI:**
+- Accessible from main navigation as "Home" link
+- Default landing page after login (if no app context)
+- Widget configuration modal/sidebar in edit mode
+- Drag-and-drop widget arrangement
+- Responsive grid layout (adapts to screen size)
+
+**Example Widgets for Home Dashboard:**
+- Recent Records (from user's frequently accessed tables)
+- Assigned Tasks (records assigned to user)
+- Recent Activity (audit log for user's actions)
+- Quick Stats (counts from various tables)
+- Calendar View (upcoming events/deadlines)
+- Notifications/Approvals (pending items requiring user attention)
 
 ### 5.8 Folder System
 
@@ -1545,6 +1587,7 @@ folder_items
 - ✅ Digital signature integration
 - ✅ Advanced permission system (row-level)
 - ✅ Dashboard builder with widgets
+- ✅ **User Home Dashboard** (personalized landing page with configurable widgets)
 - ✅ Folder system with drag-drop
 - ✅ Production-ready error handling
 - ✅ Performance optimization

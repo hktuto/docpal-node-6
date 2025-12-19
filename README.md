@@ -112,7 +112,25 @@ MINIO_BUCKET="docpal"
 SESSION_SECRET="dev-secret-change-in-production"
 ```
 
-### 4. Start Development
+### 4. Seed Initial Data
+
+Before creating apps, you need to seed the database with initial user and company data:
+
+```bash
+# Make sure dev server is running first
+pnpm dev
+
+# In another terminal, run the seed script
+pnpm seed
+```
+
+This creates:
+- A development user (`dev@docpal.local`)
+- A development company (ID: `00000000-0000-0000-0000-000000000001`)
+
+**Note**: The seed script is idempotent - it's safe to run multiple times.
+
+### 5. Start Development
 
 NuxtHub automatically manages Drizzle ORM and applies migrations on dev server start:
 
