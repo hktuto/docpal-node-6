@@ -1,16 +1,7 @@
 import { db } from 'hub:db'
 import { apps } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
-
-// Helper function to generate slug from name
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .replace(/-+/g, '-') // Replace multiple hyphens with single hyphen
-}
+import { generateSlug } from '#shared/utils/slug'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)

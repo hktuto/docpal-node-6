@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { AppContext } from '~/composables/useAppContext'
 import { AppContextKey } from '~/composables/useAppContext'
-
+import {useDebounceFn} from '@vueuse/core'
 const route = useRoute()
 const router = useRouter()
 const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
 
 // Fetch app data
-const { data: app, pending, refresh: refreshApp } = await useFetch<App>(() => `/api/apps/${appSlug.value}`, {
+const { data: app, pending, refresh: refreshApp, error } = await useFetch<App>(() => `/api/apps/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
@@ -16,8 +16,11 @@ const { data: app, pending, refresh: refreshApp } = await useFetch<App>(() => `/
 // ==================== App Context Methods ====================
 
 // Update app
-async function updateApp(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
+const updateApp = useDebounceFn(updateAppApi, 500)
+
+async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
   try {
+    console.log('💾 updateAppApi called with data:', JSON.stringify(data))
     const updated = await $fetch(`/api/apps/${appSlug.value}`, {
       method: 'PUT',
       body: data
@@ -47,6 +50,7 @@ async function deleteApp(): Promise<boolean> {
 // Update menu
 async function updateMenu(newMenu: any[]) {
   try {
+    console.log('🚀 updateMenu calling updateApp with:', JSON.stringify(newMenu))
     await updateApp({ menu: newMenu })
   } catch (error) {
     console.error('Failed to update menu:', error)
@@ -104,6 +108,7 @@ async function handleCreateMenuItem(type: 'folder' | 'table' | 'view' | 'dashboa
 
 // Handle menu update (drag & drop)
 async function handleMenuUpdate(newMenu: any[]) {
+  console.log('🎯 handleMenuUpdate received:', JSON.stringify(newMenu))
   await updateMenu(newMenu)
 }
 
@@ -145,15 +150,13 @@ const staticNav = [
 
 <template>
   <div class="app-layout-wrapper">
-    <div v-if="pending" class="loading">
-      Loading app...
-    </div>
+
     
-    <div v-else-if="!app" class="error">
+    <div v-if="error" class="error">
       App not found
     </div>
     
-    <div v-else class="appContainer">
+    <div v-else-if="app" class="appContainer">
       <aside class="sidebar">
          <CommonMenu v-model:expandState="expandState" />
        </aside>
@@ -161,7 +164,7 @@ const staticNav = [
         <!-- Left Sidebar: App Menu -->
         <aside class="app-sidebar">
           <!-- App Header -->
-          <div class="app-header">
+          <div v-loading="pending" class="app-header">
             <div class="app-icon">
               <Icon v-if="app.icon" :name="app.icon" size="24" />
               <Icon v-else name="lucide:box" size="24" />
@@ -182,12 +185,15 @@ const staticNav = [
           
           
           <!-- Dynamic App Menu -->
+          <client-only>
+
           <AppMenu
             :app-slug="appSlug"
             :menu="app.menu || []"
             @create="handleCreateMenuItem"
             @update="handleMenuUpdate"
           />
+          </client-only>
         </aside>
         
         <!-- Right Content Area -->
@@ -272,6 +278,7 @@ main {
   overflow-y: auto;
   
   .app-header {
+    position: relative;
     padding: var(--app-space-s) var(--app-space-m);
     border-bottom: 1px solid var(--app-border-color);
     display: flex;

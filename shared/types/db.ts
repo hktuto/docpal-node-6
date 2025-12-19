@@ -15,8 +15,10 @@ export type NewApp = typeof apps.$inferInsert
 export interface MenuItem {
     id: string
     label: string
+    slug: string
     type: 'folder' | 'table' | 'view' | 'dashboard'
     itemId?: string
+    description?: string
     children?: MenuItem[]
     order: number
   }

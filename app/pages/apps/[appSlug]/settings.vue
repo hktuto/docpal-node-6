@@ -171,7 +171,7 @@ const handleDelete = async () => {
           <el-form
             ref="formRef"
             :model="form"
-            label-width="120px"
+            label-position="top"
           >
             <el-form-item
               label="App Name"
