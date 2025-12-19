@@ -185,14 +185,12 @@ const staticNav = [
               </div>
               
               <!-- Dynamic App Menu -->
-              <client-only>
-                <AppMenu
-                  :app-slug="appSlug"
-                  :menu="app.menu || []"
-                  @create="handleCreateMenuItem"
-                  @update="handleMenuUpdate"
-                />
-              </client-only>
+              <AppMenu
+                :app-slug="appSlug"
+                :menu="app.menu || []"
+                @create="handleCreateMenuItem"
+                @update="handleMenuUpdate"
+              />
             </aside>
           </el-splitter-panel>
           

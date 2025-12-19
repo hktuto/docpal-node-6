@@ -1,6 +1,6 @@
 <script setup lang="ts">
   import AppCard from '~/components/app/AppCard.vue'
-  import AppTemplates from '~/components/app/AppTemplates.vue'
+  import AppTemplatesListPicker from '~/components/app/templates/ListPicker.vue'
 
   defineOptions({
     layout: 'default'
@@ -163,7 +163,7 @@
         </div>
         
         <div v-else-if="!apps || apps.length === 0" class="app-list-page__empty">
-          <AppTemplates @apply="applyTemplate" />
+          <AppTemplatesListPicker @apply="applyTemplate" />
         </div>
         
         <div v-else class="app-list-page__grid">
