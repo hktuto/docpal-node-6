@@ -15,7 +15,7 @@ A low-code platform built with Nuxt + NuxtHub allowing users to create companies
 
 ---
 
-## Phase 1: POC - Dynamic Tables & Views (CURRENT)
+## Phase 1: POC - Dynamic Tables & Views (IN PROGRESS)
 
 **Goal**: Prove that dynamic table creation, data management, and querying works.
 
@@ -23,6 +23,8 @@ A low-code platform built with Nuxt + NuxtHub allowing users to create companies
 - No real authentication (dummy user)
 - Focus on core technical challenges
 - Validate architecture decisions
+
+**Current Status**: Foundation and UI components complete. Next: Dynamic table creation.
 
 ### 1.1 Database Schema Foundation
 
@@ -94,6 +96,7 @@ views
 - `url` - URL with validation → `TEXT`
 - `email` - Email with validation → `TEXT`
 - `switch` - Boolean toggle → `BOOLEAN`
+- `location` - Geographic coordinates → `NUMERIC` (lat/lng pair) or `GEOGRAPHY(POINT, 4326)` (PostGIS)
 
 **Advanced Types (Week 3-4):**
 
@@ -136,12 +139,18 @@ const typeMap = {
   switch: 'BOOLEAN',
   url: 'TEXT',
   email: 'TEXT',
+  location: 'NUMERIC (x2) | GEOGRAPHY(POINT, 4326)', // lat/lng or PostGIS
   user: 'UUID | UUID[]',
   relation: 'UUID | UUID[]',
   formula: 'TEXT',
   aggregation: 'NUMERIC'
 }
 ```
+
+**Location Field Options:**
+- **Phase 1**: Store as two NUMERIC columns (`{name}_latitude`, `{name}_longitude`)
+- **Phase 5**: Upgrade to PostGIS `GEOGRAPHY(POINT, 4326)` for spatial queries and indexing
+- See `docs/GEOLOCATION_GUIDE.md` for detailed implementation
 
 ### 1.2 Dynamic Table Management System
 
@@ -507,15 +516,40 @@ const { table, updateRecord, deleteRecord } = useTableContext() // Inject
 
 ### 1.7 Phase 1 Deliverables & Success Criteria
 
-**Must Have:**
-- ✅ Create app with name, icon, description
-- ✅ Create dynamic table with 5+ column types
-- ✅ Add/edit/delete records in dynamic tables
-- ✅ View data in table format with sorting
-- ✅ Auto-generated forms work correctly
-- ✅ Can add/remove columns from existing tables
-- ✅ Create view with filters and sorting
-- ✅ Query view data successfully
+**Completed:**
+- ✅ **Project Setup**: Nuxt 4 + NuxtHub + Element Plus + PostgreSQL + MinIO
+- ✅ **Database Schema**: Users, Companies, Apps tables with UUID and slug support
+- ✅ **App Management API**: Full CRUD with slug-based routing
+- ✅ **Shared Utilities**: Slug generation with uniqueness checks
+- ✅ **App Layout**: Dedicated layout with provide/inject context pattern
+- ✅ **Resizable Sidebar**: el-splitter integration (200-500px range)
+- ✅ **App Context System**: useAppContext composable with app data and methods
+- ✅ **CSS Architecture**: CSS variables system for consistent theming
+- ✅ **Menu System**: 
+  - Dynamic app menu with drag-and-drop reordering
+  - Create folders, tables, views, dashboards
+  - Nested folder support with expand/collapse
+  - Drag items into folders (nested drag-and-drop)
+  - All menu items use slugs for routing
+  - Visual hierarchy with indentation
+- ✅ **Folder System**:
+  - Create folders with name and description
+  - Folder detail pages showing contents
+  - Navigate between folders
+  - Grid display of folder contents
+  - Nested folder creation (folders within folders)
+- ✅ **Dashboard Creation**: Create dashboards with name and description
+- ✅ **App Settings**: Edit app name, icon, description with autosave
+- ✅ **Slug-based Routing**: All entities (apps, folders, tables, views, dashboards) use slugs
+
+**In Progress:**
+- ⏳ Create dynamic table with 5+ column types
+- ⏳ Add/edit/delete records in dynamic tables
+- ⏳ View data in table format with sorting
+- ⏳ Auto-generated forms work correctly
+- ⏳ Can add/remove columns from existing tables
+- ⏳ Create view with filters and sorting
+- ⏳ Query view data successfully
 
 **Success Metrics:**
 - Create table with 10 columns in < 2 seconds

@@ -161,63 +161,66 @@ const staticNav = [
          <CommonMenu v-model:expandState="expandState" />
        </aside>
        <main>
-        <!-- Left Sidebar: App Menu -->
-        <aside class="app-sidebar">
-          <!-- App Header -->
-          <div v-loading="pending" class="app-header">
-            <div class="app-icon">
-              <Icon v-if="app.icon" :name="app.icon" size="24" />
-              <Icon v-else name="lucide:box" size="24" />
+        <el-splitter class="app-splitter">
+          <el-splitter-panel size="260px" :min="200" :max="500">
+            <!-- Left Sidebar: App Menu -->
+            <aside class="app-sidebar">
+              <!-- App Header -->
+              <div v-loading="pending" class="app-header">
+                <div class="app-icon">
+                  <Icon v-if="app.icon" :name="app.icon" size="24" />
+                  <Icon v-else name="lucide:box" size="24" />
+                </div>
+                <div v-if="app.name" class="app-info">
+                  <h2 class="app-name">{{ app.name }}</h2>
+                  <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
+                </div>
+                <button 
+                  class="app-header-settings"
+                  @click="navigateToSettings"
+                  title="App Settings"
+                >
+                  <Icon name="lucide:settings" size="18" />
+                </button>
+              </div>
+              
+              <!-- Dynamic App Menu -->
+              <client-only>
+                <AppMenu
+                  :app-slug="appSlug"
+                  :menu="app.menu || []"
+                  @create="handleCreateMenuItem"
+                  @update="handleMenuUpdate"
+                />
+              </client-only>
+            </aside>
+          </el-splitter-panel>
+          
+          <el-splitter-panel :min="400">
+            <!-- Right Content Area -->
+            <div class="app-content">
+              <!-- Breadcrumb Header -->
+              <header class="content-header">
+                <div class="breadcrumb">
+                  <template v-for="(crumb, index) in breadcrumb" :key="crumb.url">
+                    <NuxtLink :to="crumb.url" class="breadcrumb-item">
+                      {{ crumb.label }}
+                    </NuxtLink>
+                    <span v-if="index < breadcrumb.length - 1" class="breadcrumb-separator">
+                      /
+                    </span>
+                  </template>
+                </div>
+              </header>
+              
+              <!-- Main Content (pages render here) -->
+              <div class="content-body">
+                <slot />
+              </div>
             </div>
-            <div v-if="app.name" class="app-info">
-              <h2 class="app-name">{{ app.name }}</h2>
-              <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
-            </div>
-            <button 
-              class="app-header-settings"
-              @click="navigateToSettings"
-              title="App Settings"
-            >
-              <Icon name="lucide:settings" size="18" />
-            </button>
-          </div>
-          
-          
-          
-          <!-- Dynamic App Menu -->
-          <client-only>
-
-          <AppMenu
-            :app-slug="appSlug"
-            :menu="app.menu || []"
-            @create="handleCreateMenuItem"
-            @update="handleMenuUpdate"
-          />
-          </client-only>
-        </aside>
-        
-        <!-- Right Content Area -->
-        <div class="app-content">
-          <!-- Breadcrumb Header -->
-          <header class="content-header">
-            <div class="breadcrumb">
-              <template v-for="(crumb, index) in breadcrumb" :key="crumb.url">
-                <NuxtLink :to="crumb.url" class="breadcrumb-item">
-                  {{ crumb.label }}
-                </NuxtLink>
-                <span v-if="index < breadcrumb.length - 1" class="breadcrumb-separator">
-                  /
-                </span>
-              </template>
-            </div>
-          </header>
-          
-          <!-- Main Content (pages render here) -->
-          <div class="content-body">
-            <slot />
-          </div>
-        </div>
-      </main>
+          </el-splitter-panel>
+        </el-splitter>
+       </main>
     </div>
   </div>
 </template>
@@ -240,13 +243,41 @@ main {
   flex: 1;
   padding: 0;
   height: 100%;
-  overflow: auto;
-  display: flex;
-  flex-flow: row nowrap;
-  justify-content: flex-start;
-  align-items: flex-start;
-  position: relative;
   overflow: hidden;
+  position: relative;
+}
+
+.app-splitter {
+  height: 100%;
+  
+  :deep(.el-splitter__wrapper) {
+    height: 100%;
+  }
+  
+  :deep(.el-splitter-panel) {
+    overflow: hidden;
+  }
+  
+  :deep(.el-splitter__bar) {
+    width: 1px;
+    background: var(--app-border-color);
+    cursor: col-resize;
+    position: relative;
+    
+    &::before {
+      content: '';
+      position: absolute;
+      left: -4px;
+      right: -4px;
+      top: 0;
+      bottom: 0;
+      background: transparent;
+    }
+    
+    &:hover {
+      background: var(--app-primary-color);
+    }
+  }
 }
 .app-layout-wrapper {
   height: 100%;
@@ -269,9 +300,8 @@ main {
 
 /* Left Sidebar */
 .app-sidebar {
-  width: 260px;
+  width: 100%;
   height: 100%;
-  border-right: 1px solid var(--app-border-color);
   display: flex;
   flex-direction: column;
   background: var(--app-bg-color-page);
