@@ -79,9 +79,11 @@ function isRouteActive(itemUrl?: any): boolean {
 </script>
 
 <template>
-    <div class="menuContainer">
+    <div :class="{'menuContainer':true, 'expanded':expandState}">
         <div class="menuHeader">
-            <slot name="header" />
+            <div class="menuLogo">
+                <img :src="!expandState ? '/logo.svg' : '/logo-expand.svg'" alt="DocPal" />
+            </div>
         </div>
         <div class="menuContent">
             <CommonMenuItem 
@@ -110,15 +112,37 @@ function isRouteActive(itemUrl?: any): boolean {
 </template>
 
 <style lang="scss" scoped>
+    .menuLogo{ 
+        height: 27px;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        img{
+            height: 100%;
+        }
+    }
     .menuContainer{
         height: 100%;
         display: flex;
         flex-flow: column nowrap;
         justify-content: space-between;
+        &.expanded{
+            min-width: 260px;
+            .menuHeader{
+                padding: var(--app-space-s) calc(var(--app-space-s) * 2);
+            }
+            .menuLogo{
+                justify-content: flex-start;
+            }
+        }
         .menuHeader{
-            margin-bottom: var(--app-space-m);
+            border-bottom: 1px solid var(--app-border-color);
+            padding: var(--app-space-s) var(--app-space-s);
+
         }
         .menuContent{
+            padding: var(--app-space-s);
             flex: 1;
             overflow-y: auto;
             display: flex;
@@ -126,6 +150,7 @@ function isRouteActive(itemUrl?: any): boolean {
             gap: 0;
         }
         .menuFooter{
+            padding: var(--app-space-s);
             margin-top: var(--app-space-m);
         }
     }

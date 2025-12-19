@@ -27,7 +27,7 @@ function toggleExpand() {
 }
 
 .sidebar {
-  padding: var(--app-space-s);
+
   background: var(--app-bg-color);
   border-right: 1px solid var(--app-border-color);
 }
