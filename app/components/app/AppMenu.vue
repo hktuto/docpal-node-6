@@ -18,6 +18,8 @@ const route = useRoute()
 const showCreateFolderDialog = ref(false)
 const showCreateDashboardDialog = ref(false)
 const expandedFolders = ref<Set<string>>(new Set())
+const highlightedItems = ref<Set<string>>(new Set()) // Track items to highlight
+const justCreatedItemId = ref<string | null>(null) // Track newly created item
 
 // Local copy of menu for drag and drop
 const localMenu = ref<MenuItem[]>([])
@@ -36,9 +38,28 @@ function updateOrder(items: MenuItem[], startOrder = 0): MenuItem[] {
   }))
 }
 
-// Handle drag end - emit updated menu
+// Handle drag end - emit updated menu with highlight animation
 function onDragEnd() {
   const updatedMenu = updateOrder(localMenu.value)
+  
+  // Highlight all items briefly to show reorder
+  const allItemIds = new Set<string>()
+  const collectIds = (items: MenuItem[]) => {
+    items.forEach(item => {
+      allItemIds.add(item.id)
+      if (item.children) {
+        item.children.forEach(child => {
+          allItemIds.add(child.id)
+        })
+      }
+    })
+  }
+  collectIds(updatedMenu)
+  highlightedItems.value = allItemIds
+  setTimeout(() => {
+    highlightedItems.value.clear()
+  }, 1200)
+  
   emit('update', updatedMenu)
 }
 
@@ -60,12 +81,29 @@ function isFolderExpanded(folderId: string): boolean {
 function isItemActive(item: MenuItem): boolean {
   const basePath = `/apps/${props.appSlug}`
   
-  if (item.type === 'folder') {
-    return false // Folders don't have their own page
+
+  
+  const itemPath = `${basePath}/${item.type}s/${item.slug}`
+  return route.path === itemPath || route.path.startsWith(itemPath + '/')
+}
+
+// Check if any child of a folder is active (recursive)
+function hasActiveChild(item: MenuItem): boolean {
+  if (item.type !== 'folder' || !item.children || item.children.length === 0) {
+    return false
   }
   
-  const itemPath = `${basePath}/${item.type}s/${item.itemId}`
-  return route.path === itemPath || route.path.startsWith(itemPath + '/')
+  for (const child of item.children) {
+    if (isItemActive(child)) {
+      return true
+    }
+    // Recursively check nested folders
+    if (child.type === 'folder' && hasActiveChild(child)) {
+      return true
+    }
+  }
+  
+  return false
 }
 
 // Navigate to item
@@ -81,7 +119,6 @@ const currentParentFolderId = ref<string | null>(null)
 
 // Handle dropdown command
 function handleCreateCommand(command: string) {
-  console.log('🎯 handleCreateCommand - command:', command, 'currentParentFolderId:', currentParentFolderId.value)
   
   const type = command as 'folder' | 'table' | 'view' | 'dashboard'
   
@@ -96,8 +133,6 @@ function handleCreateCommand(command: string) {
 
 // Handle folder creation
 function handleCreateFolder(data: { name: string; description?: string }) {
-  console.log('🔨 handleCreateFolder called with:', data)
-  console.log('📋 Current localMenu before creation:', JSON.stringify(localMenu.value))
   
   // Collect all existing slugs to ensure uniqueness
   const collectSlugs = (items: MenuItem[]): string[] => {
@@ -116,7 +151,6 @@ function handleCreateFolder(data: { name: string; description?: string }) {
   const existingSlugs = collectSlugs(localMenu.value)
   const slug = generateUniqueSlug(data.name, existingSlugs)
   
-  console.log('🏷️ Generated slug:', slug)
   
   const newFolder: MenuItem = {
     id: nanoid(),
@@ -128,13 +162,9 @@ function handleCreateFolder(data: { name: string; description?: string }) {
     order: 0
   }
   
-  console.log('📁 New folder object:', JSON.stringify(newFolder), currentParentFolderId.value)
-  
-  console.log('🔍 Checking currentParentFolderId:', currentParentFolderId.value)
   
   // If creating in a parent folder, add to its children
   if (currentParentFolderId.value) {
-    console.log('📂 Adding to parent folder:', currentParentFolderId.value)
     
     const addToFolder = (items: MenuItem[]): boolean => {
       for (const item of items) {
@@ -144,7 +174,6 @@ function handleCreateFolder(data: { name: string; description?: string }) {
           item.children.push(newFolder)
           // Expand the parent folder
           expandedFolders.value.add(item.id)
-          console.log('✅ Added to parent folder successfully')
           return true
         }
         if (item.children && addToFolder(item.children)) {
@@ -160,31 +189,39 @@ function handleCreateFolder(data: { name: string; description?: string }) {
     }
   } else {
     // Add to root level
-    console.log('📌 Adding to root level')
     newFolder.order = localMenu.value.length
     localMenu.value.push(newFolder)
-    console.log('📋 localMenu after push:', JSON.stringify(localMenu.value))
   }
   
   // Always reset parent folder ID after creation
   currentParentFolderId.value = null
   
-  console.log('📋 localMenu after push:', JSON.stringify(localMenu.value))
   
   const updatedMenu = updateOrder(localMenu.value)
-  console.log('📋 updatedMenu after updateOrder:', JSON.stringify(updatedMenu))
   
   localMenu.value = updatedMenu
   emit('update', updatedMenu)
   
-  console.log('✅ Emitted update event with menu:', JSON.stringify(updatedMenu))
+  
+  // Highlight and navigate to new folder
+  justCreatedItemId.value = newFolder.id
+  highlightedItems.value.add(newFolder.id)
+  setTimeout(() => {
+    highlightedItems.value.delete(newFolder.id)
+    justCreatedItemId.value = null
+  }, 1500)
+  
+  // Navigate to folder page
+  nextTick(() => {
+    navigateToItem(newFolder)
+  })
   
   ElMessage.success(`Folder "${data.name}" created successfully`)
 }
 
 // Handle dashboard creation
 function handleCreateDashboard(data: { name: string; description?: string }) {
-  console.log('🔨 handleCreateDashboard called with:', data)
+
   
   // Collect all existing slugs to ensure uniqueness
   const collectSlugs = (items: MenuItem[]): string[] => {
@@ -213,12 +250,9 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
     order: 0
   }
   
-  console.log('📊 New dashboard object:', JSON.stringify(newDashboard), currentParentFolderId.value)
-  console.log('🔍 Checking currentParentFolderId:', currentParentFolderId.value)
   
   // If creating in a parent folder, add to its children
   if (currentParentFolderId.value) {
-    console.log('📂 Adding to parent folder:', currentParentFolderId.value)
     
     const addToFolder = (items: MenuItem[]): boolean => {
       for (const item of items) {
@@ -228,7 +262,6 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
           item.children.push(newDashboard)
           // Expand the parent folder
           expandedFolders.value.add(item.id)
-          console.log('✅ Added to parent folder successfully')
           return true
         }
         if (item.children && addToFolder(item.children)) {
@@ -244,7 +277,6 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
     }
   } else {
     // Add to root level
-    console.log('📌 Adding to root level')
     newDashboard.order = localMenu.value.length
     localMenu.value.push(newDashboard)
   }
@@ -255,6 +287,20 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
   const updatedMenu = updateOrder(localMenu.value)
   localMenu.value = updatedMenu
   emit('update', updatedMenu)
+  
+  // Highlight and navigate to new dashboard
+  justCreatedItemId.value = newDashboard.id
+  highlightedItems.value.add(newDashboard.id)
+  setTimeout(() => {
+    highlightedItems.value.delete(newDashboard.id)
+    justCreatedItemId.value = null
+  }, 1500)
+  
+  // Navigate to dashboard page (when implemented)
+  nextTick(() => {
+    // navigateToItem(newDashboard) // Uncomment when dashboard page is ready
+    console.log('📊 Navigate to dashboard:', newDashboard.slug)
+  })
   
   ElMessage.success(`Dashboard "${data.name}" created successfully`)
 }
@@ -327,7 +373,10 @@ function getIcon(type: string): string {
               :class="{ 
                 active: isItemActive(item),
                 folder: item.type === 'folder',
-                expanded: isFolderExpanded(item.id)
+                'has-active-child': hasActiveChild(item),
+                expanded: isFolderExpanded(item.id),
+                highlighted: highlightedItems.has(item.id),
+                'just-created': justCreatedItemId === item.id
               }"
             >
               <!-- Drag Handle -->
@@ -391,12 +440,12 @@ function getIcon(type: string): string {
                 />
               </button>
             </div>
-            
             <!-- Folder Children (nested draggable) -->
             <div 
               v-if="item.type === 'folder' && isFolderExpanded(item.id)" 
               class="folder-children"
             >
+            
               <draggable
                 v-model="item.children"
                 :animation="200"
@@ -413,8 +462,11 @@ function getIcon(type: string): string {
                       :class="{ 
                         active: isItemActive(childItem),
                         folder: childItem.type === 'folder',
+                        'has-active-child': hasActiveChild(childItem),
                         expanded: isFolderExpanded(childItem.id),
-                        'is-child': true
+                        'is-child': true,
+                        highlighted: highlightedItems.has(childItem.id),
+                        'just-created': justCreatedItemId === childItem.id
                       }"
                     >
                       <!-- Drag Handle -->
@@ -498,7 +550,10 @@ function getIcon(type: string): string {
                             class="menu-item"
                             :class="{ 
                               active: isItemActive(nestedItem),
-                              'is-child': true
+                              'has-active-child': hasActiveChild(nestedItem),
+                              'is-child': true,
+                              highlighted: highlightedItems.has(nestedItem.id),
+                              'just-created': justCreatedItemId === nestedItem.id
                             }"
                           >
                             <!-- Drag Handle -->
@@ -641,9 +696,20 @@ function getIcon(type: string): string {
       transition: all 0.2s;
       user-select: none;
       background: transparent;
+      position: relative;
       
       &.is-child {
         font-size: 13px;
+      }
+      
+      // Highlight animation on reorder
+      &.highlighted {
+        animation: flashHighlight 0.5s ease-out;
+      }
+      
+      // Special animation for newly created items
+      &.just-created {
+        animation: createFlash 1.5s ease-out;
       }
       
       &.expanded {
@@ -662,11 +728,32 @@ function getIcon(type: string): string {
       }
       
       &.active {
-        background: var(--app-primary-1);
+        background: var(--app-primary-alpha-10);
         color: var(--app-primary-color);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        .item-content {
+          font-weight: 600;
+        }
+        
+        .drag-handle {
+          color: var(--app-primary-color);
+          opacity: 0.6;
+        }
+      }
+      
+      // Parent folder has active child
+      &.has-active-child {
+        background: var(--app-primary-alpha-10);
+        border-left: 2px solid var(--app-primary-alpha-50);
+        padding-left: calc(var(--app-space-s) - 2px); // Compensate for border
         
         .item-content {
+          color: var(--app-primary-color);
           font-weight: 500;
+        }
+        
+        .folder-toggle {
+          color: var(--app-primary-color);
         }
       }
       
@@ -774,6 +861,48 @@ function getIcon(type: string): string {
   
   span {
     font-size: var(--app-font-size-s);
+  }
+}
+
+// Animations
+@keyframes flashHighlight {
+  0% {
+    background: linear-gradient(90deg, 
+      var(--app-primary-alpha-30) 0%, 
+      var(--app-primary-alpha-10) 50%, 
+      transparent 100%);
+  }
+  75% {
+    background: linear-gradient(90deg, 
+      var(--app-primary-alpha-10) 0%, 
+      var(--app-primary-alpha-10) 50%, 
+      var(--app-primary-alpha-30) 100%);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes createFlash {
+  0% {
+    background: transparent;
+  }
+  10% {
+    background: linear-gradient(90deg, 
+      var(--app-primary-alpha-70) 0%, 
+      var(--app-primary-alpha-30) 50%, 
+      var(--app-primary-alpha-10) 100%);
+    transform: scale(1.02);
+  }
+  75% {
+    background: linear-gradient(90deg, 
+      transparent 0%, 
+      var(--app-primary-alpha-10) 50%, 
+      var(--app-primary-alpha-70) 100%);
+  }
+  100% {
+    background: transparent;
+    transform: scale(1);
   }
 }
 </style>
