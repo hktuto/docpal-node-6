@@ -19,7 +19,8 @@ curl -s -X POST "$SERVER_URL/api/ai/suggest-column-type" \
   -H "Content-Type: application/json" \
   -d '{
     "columnName": "email",
-    "columnLabel": "Email Address"
+    "columnLabel": "Email Address",
+    "appSlug": "test-app"
   }' | jq '.'
 echo ""
 
@@ -30,7 +31,8 @@ curl -s -X POST "$SERVER_URL/api/ai/suggest-column-type" \
   -d '{
     "columnName": "description",
     "columnLabel": "Product Description",
-    "tableDescription": "Product catalog"
+    "tableDescription": "Product catalog",
+    "appSlug": "test-app"
   }' | jq '.'
 echo ""
 
@@ -40,7 +42,8 @@ curl -s -X POST "$SERVER_URL/api/ai/suggest-column-type" \
   -H "Content-Type: application/json" \
   -d '{
     "columnName": "is_active",
-    "columnLabel": "Active Status"
+    "columnLabel": "Active Status",
+    "appSlug": "test-app"
   }' | jq '.'
 echo ""
 
@@ -50,7 +53,8 @@ curl -s -X POST "$SERVER_URL/api/ai/suggest-column-type" \
   -H "Content-Type: application/json" \
   -d '{
     "columnName": "price",
-    "columnLabel": "Product Price"
+    "columnLabel": "Product Price",
+    "appSlug": "test-app"
   }' | jq '.'
 echo ""
 
@@ -60,7 +64,8 @@ curl -s -X POST "$SERVER_URL/api/ai/suggest-column-type" \
   -H "Content-Type: application/json" \
   -d '{
     "columnName": "created_at",
-    "columnLabel": "Creation Date"
+    "columnLabel": "Creation Date",
+    "appSlug": "test-app"
   }' | jq '.'
 echo ""
 
@@ -74,9 +79,13 @@ echo ""
 echo "==================================="
 echo "Test completed!"
 echo ""
+echo "Response format (NEW):"
+echo "  - suggestedColumn: Full column config object"
+echo "    - name, label, type, required, config"
+echo "  - confidence: high/medium/low"
+echo "  - reason: Why this suggestion was made"
+echo "  - aiEnabled: true (AI) or false (pattern matching)"
+echo ""
 echo "Note: If OLLAMA_BASE_URL is not configured,"
 echo "the API will use fallback pattern matching."
-echo "Look for 'aiEnabled' field in responses:"
-echo "  - true: AI-powered suggestion"
-echo "  - false: Pattern matching fallback"
 echo "==================================="
