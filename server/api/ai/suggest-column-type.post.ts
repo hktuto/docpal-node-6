@@ -1,5 +1,6 @@
 import { defineApiResponse } from '~/server/utils/response'
 import type { TableColumnDef } from '#shared/types/db'
+import OpenAI from 'openai'
 
 export default defineEventHandler(async (event) => {
   return defineApiResponse(event, async () => {
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
     if (!process.env.OLLAMA_BASE_URL && !process.env.OLLAMA_MODEL) {
       console.warn('Ollama not configured. Using fallback logic.')
       return {
-        suggestedType: fallbackTypeSuggestion(columnName),
+        suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
         confidence: 'low',
         reason: 'AI not configured. Using basic pattern matching.',
         aiEnabled: false
@@ -40,26 +41,32 @@ export default defineEventHandler(async (event) => {
     }
 
     try {
-      // Build context for the LLM
-      const context = buildPromptContext(columnName, columnLabel, tableDescription, appContext)
+      // Initialize OpenAI client with Ollama endpoint
+      const openai = new OpenAI({
+        baseURL: `${ollamaBaseUrl}/v1`,  // Ollama's OpenAI-compatible endpoint
+        apiKey: 'ollama', // Required by SDK but not used by Ollama
+        timeout: 10000, // 10 second timeout
+      })
+
+      // Build messages for the AI
+      const systemPrompt = buildSystemPrompt()
+      const userPrompt = buildUserPrompt(columnName, columnLabel, tableDescription, appContext)
       
-      // Call Ollama API
-      const response = await $fetch(`${ollamaBaseUrl}/api/generate`, {
-        method: 'POST',
-        body: {
-          model: ollamaModel,
-          prompt: context,
-          stream: false,
-          options: {
-            temperature: 0.3, // Lower temperature for more consistent results
-            top_p: 0.9,
-          }
-        },
-        timeout: 10000 // 10 second timeout
+      // Call Ollama via OpenAI-compatible API
+      const completion = await openai.chat.completions.create({
+        model: ollamaModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.3,
+        top_p: 0.9,
+        response_format: { type: 'json_object' }, // Force JSON response!
       })
 
       // Parse the response
-      const suggestion = parseAIResponse(response.response, columnName, columnLabel)
+      const responseText = completion.choices[0]?.message?.content || '{}'
+      const suggestion = parseAIResponse(responseText, columnName, columnLabel)
       
       return {
         ...suggestion,
@@ -146,75 +153,77 @@ async function getAppContext(event: any, appSlug: string) {
   
   return null
 }
-  })
-})
 
 /**
- * Build a prompt for the LLM to suggest full column configuration
+ * Build system prompt for the AI
  */
-function buildPromptContext(
-  columnName: string, 
-  columnLabel?: string, 
+function buildSystemPrompt(): string {
+  return `You are a database schema expert. Your task is to analyze column information and suggest complete, production-ready column configurations.
+
+Available column types:
+- text: Short text fields (names, emails, titles, single-line inputs)
+- long_text: Multi-line content (descriptions, notes, articles)
+- number: Numeric values (prices, quantities, counts, ages)
+- date: Date and time values (timestamps, birthdays, deadlines)
+- switch: Boolean yes/no values (active/inactive, enabled/disabled)
+
+You MUST respond with ONLY valid JSON in this exact format:
+{
+  "type": "text|long_text|number|date|switch",
+  "required": true|false,
+  "config": {
+    // For text: "maxLength" (number), "placeholder" (string)
+    // For long_text: "maxLength" (number), "placeholder" (string)
+    // For number: "min" (number), "max" (number), "decimals" (number)
+    // For date: "format" ("date"|"datetime"|"time")
+    // For switch: "defaultValue" (boolean)
+    // Only include relevant fields for the type
+  },
+  "confidence": "high|medium|low",
+  "reason": "brief explanation (1-2 sentences)"
+}
+
+Rules:
+- Common fields like "email", "name", "title" should be required: true
+- Set reasonable maxLength for text fields (100-500 depending on use)
+- Add helpful, realistic placeholders
+- For prices/money, use decimals: 2 and min: 0
+- For quantities/counts, use decimals: 0 and min: 0
+- Respond with ONLY the JSON object, no markdown, no explanations`
+}
+
+/**
+ * Build user prompt with column context
+ */
+function buildUserPrompt(
+  columnName: string,
+  columnLabel?: string,
   tableDescription?: string,
   appContext?: any
 ): string {
-  const availableTypes = [
-    'text - for short text fields (names, titles, single-line inputs)',
-    'long_text - for longer text content (descriptions, notes, multi-line content)',
-    'number - for numeric values (quantities, prices, counts)',
-    'date - for date and time values',
-    'switch - for boolean yes/no values (active/inactive, enabled/disabled)'
-  ]
-
-  let prompt = `You are a database schema expert. Analyze the column and suggest a complete column configuration.
-
-Available column types:
-${availableTypes.map(t => `- ${t}`).join('\n')}
-
-Column information:
-- Column name: "${columnName}"`
+  let prompt = `Analyze this column and provide configuration:\n\nColumn name: "${columnName}"`
 
   if (columnLabel) {
-    prompt += `\n- Display label: "${columnLabel}"`
+    prompt += `\nColumn label: "${columnLabel}"`
   }
-  
+
   if (tableDescription) {
-    prompt += `\n- Table description: "${tableDescription}"`
+    prompt += `\nTable description: "${tableDescription}"`
   }
 
   // Add app context if available
   if (appContext?.tables?.length > 0) {
     prompt += `\n\nExisting tables in this app:`
-    for (const table of appContext.tables.slice(0, 3)) { // Limit to first 3 tables
+    for (const table of appContext.tables.slice(0, 3)) {
       prompt += `\n- ${table.name}${table.description ? ` (${table.description})` : ''}`
       if (table.columns?.length > 0) {
         prompt += `\n  Columns: ${table.columns.map((c: any) => `${c.name}:${c.type}`).join(', ')}`
       }
     }
+    prompt += `\n\nConsider existing patterns when suggesting the configuration.`
   }
 
-  prompt += `\n\nAnalyze the column and respond with a complete configuration in JSON format:
-
-{
-  "type": "one of: text, long_text, number, date, switch",
-  "required": boolean,
-  "config": {
-    // For text: "maxLength", "placeholder"
-    // For number: "min", "max", "decimals"
-    // For date: "format" (date|datetime|time)
-    // Add only relevant fields
-  },
-  "confidence": "one of: high, medium, low",
-  "reason": "brief explanation of your suggestions"
-}
-
-Provide smart defaults:
-- Common fields like "email", "name" should be required
-- Set reasonable maxLength for text fields
-- Add helpful placeholders
-- For numbers, suggest min/max if applicable
-
-JSON response:`
+  prompt += `\n\nProvide the JSON configuration now:`
 
   return prompt
 }
@@ -228,7 +237,27 @@ function parseAIResponse(aiResponse: string, columnName: string, columnLabel?: s
   reason: string
 } {
   try {
-    // Try to extract JSON from the response
+    // Try to parse the JSON response directly
+    const parsed = JSON.parse(aiResponse)
+    
+    return {
+      suggestedColumn: {
+        name: columnName,
+        label: columnLabel || generateLabelFromName(columnName),
+        type: parsed.type || 'text',
+        required: parsed.required ?? false,
+        config: parsed.config || {}
+      },
+      confidence: parsed.confidence || 'medium',
+      reason: parsed.reason || 'Suggested by AI'
+    }
+  } catch (error) {
+    console.error('Error parsing AI response:', error)
+    console.error('Response was:', aiResponse)
+  }
+
+  // If parsing fails, try to extract JSON from the response
+  try {
     const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0])
@@ -246,10 +275,10 @@ function parseAIResponse(aiResponse: string, columnName: string, columnLabel?: s
       }
     }
   } catch (error) {
-    console.error('Error parsing AI response:', error)
+    console.error('Error extracting JSON from response:', error)
   }
 
-  // If parsing fails, try to extract type from text
+  // If all parsing fails, try to extract type from text
   const lowerResponse = aiResponse.toLowerCase()
   let type = 'text'
   let reason = 'Default text type'
@@ -276,7 +305,7 @@ function parseAIResponse(aiResponse: string, columnName: string, columnLabel?: s
       required: false,
       config: {}
     },
-    confidence: 'medium',
+    confidence: 'low',
     reason
   }
 }
