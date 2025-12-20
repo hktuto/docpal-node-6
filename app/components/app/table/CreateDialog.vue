@@ -34,8 +34,9 @@ const columnTypes = [
   { value: 'switch', label: 'Switch', icon: 'lucide:toggle-left' },
 ]
 
-// Debounce timers for each column
+// Debounce timers and abort controllers for each column
 const debounceTimers = ref<Map<number, any>>(new Map())
+const abortControllers = ref<Map<number, AbortController>>(new Map())
 
 // Add column
 function addColumn() {
@@ -50,11 +51,59 @@ function addColumn() {
 
 // Remove column
 function removeColumn(index: number) {
+  // Clear timer and abort API call for this column
+  if (debounceTimers.value.has(index)) {
+    clearTimeout(debounceTimers.value.get(index))
+    debounceTimers.value.delete(index)
+  }
+  if (abortControllers.value.has(index)) {
+    abortControllers.value.get(index)?.abort()
+    abortControllers.value.delete(index)
+  }
+  
+  // Clear suggestion
+  suggestions.value.delete(index)
+  
+  // Remove column
   form.value.columns.splice(index, 1)
+  
   // Update order
   form.value.columns.forEach((col, idx) => {
     col.order = idx
   })
+  
+  // Re-map timers, controllers, and suggestions after index shift
+  const newTimers = new Map()
+  const newControllers = new Map()
+  const newSuggestions = new Map()
+  
+  debounceTimers.value.forEach((timer, idx) => {
+    if (idx > index) {
+      newTimers.set(idx - 1, timer)
+    } else if (idx < index) {
+      newTimers.set(idx, timer)
+    }
+  })
+  
+  abortControllers.value.forEach((controller, idx) => {
+    if (idx > index) {
+      newControllers.set(idx - 1, controller)
+    } else if (idx < index) {
+      newControllers.set(idx, controller)
+    }
+  })
+  
+  suggestions.value.forEach((suggestion, idx) => {
+    if (idx > index) {
+      newSuggestions.set(idx - 1, suggestion)
+    } else if (idx < index) {
+      newSuggestions.set(idx, suggestion)
+    }
+  })
+  
+  debounceTimers.value = newTimers
+  abortControllers.value = newControllers
+  suggestions.value = newSuggestions
 }
 
 // Auto-generate label from name and trigger AI suggestion
@@ -84,6 +133,12 @@ function onColumnLabelChange(column: TableColumnDef, index: number) {
     clearTimeout(debounceTimers.value.get(index))
   }
   
+  // Abort any in-progress API call for this column
+  if (abortControllers.value.has(index)) {
+    abortControllers.value.get(index)?.abort()
+    abortControllers.value.delete(index)
+  }
+  
   // Only suggest if we have both name and label
   if (!column.name || !column.label) {
     return
@@ -105,6 +160,10 @@ async function suggestColumnType(index: number) {
     return
   }
   
+  // Create new AbortController for this request
+  const abortController = new AbortController()
+  abortControllers.value.set(index, abortController)
+  
   try {
     suggestingType.value = index
     
@@ -115,21 +174,36 @@ async function suggestColumnType(index: number) {
         columnLabel: column.label,
         tableDescription: form.value.description,
         appSlug: props.appSlug
-      }
+      },
+      signal: abortController.signal
     })
     
-    // Store suggestion for this column
-    suggestions.value.set(index, {
-      column: response.suggestedColumn,
-      confidence: response.confidence,
-      reason: response.reason,
-      aiEnabled: response.aiEnabled
-    })
+    // Only store suggestion if this request wasn't aborted
+    if (!abortController.signal.aborted) {
+      suggestions.value.set(index, {
+        column: response.suggestedColumn,
+        confidence: response.confidence,
+        reason: response.reason,
+        aiEnabled: response.aiEnabled
+      })
+    }
   } catch (error: any) {
+    // Ignore abort errors - they're expected
+    if (error.name === 'AbortError' || error.message?.includes('aborted')) {
+      console.log('AI suggestion request cancelled for column', index)
+      return
+    }
     console.error('Error suggesting type:', error)
     // Silent fail - don't show error to user for auto-suggestions
   } finally {
-    suggestingType.value = null
+    // Only clear loading state if this is still the active request
+    if (suggestingType.value === index) {
+      suggestingType.value = null
+    }
+    // Clean up the abort controller
+    if (abortControllers.value.get(index) === abortController) {
+      abortControllers.value.delete(index)
+    }
   }
 }
 
@@ -200,8 +274,15 @@ function handleClose() {
   debounceTimers.value.forEach(timer => clearTimeout(timer))
   debounceTimers.value.clear()
   
+  // Abort all in-progress API calls
+  abortControllers.value.forEach(controller => controller.abort())
+  abortControllers.value.clear()
+  
   // Clear suggestions
   suggestions.value.clear()
+  
+  // Reset loading state
+  suggestingType.value = null
   
   form.value = {
     name: '',
