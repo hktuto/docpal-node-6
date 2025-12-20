@@ -1,19 +1,23 @@
 import { db } from 'hub:db'
 import { apps } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
+import { successResponse } from '~~/server/utils/response'
 
+/**
+ * Update app by slug (scoped to company)
+ */
 export default defineEventHandler(async (event) => {
-  const slug = getRouterParam(event, 'slug')
+  const app = event.context.app // Already loaded by middleware!
   const body = await readBody(event)
   
-  console.log('🔧 API [slug].put.ts received body:', JSON.stringify(body))
-  
-  if (!slug) {
+  if (!app) {
     throw createError({
-      statusCode: 400,
-      message: 'App slug is required'
+      statusCode: 500,
+      message: 'App context not found. Middleware error.',
     })
   }
+  
+  console.log('🔧 API [appSlug]/index.put.ts received body:', JSON.stringify(body))
   
   // Build update object with only provided fields
   const updateData: any = {
@@ -30,22 +34,22 @@ export default defineEventHandler(async (event) => {
   
   console.log('💾 API updateData to be saved:', JSON.stringify(updateData))
   
-  // Update app
-  const [app] = await db
+  // Update app (using ID from context)
+  const [updatedApp] = await db
     .update(apps)
     .set(updateData)
-    .where(eq(apps.slug, slug))
+    .where(eq(apps.id, app.id))
     .returning()
   
-  if (!app) {
+  if (!updatedApp) {
     throw createError({
-      statusCode: 404,
-      message: 'App not found'
+      statusCode: 500,
+      message: 'Failed to update app'
     })
   }
   
-  console.log('✅ API updated app:', JSON.stringify(app))
+  console.log('✅ API updated app:', JSON.stringify(updatedApp))
   
-  return app
+  return successResponse(updatedApp, { message: 'App updated successfully' })
 })
 

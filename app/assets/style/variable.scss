@@ -6,7 +6,7 @@
 :root{
     /* ==================== Color System - HSL Components ==================== */
   /* Users can change these values dynamically to customize theme colors */
-  
+  --app-header-height: 56px;
   /* Primary Color (Teal) - #15d5b9 */
   --app-primary-h: 173;
   --app-primary-s: 82%;
@@ -171,7 +171,7 @@
   --app-text-color-disabled: var(--app-grey-600);     /* Disabled state text */
 
   /* Border colors */
-  --app-border-color: var(--app-grey-800);            /* Default border */
+  --app-border-color: var(--app-grey-900);            /* Default border */
   --app-border-color-light: var(--app-grey-900);      /* Light border */
   --app-border-color-lighter: var(--app-grey-950);    /* Lighter border */
   --app-border-color-dark: var(--app-grey-700);       /* Dark border */

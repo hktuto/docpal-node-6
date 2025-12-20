@@ -17,8 +17,10 @@
     "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
     "docker:restart": "pnpm docker:down && pnpm docker:up",
     "postgis:enable": "bash scripts/enable-postgis.sh",
-    "setup": "pnpm docker:up && pnpm db:generate && pnpm db:migrate",
+    "db:seed-company": "docker exec -i docpal-postgres psql -U docpal -d docpal < scripts/seed-dummy-company.sql",
+    "setup": "pnpm docker:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed-company",
     "seed": "bash scripts/seed.sh",
+    "test:middleware": "bash test-middleware-context.sh",
     "type-check": "nuxt typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
@@ -36,7 +38,10 @@
     "typescript": "^5.9.3",
     "vue": "^3.5.25",
     "vue-router": "^4.6.4",
-    "vuedraggable": "^4.1.0"
+    "vuedraggable": "^4.1.0",
+    "vxe-pc-ui": "~4.11.12",
+    "vxe-table": "~4.17.32",
+    "xe-utils": "~3.8.0"
   },
   "packageManager": "pnpm@8.5.1+sha1.97019f5a8ec2416123506419ab36dd558e4c72eb",
   "devDependencies": {

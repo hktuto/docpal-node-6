@@ -84,14 +84,15 @@ pnpm postgis:enable  # Enable PostGIS extensions (auto-run on docker:up)
 ├── docs/                   # Documentation
 │   ├── DEVELOPMENT_PLAN.md
 │   ├── ARCHITECTURE.md
-│   ├── GEOLOCATION_GUIDE.md
-│   └── SESSION_SUMMARY.md
+│   └── DEVELOPMENT_PROCESS/  # Daily session logs
+│       └── YYYY-MM-DD.md
 └── docker/                 # Docker configs
     └── init-postgis.sql
 ```
 
-## Features (Phase 1 - In Progress)
+## Features (Phase 1 - Backend Complete ✅)
 
+### Frontend (UI)
 - ✅ App management with slug-based routing
 - ✅ Dynamic menu system with drag-and-drop
 - ✅ Nested folders with expand/collapse
@@ -99,27 +100,48 @@ pnpm postgis:enable  # Enable PostGIS extensions (auto-run on docker:up)
 - ✅ App context provider/inject pattern
 - ✅ CSS variable system for theming
 - ✅ PostGIS for geolocation support
-- ⏳ Dynamic table creation (next)
-- ⏳ CRUD operations on dynamic data
+
+### Backend (API) - Completed 2025-12-20
+- ✅ Dynamic table creation with custom schemas
+- ✅ Physical PostgreSQL table generation
+- ✅ Full app CRUD operations
+- ✅ Full table CRUD operations
+- ✅ Full row CRUD operations (Create, Read, Update, Delete)
+- ✅ Multi-tenant context middleware (company + app scoping)
+- ✅ Type-safe event context with IntelliSense
+- ✅ Auto-label generation from column names
+- ✅ Comprehensive test coverage (15 API endpoints + middleware tests)
+
+### Next Up
+- ⏳ Column management (add/remove/reorder)
 - ⏳ Views with filtering and sorting
+- ⏳ Frontend UI for table/row management
 
 ## Database Schema
 
-Current tables:
+### Core Metadata Tables
 - `users` - User accounts (UUID, email, name, avatar)
 - `companies` - Company/organization management
 - `apps` - Applications with dynamic menus (JSONB)
+- `data_tables` - Dynamic table metadata (schema, app_id, company_id)
+- `data_table_columns` - Column definitions (name, label, type, config)
 
-Dynamic tables will be created at runtime with company-prefixed naming:
-- Format: `dt_[companyId]_[tableId]`
-- Example: `dt_abc123def456_8f3a4b2c1d9e4f5a`
+### Dynamic Tables (Created at Runtime)
+Dynamic tables are created at runtime with company-prefixed naming:
+- **Format**: `dt_[companyId]_[tableId]`
+- **Example**: `dt_000000000000_8f3a4b2c1d9e4f5a`
+- **System Columns**: `id` (UUID), `created_at`, `updated_at`, `created_by`
+- **User Columns**: Defined via API with types (text, number, date, email, switch, etc.)
 
 ## Documentation
 
-- [Development Plan](docs/DEVELOPMENT_PLAN.md) - Detailed roadmap and architecture
-- [Architecture](docs/ARCHITECTURE.md) - System design and decisions
-- [Geolocation Guide](docs/GEOLOCATION_GUIDE.md) - PostGIS implementation guide
-- [Session Summary](docs/SESSION_SUMMARY.md) - Latest development session notes
+- **[Development Plan](docs/DEVELOPMENT_PLAN.md)** - Detailed roadmap and architecture
+- **[Architecture](docs/ARCHITECTURE.md)** - System design and decisions  
+- **[Middleware Guide](docs/MIDDLEWARE_GUIDE.md)** - Server middleware and context system
+- **[Testing Middleware](docs/TESTING_MIDDLEWARE.md)** - How to test middleware
+- **[Development Process](docs/DEVELOPMENT_PROCESS/)** - Daily session logs tracking development history
+  - [2025-12-19](docs/DEVELOPMENT_PROCESS/2025-12-19.md) - Foundation & Menu System
+  - [2025-12-20](docs/DEVELOPMENT_PROCESS/2025-12-20.md) - Dynamic Tables & Middleware
 
 ## Environment Variables
 

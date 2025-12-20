@@ -54,19 +54,6 @@ function getChildPath(child: MenuItem) {
 
 <template>
   <div class="folder-page">
-    <!-- Folder Header -->
-    <div class="folder-header">
-      <div class="folder-title-section">
-        <Icon name="lucide:folder" size="32" />
-        <div class="folder-info">
-          <h1 class="folder-title">{{ folder?.label || 'Folder' }}</h1>
-          <p v-if="folder?.description" class="folder-description">
-            {{ folder.description }}
-          </p>
-        </div>
-      </div>
-    </div>
-    
     <!-- Folder Content -->
     <div class="folder-content">
       <div v-if="folderChildren.length === 0" class="empty-state">
@@ -109,37 +96,6 @@ function getChildPath(child: MenuItem) {
   flex-direction: column;
   height: 100%;
   background: var(--app-bg-color);
-}
-
-.folder-header {
-  padding: var(--app-space-xl) var(--app-space-xl) var(--app-space-l);
-  border-bottom: 1px solid var(--app-border-color-lighter);
-  background: var(--app-bg-color);
-  
-  .folder-title-section {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--app-space-m);
-    
-    .folder-info {
-      flex: 1;
-      min-width: 0;
-      
-      .folder-title {
-        font-size: var(--app-font-size-xxl);
-        font-weight: 600;
-        color: var(--app-text-color-primary);
-        margin: 0 0 var(--app-space-xs);
-      }
-      
-      .folder-description {
-        font-size: var(--app-font-size-m);
-        color: var(--app-text-color-secondary);
-        margin: 0;
-        line-height: 1.6;
-      }
-    }
-  }
 }
 
 .folder-content {

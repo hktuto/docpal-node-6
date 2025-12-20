@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AppContext } from '~/composables/useAppContext'
 import { AppContextKey } from '~/composables/useAppContext'
+import type { MenuItem } from '#shared/types/db'
 import {useDebounceFn} from '@vueuse/core'
 const route = useRoute()
 const router = useRouter()
@@ -8,7 +9,7 @@ const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
 
 // Fetch app data
-const { data: app, pending, refresh: refreshApp, error } = await useFetch<App>(() => `/api/apps/${appSlug.value}`, {
+const { data: app, pending, refresh: refreshApp, error } = await useApiResponse<App>(() => `/api/apps/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
@@ -21,13 +22,13 @@ const updateApp = useDebounceFn(updateAppApi, 500)
 async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
   try {
     console.log('💾 updateAppApi called with data:', JSON.stringify(data))
-    const updated = await $fetch(`/api/apps/${appSlug.value}`, {
+    const updated = await $apiResponse<App>(`/api/apps/${appSlug.value}`, {
       method: 'PUT',
       body: data
     })
     
     await refreshApp()
-    return updated as App
+    return updated
   } catch (error) {
     console.error('Failed to update app:', error)
     return null
@@ -37,7 +38,7 @@ async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'descripti
 // Delete app
 async function deleteApp(): Promise<boolean> {
   try {
-    await $fetch(`/api/apps/${appSlug.value}`, {
+    await $apiResponse(`/api/apps/${appSlug.value}`, {
       method: 'DELETE'
     })
     return true
@@ -119,19 +120,52 @@ function isMenuActive(itemUrl: string): boolean {
   return false
 }
 
-// Breadcrumb
+// Find menu item and its parents by slug
+function findMenuItemPath(items: MenuItem[], targetSlug: string, path: MenuItem[] = []): MenuItem[] | null {
+  for (const item of items) {
+    const currentPath = [...path, item]
+    
+    if (item.slug === targetSlug) {
+      return currentPath
+    }
+    
+    if (item.children && item.children.length > 0) {
+      const found = findMenuItemPath(item.children, targetSlug, currentPath)
+      if (found) return found
+    }
+  }
+  
+  return null
+}
+
+// Breadcrumb built from menu structure
 const breadcrumb = computed(() => {
   const crumbs = [
-    { label: 'Apps', url: '/apps' },
-    { label: app.value?.name || 'Loading...', url: `/apps/${appSlug.value}` },
+    { label: 'Apps', url: '/apps', clickable: true },
+    { label: app.value?.name || 'Loading...', url: `/apps/${appSlug.value}`, clickable: true },
   ]
   
-  // Add current page to breadcrumb if not on app home
+  // If not on app home, find current item in menu
   if (route.path !== `/apps/${appSlug.value}`) {
     const pathParts = route.path.replace(`/apps/${appSlug.value}/`, '').split('/')
-    if (pathParts[0]) {
-      const section = pathParts[0].charAt(0).toUpperCase() + pathParts[0].slice(1)
-      crumbs.push({ label: section, url: route.path })
+    const type = pathParts[0] // e.g., "tables", "folders", "dashboards"
+    const slug = pathParts[1] // e.g., "contacts", "my-folder"
+    
+    if (slug && app.value?.menu) {
+      // Find the item and its parent path in the menu
+      const menuPath = findMenuItemPath(app.value.menu, slug)
+      
+      if (menuPath && menuPath.length > 0) {
+        // Add each item in the path as a breadcrumb
+        menuPath.forEach((item, index) => {
+          const isLast = index === menuPath.length - 1
+          crumbs.push({
+            label: item.label,
+            url: `/apps/${appSlug.value}/${item.type}s/${item.slug}`,
+            clickable: !isLast // Last item is current page, not clickable
+          })
+        })
+      }
     }
   }
   
@@ -197,18 +231,29 @@ const staticNav = [
           <el-splitter-panel :min="400">
             <!-- Right Content Area -->
             <div class="app-content">
-              <!-- Breadcrumb Header -->
+              <!-- Page Header -->
               <header class="content-header">
+                <!-- Breadcrumb -->
                 <div class="breadcrumb">
                   <template v-for="(crumb, index) in breadcrumb" :key="crumb.url">
-                    <NuxtLink :to="crumb.url" class="breadcrumb-item">
+                    <NuxtLink 
+                      v-if="crumb.clickable"
+                      :to="crumb.url" 
+                      class="breadcrumb-item breadcrumb-link"
+                    >
                       {{ crumb.label }}
                     </NuxtLink>
+                    <span v-else class="breadcrumb-item breadcrumb-current">
+                      {{ crumb.label }}
+                    </span>
                     <span v-if="index < breadcrumb.length - 1" class="breadcrumb-separator">
                       /
                     </span>
                   </template>
                 </div>
+                
+                <!-- Teleport Target: Page Actions -->
+                <div id="app-page-actions" class="page-actions"></div>
               </header>
               
               <!-- Main Content (pages render here) -->
@@ -312,7 +357,7 @@ main {
     display: flex;
     gap: var(--app-space-m);
     flex-shrink: 0;
-    
+    height: var(--app-header-height);
     .app-icon {
       color: var(--app-primary-color);
     }
@@ -405,12 +450,18 @@ main {
   overflow: hidden;
   
   .content-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--app-space-l);
     padding: var(--app-space-m) var(--app-space-l);
     border-bottom: 1px solid var(--app-border-color);
     background: var(--app-bg-color);
     flex-shrink: 0;
-    
+    height: var(--app-header-height);
     .breadcrumb {
+      flex: 1;
+      min-width: 0;
       display: flex;
       align-items: center;
       gap: var(--app-space-s);
@@ -418,22 +469,34 @@ main {
       
       .breadcrumb-item {
         color: var(--app-text-color-secondary);
+        white-space: nowrap;
+      }
+      
+      .breadcrumb-link {
         text-decoration: none;
         transition: color 0.2s;
+        cursor: pointer;
         
         &:hover {
           color: var(--app-primary-color);
         }
-        
-        &:last-child {
-          color: var(--app-text-color-primary);
-          font-weight: 500;
-        }
+      }
+      
+      .breadcrumb-current {
+        color: var(--app-text-color-primary);
+        font-weight: 500;
       }
       
       .breadcrumb-separator {
         color: var(--app-text-color-placeholder);
       }
+    }
+    
+    .page-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--app-space-s);
+      flex-shrink: 0;
     }
   }
   

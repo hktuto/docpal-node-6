@@ -139,7 +139,7 @@ function isRouteActive(itemUrl?: any): boolean {
         .menuHeader{
             border-bottom: 1px solid var(--app-border-color);
             padding: var(--app-space-s) var(--app-space-s);
-
+            height: var(--app-header-height);
         }
         .menuContent{
             padding: var(--app-space-s);

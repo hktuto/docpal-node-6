@@ -15,6 +15,20 @@
       "when": 1766153678837,
       "tag": "0001_absent_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766184357875,
+      "tag": "0002_fresh_venom",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1766184875898,
+      "tag": "0003_quick_mister_fear",
+      "breakpoints": true
     }
   ]
 }

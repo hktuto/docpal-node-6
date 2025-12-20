@@ -17,6 +17,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const showCreateFolderDialog = ref(false)
 const showCreateDashboardDialog = ref(false)
+const showCreateTableDialog = ref(false)
 const expandedFolders = ref<Set<string>>(new Set())
 const highlightedItems = ref<Set<string>>(new Set())
 const justCreatedItemId = ref<string | null>(null)
@@ -120,6 +121,8 @@ function handleCreate(type: 'folder' | 'table' | 'view' | 'dashboard', parentId?
     showCreateFolderDialog.value = true
   } else if (type === 'dashboard') {
     showCreateDashboardDialog.value = true
+  } else if (type === 'table') {
+    showCreateTableDialog.value = true
   } else {
     emit('create', type)
   }
@@ -242,6 +245,37 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
   
   ElMessage.success(`Dashboard "${data.name}" created successfully`)
 }
+
+// Handle table creation
+function handleCreateTable(table: any) {
+  const newTable: MenuItem = {
+    id: nanoid(),
+    label: table.name,
+    slug: table.slug,
+    type: 'table',
+    description: table.description,
+    itemId: table.id,
+    order: 0
+  }
+  
+  addItemToMenu(newTable)
+  
+  const updatedMenu = updateOrder(localMenu.value)
+  localMenu.value = updatedMenu
+  emit('update', updatedMenu)
+  
+  // Highlight new table
+  justCreatedItemId.value = newTable.id
+  highlightedItems.value.add(newTable.id)
+  setTimeout(() => {
+    highlightedItems.value.delete(newTable.id)
+    justCreatedItemId.value = null
+  }, 1500)
+  
+  nextTick(() => {
+    navigateToItem(newTable)
+  })
+}
 </script>
 
 <template>
@@ -298,6 +332,13 @@ function handleCreateDashboard(data: { name: string; description?: string }) {
     <AppDashboardCreateDialog
       v-model:visible="showCreateDashboardDialog"
       @confirm="handleCreateDashboard"
+    />
+    
+    <!-- Create Table Dialog -->
+    <AppTableCreateDialog
+      v-model="showCreateTableDialog"
+      :app-slug="appSlug"
+      @created="handleCreateTable"
     />
   </div>
 </template>

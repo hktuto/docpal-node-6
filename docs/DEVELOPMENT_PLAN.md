@@ -15,7 +15,7 @@ A low-code platform built with Nuxt + NuxtHub allowing users to create companies
 
 ---
 
-## Phase 1: POC - Dynamic Tables & Views (IN PROGRESS)
+## Phase 1: POC - Dynamic Tables & Views (✅ CORE COMPLETE - 2025-12-20)
 
 **Goal**: Prove that dynamic table creation, data management, and querying works.
 
@@ -24,7 +24,16 @@ A low-code platform built with Nuxt + NuxtHub allowing users to create companies
 - Focus on core technical challenges
 - Validate architecture decisions
 
-**Current Status**: Foundation and UI components complete. Next: Dynamic table creation.
+**Current Status**: 
+- ✅ Database schemas created and migrated
+- ✅ Dynamic table creation with custom schemas (backend complete)
+- ✅ Physical PostgreSQL table generation
+- ✅ Full table CRUD operations
+- ✅ Full row CRUD operations  
+- ✅ Multi-tenant scoping (app-level isolation)
+- ✅ Auto-label generation
+- ✅ Comprehensive test coverage
+- 🔄 **Next**: Column management, basic views, and frontend UI
 
 ### 1.1 Database Schema Foundation
 
@@ -217,59 +226,75 @@ await db.execute(sql)
 
 // Benefits of company-prefixed tables:
 // - Physical data isolation between companies
-// - Same app/table names across companies
+// - Same app/table names across companies (slugs are scoped per company)
 // - Easier to implement per-company sharding
 // - Simplified backup/restore per company
 // - Better debugging (immediately see data ownership)
+
+// Slug Scoping Strategy:
+// - All entity slugs (apps, folders, tables, views, dashboards) are unique per company
+// - This allows Company A to have an app "crm" and Company B to also have "crm"
+// - Database constraint: UNIQUE(company_id, slug) instead of UNIQUE(slug)
+// - API validation ensures slugs are unique within company scope only
+// - Example: /apps/crm could be different apps for different companies
 ```
 
 ### 1.3 API Endpoints (Phase 1)
 
 **App Management:**
-- POST `/api/apps` - Create app
+- POST `/api/apps` - Create app (auto-generates unique slug)
 - GET `/api/apps` - List apps
-- GET `/api/apps/:id` - Get app details
-- PUT `/api/apps/:id` - Update app (name, description, icon, menu structure)
-- DELETE `/api/apps/:id` - Delete app
+- GET `/api/apps/:slug` - Get app details by slug
+- PUT `/api/apps/:slug` - Update app (name, description, icon, menu structure)
+- DELETE `/api/apps/:slug` - Delete app by slug
 
 **App Settings:**
-- Accessible via `/apps/:appId/settings`
+- Accessible via `/apps/:appSlug/settings`
 - Edit app name, description, and icon
 - Delete app (with confirmation)
 - Quick actions available from app card dropdown menu (Edit, Settings, Delete)
 
 **Folder Management:**
-- POST `/api/apps/:appId/folders` - Create folder
-- GET `/api/apps/:appId/folders` - List folders
-- GET `/api/folders/:id` - Get folder details
-- PUT `/api/folders/:id` - Update folder (name, description, parent)
-- DELETE `/api/folders/:id` - Delete folder
-- PUT `/api/folders/:id/items` - Reorder items in folder
-- POST `/api/folders/:id/items` - Add item to folder
-- DELETE `/api/folders/:folderId/items/:itemId` - Remove item from folder
+- POST `/api/apps/:appSlug/folders` - Create folder (auto-generates unique slug)
+- GET `/api/apps/:appSlug/folders` - List folders
+- GET `/api/folders/:slug` - Get folder details by slug
+- PUT `/api/folders/:slug` - Update folder (name, description, parent)
+- DELETE `/api/folders/:slug` - Delete folder by slug
+- PUT `/api/folders/:slug/items` - Reorder items in folder
+- POST `/api/folders/:slug/items` - Add item to folder
+- DELETE `/api/folders/:folderSlug/items/:itemSlug` - Remove item from folder
 
 **Dynamic Table Management:**
-- POST `/api/apps/:appId/tables` - Create dynamic table
-- GET `/api/apps/:appId/tables` - List tables in app
-- GET `/api/tables/:id` - Get table metadata
-- PUT `/api/tables/:id` - Update table schema
-- DELETE `/api/tables/:id` - Delete table
+- POST `/api/apps/:appSlug/tables` - Create dynamic table (auto-generates unique slug)
+- GET `/api/apps/:appSlug/tables` - List tables in app
+- GET `/api/tables/:slug` - Get table metadata by slug
+- PUT `/api/tables/:slug` - Update table schema
+- DELETE `/api/tables/:slug` - Delete table by slug
 
 **Dynamic Data CRUD:**
-- POST `/api/tables/:tableId/records` - Create record
-- GET `/api/tables/:tableId/records` - List records (with pagination, filter, sort)
-- GET `/api/tables/:tableId/records/:recordId` - Get single record
-- PUT `/api/tables/:tableId/records/:recordId` - Update record
-- DELETE `/api/tables/:tableId/records/:recordId` - Delete record
-- POST `/api/tables/:tableId/records/bulk` - Bulk insert
+- POST `/api/tables/:tableSlug/records` - Create record
+- GET `/api/tables/:tableSlug/records` - List records (with pagination, filter, sort)
+- GET `/api/tables/:tableSlug/records/:recordId` - Get single record (records still use IDs internally)
+- PUT `/api/tables/:tableSlug/records/:recordId` - Update record
+- DELETE `/api/tables/:tableSlug/records/:recordId` - Delete record
+- POST `/api/tables/:tableSlug/records/bulk` - Bulk insert
 
 **View Management:**
-- POST `/api/apps/:appId/views` - Create view
-- GET `/api/apps/:appId/views` - List views
-- GET `/api/views/:id` - Get view config
-- PUT `/api/views/:id` - Update view
-- DELETE `/api/views/:id` - Delete view
-- GET `/api/views/:id/data` - Query view data
+- POST `/api/apps/:appSlug/views` - Create view (auto-generates unique slug)
+- GET `/api/apps/:appSlug/views` - List views
+- GET `/api/views/:slug` - Get view config by slug
+- PUT `/api/views/:slug` - Update view
+- DELETE `/api/views/:slug` - Delete view by slug
+- GET `/api/views/:slug/data` - Query view data
+
+**Dashboard Management:**
+- POST `/api/apps/:appSlug/dashboards` - Create dashboard (auto-generates unique slug)
+- GET `/api/apps/:appSlug/dashboards` - List dashboards
+- GET `/api/dashboards/:slug` - Get dashboard config by slug
+- PUT `/api/dashboards/:slug` - Update dashboard
+- DELETE `/api/dashboards/:slug` - Delete dashboard by slug
+
+**Note:** All entity slugs (apps, folders, tables, views, dashboards) are unique per company, not globally. Slugs are auto-generated from names using the `generateUniqueSlug()` utility.
 
 ### 1.4 Auto-Generated UI Components
 
@@ -314,11 +339,14 @@ pages/
   index.vue                      # App list (or redirect to home)
   home.vue                       # User home dashboard (Phase 5)
   apps/
-    [appId]/
-      index.vue                  # App home (provides app context)
+    [appSlug]/
+      index.vue                  # App home (provides app context via useAppContext)
       settings.vue               # App settings (name, icon, description, delete)
+      folders/
+        [folderSlug]/
+          index.vue              # Folder detail view (shows folder contents)
       tables/
-        [tableId]/
+        [tableSlug]/
           index.vue              # Table data view (cards/table)
           records/
             new.vue              # Create record form
@@ -326,10 +354,10 @@ pages/
               index.vue          # Record detail view
               edit.vue           # Edit record form
       views/
-        [viewId]/
+        [viewSlug]/
           index.vue              # View data (table/kanban/etc)
       dashboards/
-        [dashboardId]/
+        [dashboardSlug]/
           index.vue              # Dashboard view
           edit.vue               # Dashboard editor
       settings/
@@ -340,10 +368,17 @@ pages/
 
 components/
   app/
-    AppList.vue
-    AppCard.vue
-    AppSidebar.vue               # Folder navigation
-    FolderTree.vue               # Folder hierarchy
+    Card.vue                     # App card for list page
+    menu/
+      Menu.vue                   # Main app menu (dynamic, draggable)
+      AddButton.vue              # Add item dropdown (root or child)
+      RecursiveItem.vue          # Recursive draggable menu item
+    folder/
+      CreateDialog.vue           # Create folder dialog
+    dashboard/
+      CreateDialog.vue           # Create dashboard dialog
+    templates/
+      ListPicker.vue             # App template picker
   table/
     TableBuilder.vue             # Create/edit table schema
     TableView.vue                # Display table data
@@ -403,16 +438,18 @@ composables/
 **App Context** (`useAppContext.ts`)
 ```typescript
 // Provides:
-- app: Ref<App>
-- tables: Ref<DataTable[]>
-- views: Ref<View[]>
-- dashboards: Ref<Dashboard[]>
-- folders: Ref<Folder[]>
-- refreshApp()
-- createTable()
-- createView()
-- createDashboard()
-- createFolder()
+- app: Ref<App>              // Current app data
+- appSlug: ComputedRef<string> // App slug from route
+- appId: ComputedRef<string>   // App ID
+- appName: ComputedRef<string> // App name
+- pending: Ref<boolean>      // Loading state
+- refreshApp()               // Refresh app data
+- updateApp(data)            // Update app (name, icon, description, menu)
+- deleteApp()                // Delete app
+- updateMenu(menu)           // Update app menu structure
+- navigateToApp()            // Navigate to app home
+- navigateToSettings()       // Navigate to app settings
+- getAppPath(path)           // Get path relative to app
 ```
 
 **Table Context** (`useTableContext.ts`)
@@ -459,23 +496,45 @@ composables/
 
 **Usage Pattern:**
 ```vue
-<!-- pages/apps/[appId]/index.vue -->
+<!-- layouts/app.vue -->
 <script setup>
-const { provideAppContext } = useAppContext()
-const appId = useRoute().params.appId
+const route = useRoute()
+const appSlug = computed(() => route.params.appSlug as string)
 
-// Fetch app data and provide context
-await provideAppContext(appId)
+// Fetch app data
+const { data: app, pending, error, refresh } = await useFetch(`/api/apps/${appSlug.value}`)
+
+// Provide app context to all child pages
+provide(AppContextKey, {
+  app,
+  appSlug,
+  appId: computed(() => app.value?.id),
+  appName: computed(() => app.value?.name),
+  pending,
+  refreshApp: refresh,
+  updateApp: async (data) => { /* ... */ },
+  deleteApp: async () => { /* ... */ },
+  updateMenu: async (menu) => { /* ... */ },
+  navigateToApp: () => navigateTo(`/apps/${appSlug.value}`),
+  navigateToSettings: () => navigateTo(`/apps/${appSlug.value}/settings`),
+  getAppPath: (path) => `/apps/${appSlug.value}/${path}`
+})
 </script>
 
-<!-- pages/apps/[appId]/tables/[tableId]/index.vue -->
+<!-- pages/apps/[appSlug]/tables/[tableSlug]/index.vue -->
 <script setup>
-const { app, tables } = useAppContext() // Inject from parent
-const { provideTableContext } = useTableContext()
-const tableId = useRoute().params.tableId
+definePageMeta({ layout: 'app' })
+
+const route = useRoute()
+const { app, appSlug } = useAppContext() // Inject from layout
+const tableSlug = computed(() => route.params.tableSlug as string)
+
+// Fetch table data using slug
+const { data: table } = await useFetch(`/api/tables/${tableSlug.value}`)
 
 // Provide table context for child components
-await provideTableContext(tableId)
+const { provideTableContext } = useTableContext()
+await provideTableContext(tableSlug.value)
 </script>
 
 <!-- components/table/RecordCard.vue -->
@@ -519,28 +578,43 @@ const { table, updateRecord, deleteRecord } = useTableContext() // Inject
 **Completed:**
 - ✅ **Project Setup**: Nuxt 4 + NuxtHub + Element Plus + PostgreSQL + MinIO
 - ✅ **Database Schema**: Users, Companies, Apps tables with UUID and slug support
+- ✅ **PostGIS Integration**: Geographic data support with automated setup
 - ✅ **App Management API**: Full CRUD with slug-based routing
-- ✅ **Shared Utilities**: Slug generation with uniqueness checks
+  - GET/POST `/api/apps` - List and create apps
+  - GET/PUT/DELETE `/api/apps/:slug` - Manage apps by slug
+- ✅ **Shared Utilities**: Slug generation with uniqueness checks (per-company scope)
 - ✅ **App Layout**: Dedicated layout with provide/inject context pattern
-- ✅ **Resizable Sidebar**: el-splitter integration (200-500px range)
+- ✅ **Resizable Sidebar**: el-splitter integration (200-500px range, custom bar styling)
 - ✅ **App Context System**: useAppContext composable with app data and methods
 - ✅ **CSS Architecture**: CSS variables system for consistent theming
+- ✅ **Component Architecture**: Modular structure with organized folders
+  - `app/menu/` - Menu components (Menu, AddButton, RecursiveItem)
+  - `app/folder/` - Folder components (CreateDialog)
+  - `app/dashboard/` - Dashboard components (CreateDialog)
+  - `app/templates/` - Template components (ListPicker)
 - ✅ **Menu System**: 
   - Dynamic app menu with drag-and-drop reordering
-  - Create folders, tables, views, dashboards
-  - Nested folder support with expand/collapse
-  - Drag items into folders (nested drag-and-drop)
+  - Create folders, tables, views, dashboards via dropdown
+  - Nested folder support with expand/collapse (unlimited depth)
+  - Drag items into folders (recursive nested drag-and-drop)
   - All menu items use slugs for routing
-  - Visual hierarchy with indentation
+  - Visual hierarchy with indentation and animations
+  - Active state highlighting (current item + parent folders)
+  - Flash animations on creation and reorder
+  - Auto-navigation to newly created items
 - ✅ **Folder System**:
   - Create folders with name and description
-  - Folder detail pages showing contents
-  - Navigate between folders
-  - Grid display of folder contents
+  - Folder detail pages showing contents in grid layout
+  - Navigate between folders using slugs
+  - Grid display of folder contents with hover effects
   - Nested folder creation (folders within folders)
+  - Three distinct folder actions (navigate, add child, toggle)
 - ✅ **Dashboard Creation**: Create dashboards with name and description
 - ✅ **App Settings**: Edit app name, icon, description with autosave
 - ✅ **Slug-based Routing**: All entities (apps, folders, tables, views, dashboards) use slugs
+  - Slugs are unique per company (not globally)
+  - Auto-generated from names with collision handling
+  - Clean, readable URLs throughout the app
 
 **In Progress:**
 - ⏳ Create dynamic table with 5+ column types
@@ -556,6 +630,19 @@ const { table, updateRecord, deleteRecord } = useTableContext() // Inject
 - Query 1000 records with filtering in < 500ms
 - Schema changes don't break existing data
 - Forms render correctly for all field types
+
+**Recent Progress (Component Refactoring):**
+- ✅ **Refactored Menu System**: Split 910-line `AppMenu.vue` into 3 focused components
+  - `Menu.vue` (318 lines) - Main menu logic
+  - `AddButton.vue` (75 lines) - Reusable add dropdown
+  - `RecursiveItem.vue` (320 lines) - Self-referencing item with unlimited nesting
+- ✅ **Reorganized Component Structure**: Created logical folder hierarchy
+  - `app/menu/` - Menu-specific components
+  - `app/folder/`, `app/dashboard/`, `app/templates/` - Feature-specific dialogs
+- ✅ **Improved Maintainability**: Each component has single responsibility
+- ✅ **Enhanced Reusability**: Components can be composed in different contexts
+- ✅ **Better Scalability**: Easy to add new item types and features
+- ✅ **All Functionality Preserved**: No breaking changes, all features work identically
 
 **Out of Scope (Phase 1):**
 - Authentication (use dummy user ID)
@@ -1189,7 +1276,7 @@ CREATE INDEX idx_approvals_pending ON workflow_approvals(status) WHERE status = 
 #### Unified Activity Feed API
 
 ```typescript
-// GET /api/records/:recordId/activity
+// GET /api/tables/:tableSlug/records/:recordId/activity
 export default defineEventHandler(async (event) => {
   const recordId = getRouterParam(event, 'recordId')
   
@@ -1567,6 +1654,9 @@ Each user gets a personalized "Home" dashboard that serves as their landing page
 - GET `/api/user/home` - Get current user's home dashboard (creates if doesn't exist)
 - PUT `/api/user/home` - Update home dashboard layout/widgets
 - GET `/api/user/home/widgets/available` - Get list of available widgets user can add
+- POST `/api/dashboards/:dashboardSlug/widgets` - Add widget to dashboard
+- PUT `/api/dashboards/:dashboardSlug/widgets/:widgetId` - Update widget
+- DELETE `/api/dashboards/:dashboardSlug/widgets/:widgetId` - Remove widget
 
 **UI:**
 - Accessible from main navigation as "Home" link

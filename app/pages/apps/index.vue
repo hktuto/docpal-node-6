@@ -2,7 +2,7 @@
   import AppCard from '~/components/app/AppCard.vue'
   import AppTemplatesListPicker from '~/components/app/templates/ListPicker.vue'
 
-  defineOptions({
+  definePageMeta({
     layout: 'default'
   })
     
@@ -17,7 +17,7 @@
   const formRef = ref()
   
   // Fetch apps
-  const { data: apps, pending, refresh } = await useFetch<App[]>('/api/apps')
+  const { data: apps, pending, refresh } = await useApiResponse<App[]>('/api/apps')
   
   // Create app
   const createApp = async () => {
@@ -26,7 +26,7 @@
     try {
       await formRef.value.validate()
       
-      await $fetch('/api/apps', {
+      await $apiResponse('/api/apps', {
         method: 'POST',
         body: {
           name: form.value.name,
@@ -98,7 +98,7 @@
         }
       )
 
-      await $fetch(`/api/apps/${app.slug}`, {
+      await $apiResponse(`/api/apps/${app.slug}`, {
         method: 'DELETE' as any
       })
 
