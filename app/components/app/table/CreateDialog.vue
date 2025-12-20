@@ -22,6 +22,7 @@ const form = ref({
 
 const formRef = ref()
 const loading = ref(false)
+const suggestingType = ref<number | null>(null) // Track which column is being suggested
 
 // Column type options
 const columnTypes = [
@@ -64,6 +65,44 @@ function generateLabel(name: string): string {
   return name
     .replace(/_/g, ' ')
     .replace(/\b\w/g, char => char.toUpperCase())
+}
+
+// Suggest column type using AI
+async function suggestColumnType(index: number) {
+  const column = form.value.columns[index]
+  
+  if (!column.name) {
+    ElMessage.warning('Please enter a column name first')
+    return
+  }
+  
+  try {
+    suggestingType.value = index
+    
+    const response = await $apiResponse('/api/ai/suggest-column-type', {
+      method: 'POST',
+      body: {
+        columnName: column.name,
+        columnLabel: column.label,
+        tableDescription: form.value.description
+      }
+    })
+    
+    // Update the column type with suggestion
+    column.type = response.suggestedType as ColumnType
+    
+    // Show feedback message
+    const aiStatus = response.aiEnabled ? '🤖 AI' : '🔍 Pattern matching'
+    ElMessage.success({
+      message: `${aiStatus}: ${response.reason}`,
+      duration: 4000
+    })
+  } catch (error: any) {
+    console.error('Error suggesting type:', error)
+    ElMessage.error('Failed to suggest column type')
+  } finally {
+    suggestingType.value = null
+  }
 }
 
 // Create table
@@ -225,25 +264,37 @@ const visible = computed({
                 />
               </el-form-item>
               
-              <!-- Column Type -->
+              <!-- Column Type with AI Suggestion -->
               <el-form-item
                 :prop="`columns.${index}.type`"
                 label="Type"
                 :rules="[{ required: true, message: 'Required', trigger: 'change' }]"
               >
-                <el-select v-model="column.type" placeholder="Select type">
-                  <el-option
-                    v-for="type in columnTypes"
-                    :key="type.value"
-                    :value="type.value"
-                    :label="type.label"
+                <div class="type-input-group">
+                  <el-select v-model="column.type" placeholder="Select type">
+                    <el-option
+                      v-for="type in columnTypes"
+                      :key="type.value"
+                      :value="type.value"
+                      :label="type.label"
+                    >
+                      <div class="type-option">
+                        <Icon :name="type.icon" size="16" />
+                        <span>{{ type.label }}</span>
+                      </div>
+                    </el-option>
+                  </el-select>
+                  <el-button
+                    size="small"
+                    @click="suggestColumnType(index)"
+                    :loading="suggestingType === index"
+                    :disabled="loading || !column.name"
+                    title="AI-powered type suggestion"
                   >
-                    <div class="type-option">
-                      <Icon :name="type.icon" size="16" />
-                      <span>{{ type.label }}</span>
-                    </div>
-                  </el-option>
-                </el-select>
+                    <Icon name="lucide:sparkles" v-if="suggestingType !== index" />
+                    Suggest
+                  </el-button>
+                </div>
               </el-form-item>
               
               <!-- Required -->
@@ -342,6 +393,19 @@ const visible = computed({
   display: flex;
   align-items: center;
   gap: var(--app-space-s);
+}
+
+.type-input-group {
+  display: flex;
+  gap: var(--app-space-s);
+  
+  .el-select {
+    flex: 1;
+  }
+  
+  .el-button {
+    flex-shrink: 0;
+  }
 }
 
 .dialog-footer {

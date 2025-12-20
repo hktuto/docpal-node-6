@@ -110,6 +110,7 @@ pnpm postgis:enable  # Enable PostGIS extensions (auto-run on docker:up)
 - ✅ Multi-tenant context middleware (company + app scoping)
 - ✅ Type-safe event context with IntelliSense
 - ✅ Auto-label generation from column names
+- ✅ AI-powered column type suggestions (with Ollama integration)
 - ✅ Comprehensive test coverage (15 API endpoints + middleware tests)
 
 ### Next Up
@@ -139,6 +140,7 @@ Dynamic tables are created at runtime with company-prefixed naming:
 - **[Architecture](docs/ARCHITECTURE.md)** - System design and decisions  
 - **[Middleware Guide](docs/MIDDLEWARE_GUIDE.md)** - Server middleware and context system
 - **[Testing Middleware](docs/TESTING_MIDDLEWARE.md)** - How to test middleware
+- **[AI Integration Setup](docs/AI_INTEGRATION_SETUP.md)** - How to configure AI-powered column type suggestions
 - **[Development Process](docs/DEVELOPMENT_PROCESS/)** - Daily session logs tracking development history
   - [2025-12-19](docs/DEVELOPMENT_PROCESS/2025-12-19.md) - Foundation & Menu System
   - [2025-12-20](docs/DEVELOPMENT_PROCESS/2025-12-20.md) - Dynamic Tables & Middleware
@@ -156,7 +158,13 @@ MINIO_ENDPOINT=localhost:9000
 MINIO_ACCESS_KEY=minioadmin
 MINIO_SECRET_KEY=minioadmin
 MINIO_USE_SSL=false
+
+# AI/LLM (Optional - for column type suggestions)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama2
 ```
+
+See **[AI Integration Setup](docs/AI_INTEGRATION_SETUP.md)** for detailed instructions on configuring AI features.
 
 ## Development Workflow
 
