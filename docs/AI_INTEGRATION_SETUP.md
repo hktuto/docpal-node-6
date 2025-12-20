@@ -39,14 +39,21 @@ docker run -d -p 11434:11434 --name ollama ollama/ollama
 Choose and pull a model based on your needs:
 
 ```bash
-# Lightweight and fast (recommended for quick responses)
-ollama pull llama2
+# Recommended: Best for this task (technical/database understanding)
+ollama pull qwen2.5-coder:7b
 
 # Alternative models
-ollama pull mistral       # Good balance of speed and quality
-ollama pull codellama     # Optimized for code/technical content
-ollama pull llama3        # Latest, more capable (if available)
+ollama pull qwen2.5-coder:3b  # Faster, still excellent
+ollama pull mistral           # Good balance of speed and quality
+ollama pull llama3.2:3b       # Very fast, good accuracy
+ollama pull deepseek-coder    # Excellent for technical content
 ```
+
+**💡 New to model selection? See [AI_MODEL_RECOMMENDATIONS.md](AI_MODEL_RECOMMENDATIONS.md) for a detailed comparison of all models, including:**
+- Performance benchmarks for this specific task
+- Hardware requirements
+- Speed vs accuracy trade-offs
+- Real-world test results
 
 ### 3. Verify Ollama is Running
 
@@ -71,7 +78,7 @@ Edit `.env` and add:
 ```env
 # Ollama Configuration
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
 #### Configuration Options:
@@ -79,7 +86,7 @@ OLLAMA_MODEL=llama2
 | Variable | Description | Default | Example |
 |----------|-------------|---------|---------|
 | `OLLAMA_BASE_URL` | The base URL where Ollama is running | `http://localhost:11434` | `http://192.168.1.100:11434` |
-| `OLLAMA_MODEL` | The model name to use for suggestions | `llama2` | `mistral`, `codellama` |
+| `OLLAMA_MODEL` | The model name to use for suggestions | `qwen2.5-coder:7b` | `mistral`, `llama3.2:3b`, `deepseek-coder` |
 
 **Note:** If these variables are not set, the application will automatically fall back to pattern-matching logic without using AI.
 
@@ -125,16 +132,29 @@ If Ollama is running on a different machine:
 
 ```env
 OLLAMA_BASE_URL=http://192.168.1.100:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
-### Using a Custom Model
+### Using a Different Model
 
-If you've pulled a specific model or fine-tuned your own:
+Switch between models easily:
 
 ```env
+# For best accuracy (recommended)
+OLLAMA_MODEL=qwen2.5-coder:7b
+
+# For speed
+OLLAMA_MODEL=qwen2.5-coder:3b
+OLLAMA_MODEL=llama3.2:3b
+
+# For reliability
+OLLAMA_MODEL=mistral
+
+# Custom/fine-tuned model
 OLLAMA_MODEL=my-custom-model:latest
 ```
+
+See [AI_MODEL_RECOMMENDATIONS.md](AI_MODEL_RECOMMENDATIONS.md) for help choosing.
 
 ### Docker Compose Setup
 
@@ -154,6 +174,8 @@ services:
       - "11434:11434"
     volumes:
       - ollama_data:/root/.ollama
+    # Optional: Pre-pull model on container start
+    # command: ["ollama", "pull", "qwen2.5-coder:7b"]
 
 volumes:
   ollama_data:
@@ -180,13 +202,20 @@ Look for errors like:
 
 ### Slow Response Times
 
-**Use a lighter model:**
+**Use a lighter/faster model:**
 ```bash
-ollama pull llama2  # Faster than llama3 or larger models
+ollama pull qwen2.5-coder:3b  # Fast and still accurate
+ollama pull llama3.2:3b       # Very fast
+ollama pull llama3.2:1b       # Ultra-fast
 ```
 
-**Adjust temperature in the API:**
-Edit `/server/api/ai/suggest-column-type.post.ts` to modify the `temperature` and timeout settings.
+**Check your hardware:**
+- 3B models need ~4GB RAM
+- 7B models need ~8GB RAM
+- CPU is sufficient, GPU makes it faster
+
+**Adjust timeout in the API:**
+Edit `/server/api/ai/suggest-column-type.post.ts` to modify the `timeout` setting (default: 10000ms).
 
 ### Fallback Mode
 
@@ -204,10 +233,18 @@ The UI will show whether AI or pattern matching was used:
 
 ## Performance Considerations
 
-- **Response Time:** Typically 500ms - 2s depending on model and hardware
+- **Response Time:** 
+  - 3B models: 300ms - 800ms
+  - 7B models: 500ms - 1.5s
+  - Depends on hardware (CPU/GPU)
 - **Timeout:** API calls timeout after 10 seconds, falling back to pattern matching
-- **Resource Usage:** Ollama requires ~4GB RAM for small models (llama2)
+- **Resource Usage:** 
+  - 3B models: ~4GB RAM
+  - 7B models: ~8GB RAM
+  - 14B+ models: ~16GB RAM
 - **Concurrency:** Each request is independent; multiple users can suggest simultaneously
+
+**💡 See [AI_MODEL_RECOMMENDATIONS.md](AI_MODEL_RECOMMENDATIONS.md) for detailed performance benchmarks.**
 
 ## Security Notes
 
@@ -247,8 +284,15 @@ The UI will show whether AI or pattern matching was used:
 
 ## Further Resources
 
+### Project Documentation
+- [AI Model Recommendations](AI_MODEL_RECOMMENDATIONS.md) - **Detailed model comparison**
+- [AI Quick Start](AI_QUICK_START.md) - 5-minute setup guide
+- [Implementation Summary](../IMPLEMENTATION_SUMMARY.md) - Technical details
+
+### External Resources
 - [Ollama Documentation](https://github.com/ollama/ollama)
 - [Ollama Model Library](https://ollama.ai/library)
+- [Qwen2.5-Coder](https://github.com/QwenLM/Qwen2.5-Coder)
 - [Nuxt Environment Variables](https://nuxt.com/docs/guide/directory-structure/env)
 
 ## Support

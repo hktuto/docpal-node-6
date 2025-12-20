@@ -144,6 +144,7 @@ Type automatically set to: text
 | Document | Purpose | When to Read |
 |----------|---------|--------------|
 | [AI_QUICK_START.md](docs/AI_QUICK_START.md) | Get started in 5 minutes | First time setup |
+| [AI_MODEL_RECOMMENDATIONS.md](docs/AI_MODEL_RECOMMENDATIONS.md) | **Choose the best model** | **Before installing** |
 | [AI_INTEGRATION_SETUP.md](docs/AI_INTEGRATION_SETUP.md) | Complete reference | Detailed configuration |
 | [AI_FEATURE_OVERVIEW.md](AI_FEATURE_OVERVIEW.md) | Visual guide | Understanding features |
 | [IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md) | Technical details | Development reference |
@@ -168,10 +169,12 @@ Type automatically set to: text
 ### Minimal Setup (.env):
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
 ### That's it! Just 2 lines.
+
+**💡 Model Selection:** Qwen2.5-Coder is recommended for technical/database tasks. See [docs/AI_MODEL_RECOMMENDATIONS.md](docs/AI_MODEL_RECOMMENDATIONS.md) for alternatives based on your hardware and needs.
 
 ---
 
@@ -193,10 +196,11 @@ OLLAMA_MODEL=llama2
 
 ## 📁 File Changes Summary
 
-### New Files (7):
+### New Files (8):
 - ✨ `/server/api/ai/suggest-column-type.post.ts`
 - 📖 `/docs/AI_INTEGRATION_SETUP.md`
 - 📖 `/docs/AI_QUICK_START.md`
+- 📖 `/docs/AI_MODEL_RECOMMENDATIONS.md` ⭐ **NEW**
 - 📖 `/IMPLEMENTATION_SUMMARY.md`
 - 📖 `/AI_FEATURE_OVERVIEW.md`
 - 📖 `/AI_INTEGRATION_COMPLETE.md` (this file)
@@ -268,10 +272,12 @@ Reason: "Timestamp field pattern"
 ### 1. Enable AI (Optional - 5 minutes):
 ```bash
 curl -fsSL https://ollama.ai/install.sh | sh
-ollama pull llama2
+ollama pull qwen2.5-coder:7b  # Best for this task
 # Add to .env: OLLAMA_BASE_URL and OLLAMA_MODEL
 pnpm dev
 ```
+
+**Note:** See [docs/AI_MODEL_RECOMMENDATIONS.md](docs/AI_MODEL_RECOMMENDATIONS.md) for other model options.
 
 ### 2. Try It Out:
 - Open your app

@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
 
     // Get Ollama configuration from environment
     const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
-    const ollamaModel = process.env.OLLAMA_MODEL || 'llama2'
+    const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b'
 
     // Check if Ollama is configured
     if (!process.env.OLLAMA_BASE_URL && !process.env.OLLAMA_MODEL) {

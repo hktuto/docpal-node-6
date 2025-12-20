@@ -15,14 +15,18 @@ curl -fsSL https://ollama.ai/install.sh | sh
 
 ### 2. Pull a Model
 ```bash
-ollama pull llama2
+# Recommended: Best for this task
+ollama pull qwen2.5-coder:7b
+
+# Alternative: Faster but less accurate
+ollama pull llama3.2:3b
 ```
 
 ### 3. Configure Environment
 Create or edit `.env` in your project root:
 ```env
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
 ### 4. Restart Dev Server
@@ -67,9 +71,11 @@ pnpm dev  # or npm run dev
 - Make sure you've pulled a model
 
 ### Slow suggestions?
-Use a lighter model:
+Use a lighter/faster model:
 ```bash
-ollama pull llama2  # Faster than larger models
+ollama pull qwen2.5-coder:3b  # Faster than 7B
+# or
+ollama pull llama3.2:3b       # Very fast
 ```
 
 ### Don't have Ollama installed?
@@ -90,7 +96,10 @@ See **[AI_INTEGRATION_SETUP.md](./AI_INTEGRATION_SETUP.md)** for:
 2. **Use table descriptions**: Helps AI understand context
 3. **Pattern matters**: `is_*`, `has_*` → boolean; `*_at`, `*_date` → date
 4. **Review suggestions**: AI is smart but not perfect - always verify!
+5. **Choose the right model**: See [AI_MODEL_RECOMMENDATIONS.md](./AI_MODEL_RECOMMENDATIONS.md)
 
 ---
 
-**Need help?** Check the full guide: [AI_INTEGRATION_SETUP.md](./AI_INTEGRATION_SETUP.md)
+**Need help?** 
+- Full setup guide: [AI_INTEGRATION_SETUP.md](./AI_INTEGRATION_SETUP.md)
+- Model comparison: [AI_MODEL_RECOMMENDATIONS.md](./AI_MODEL_RECOMMENDATIONS.md)

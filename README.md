@@ -161,10 +161,10 @@ MINIO_USE_SSL=false
 
 # AI/LLM (Optional - for column type suggestions)
 OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama2
+OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
-See **[AI Integration Setup](docs/AI_INTEGRATION_SETUP.md)** for detailed instructions on configuring AI features.
+See **[AI Integration Setup](docs/AI_INTEGRATION_SETUP.md)** for detailed instructions on configuring AI features, or **[Model Recommendations](docs/AI_MODEL_RECOMMENDATIONS.md)** for help choosing the best model.
 
 ## Development Workflow
 
