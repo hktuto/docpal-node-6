@@ -1,73 +1,126 @@
 import { db } from 'hub:db'
-import { users, companies } from 'hub:db:schema'
-import { eq } from 'drizzle-orm'
+import { users, companies, companyMembers } from 'hub:db:schema'
+import { eq, and } from 'drizzle-orm'
+import { hashPassword } from '~~/server/utils/auth/password'
+import { successResponse } from '~~/server/utils/response'
 
-// Dummy company ID used in the create app API
-const DUMMY_COMPANY_ID = '00000000-0000-0000-0000-000000000001'
-const DUMMY_USER_ID = '00000000-0000-0000-0000-000000000001'
-
+/**
+ * Seed endpoint - creates superadmin account and test company
+ * 
+ * Credentials:
+ * Email: admin@docpal.dev
+ * Password: admin123
+ * 
+ * Usage: POST /api/seed
+ */
 export default defineEventHandler(async (event) => {
   try {
-    // Check if seed data already exists
-    const existingCompany = await db
-      .select()
-      .from(companies)
-      .where(eq(companies.id, DUMMY_COMPANY_ID))
-      .limit(1)
+    const SEED_EMAIL = 'admin@docpal.dev'
+    const SEED_PASSWORD = 'admin123'
+    const SEED_COMPANY_SLUG = 'acme-corp'
 
-    if (existingCompany.length > 0) {
-      return {
-        success: true,
-        message: 'Seed data already exists',
-        data: {
-          userId: existingCompany[0].createdBy || DUMMY_USER_ID,
-          companyId: DUMMY_COMPANY_ID,
-        },
-      }
-    }
-
-    // Check if user exists, if not create it
-    let userId = DUMMY_USER_ID
+    // Check if seed user already exists
     const existingUser = await db
       .select()
       .from(users)
-      .where(eq(users.id, DUMMY_USER_ID))
+      .where(eq(users.email, SEED_EMAIL))
       .limit(1)
 
-    if (existingUser.length === 0) {
-      // Create seed user
-      // Note: In production, you'd hash the password properly
-      const [user] = await db.insert(users).values({
-        id: DUMMY_USER_ID,
-        email: 'dev@docpal.local',
-        name: 'Development User',
-        password: 'dev_password_hash_here', // In Phase 2, this will be properly hashed
+    let user
+    let company
+    let isNewUser = false
+    let isNewCompany = false
+
+    if (existingUser.length > 0) {
+      user = existingUser[0]
+      console.log('✓ Seed user already exists:', user.email)
+    } else {
+      // Create superadmin user with hashed password
+      const hashedPassword = await hashPassword(SEED_PASSWORD)
+      
+      const [newUser] = await db.insert(users).values({
+        email: SEED_EMAIL,
+        name: 'Super Admin',
+        password: hashedPassword,
         emailVerifiedAt: new Date(),
       }).returning()
-      userId = user.id
+      
+      user = newUser
+      isNewUser = true
+      console.log('✓ Created seed user:', user.email)
+    }
+
+    // Check if seed company exists
+    const existingCompany = await db
+      .select()
+      .from(companies)
+      .where(eq(companies.slug, SEED_COMPANY_SLUG))
+      .limit(1)
+
+    if (existingCompany.length > 0) {
+      company = existingCompany[0]
+      console.log('✓ Seed company already exists:', company.name)
     } else {
-      userId = existingUser[0].id
+      // Create seed company
+      const [newCompany] = await db.insert(companies).values({
+        name: 'Acme Corporation',
+        slug: SEED_COMPANY_SLUG,
+        description: 'Test company for development',
+        createdBy: user.id,
+      }).returning()
+      
+      company = newCompany
+      isNewCompany = true
+      console.log('✓ Created seed company:', company.name)
     }
 
-    // Create seed company
-    const [company] = await db.insert(companies).values({
-      id: DUMMY_COMPANY_ID,
-      name: 'Development Company',
-      slug: 'dev-company',
-      description: 'Development company for testing',
-      createdBy: userId,
-    }).returning()
+    // Check if user is already a member of the company
+    const existingMembership = await db
+      .select()
+      .from(companyMembers)
+      .where(
+        and(
+          eq(companyMembers.userId, user.id),
+          eq(companyMembers.companyId, company.id)
+        )
+      )
+      .limit(1)
 
-    return {
-      success: true,
-      message: 'Seed data created successfully',
-      data: {
-        userId,
+    if (existingMembership.length === 0) {
+      // Add user as owner of the company
+      await db.insert(companyMembers).values({
+        userId: user.id,
         companyId: company.id,
-        companyName: company.name,
-      },
+        role: 'owner',
+      })
+      console.log('✓ Added user as company owner')
+    } else {
+      console.log('✓ User is already a member of the company')
     }
+
+    return successResponse({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+      company: {
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+      },
+      credentials: {
+        email: SEED_EMAIL,
+        password: SEED_PASSWORD,
+      },
+      isNewData: isNewUser || isNewCompany,
+    }, {
+      message: isNewUser || isNewCompany 
+        ? 'Seed data created successfully' 
+        : 'Seed data already exists',
+    })
   } catch (error: any) {
+    console.error('Seed error:', error)
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to seed data',

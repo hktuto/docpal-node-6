@@ -18,6 +18,7 @@
     "docker:restart": "pnpm docker:down && pnpm docker:up",
     "postgis:enable": "bash scripts/enable-postgis.sh",
     "db:seed-company": "docker exec -i docpal-postgres psql -U docpal -d docpal < scripts/seed-dummy-company.sql",
+    "db:reset": "bash scripts/reset-db.sh",
     "setup": "pnpm docker:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed-company",
     "seed": "bash scripts/seed.sh",
     "test:middleware": "bash test-middleware-context.sh",
