@@ -17,8 +17,8 @@
   const formRef = ref()
   
   // Fetch apps
-  const { data: apps, pending, refresh } = await useApiResponse<App[]>('/api/apps')
-  
+  const { data, pending, refresh, error } = await useApi<SuccessResponse<App[]>>('/api/apps')
+  const apps = computed(() => data.value?.data)
   // Create app
   const createApp = async () => {
     if (!formRef.value) return
@@ -138,6 +138,7 @@
     
     <template>
       <div class="app-list-page">
+        {{ error }}
         <!-- Header -->
         <div class="app-list-page__header">
           <div>

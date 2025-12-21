@@ -18,25 +18,8 @@ export function useApi<T>(
   url: string | (() => string),
   options?: UseFetchOptions<T>
 ) {
-  return useFetch<T, FetchError>(url, {
+  return useFetch(url, {
     ...options,
     $fetch: useNuxtApp().$api as typeof $fetch,
   })
 }
-
-/**
- * Immediate fetch using custom $api
- * 
- * Usage:
- * ```ts
- * const app = await api<App>('/apps/my-app')
- * ```
- */
-export async function api<T>(
-  url: string,
-  options?: any
-): Promise<T> {
-  const { $api } = useNuxtApp()
-  return await $api<T>(url, options)
-}
-

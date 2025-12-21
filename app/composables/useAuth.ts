@@ -22,9 +22,10 @@ export interface AuthState {
  * Auth composable for managing authentication state
  */
 export const useUserState = () => useState<AuthUser | null>('auth:user', () => null)
+export const useCompanyState = () => useState<AuthCompany | null>('auth:company', () => null)
 export const useAuth = () => {
   const user = useUserState()
-  const company = useState<AuthCompany | null>('auth:company', () => null)
+  const company = useCompanyState()
   const loading = ref(false)
   const error = ref<string | null>(null)
 
