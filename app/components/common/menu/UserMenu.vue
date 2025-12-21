@@ -20,11 +20,7 @@
           <div class="user-name">{{ user?.name || 'User' }}</div>
           <div class="user-email">{{ user?.email }}</div>
         </div>
-        <Icon 
-          name="lucide:chevron-up" 
-          class="chevron-icon"
-          :class="{ expanded: expandState }"
-        />
+        
       </div>
 
       <template #dropdown>
@@ -189,7 +185,6 @@ const handleCommand = async (command: string) => {
   display: flex;
   align-items: center;
   gap: var(--app-space-s);
-  padding: var(--app-space-s);
   border-radius: var(--app-border-radius-s);
   cursor: pointer;
   transition: all 0.2s;

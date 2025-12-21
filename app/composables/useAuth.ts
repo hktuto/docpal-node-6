@@ -31,7 +31,7 @@ export const useAuth = () => {
 
   const isAuthenticated = computed(() => !!user.value)
   const hasCompany = computed(() => !!company.value)
-
+  const {$api} = useNuxtApp()
   /**
    * Fetch current user from server
    */
@@ -40,11 +40,8 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      const { data, error: fetchError } = await $apiResponse<{
-        user: AuthUser
-        company: AuthCompany | null
-      }>('/api/auth/me')
-
+      const { data, error: fetchError } = await $api('/api/auth/me')
+      console.log('fetchUser', data, fetchError)
       if (fetchError) {
         user.value = null
         company.value = null

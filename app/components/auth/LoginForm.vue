@@ -146,14 +146,12 @@ const handleSubmit = async () => {
       } else {
         // Login with password
         const result = await auth.login(form.email, form.password)
-        
         if (result.success) {
           ElMessage.success('Welcome back!')
           
           // Get redirect URL from query or default to /apps
           const route = useRoute()
           const redirectTo = (route.query.redirect as string) || '/apps'
-          
           // Redirect to requested page or apps/companies
           if (auth.hasCompany.value) {
             await router.push(redirectTo)

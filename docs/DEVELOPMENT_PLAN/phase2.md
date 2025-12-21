@@ -58,7 +58,7 @@
 ### Frontend
 
 #### Authentication Pages
-- [ ] Login page
+- [X] Login page
 - [ ] Register page
 - [ ] Magic link sent page
 - [ ] Magic link verify page

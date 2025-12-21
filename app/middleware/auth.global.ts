@@ -8,15 +8,8 @@ const PUBLIC_ROUTES = [
   '/auth/login',
   '/auth/verify',
   '/auth/invite',
-  '/',
 ]
 
-// Public route prefixes
-const PUBLIC_PREFIXES = [
-  '/api/',
-  '/_nuxt/',
-  '/favicon.ico',
-]
 
 // Check if a route is public
 function isPublicRoute(path: string): boolean {
@@ -24,11 +17,7 @@ function isPublicRoute(path: string): boolean {
   if (PUBLIC_ROUTES.includes(path)) {
     return true
   }
-  
-  // Prefix match
-  if (PUBLIC_PREFIXES.some(prefix => path.startsWith(prefix))) {
-    return true
-  }
+
   
   return false
 }

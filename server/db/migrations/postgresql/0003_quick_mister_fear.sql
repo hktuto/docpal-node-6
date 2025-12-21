@@ -1,2 +1,0 @@
-ALTER TABLE "data_tables" DROP CONSTRAINT "data_tables_company_id_slug_unique";--> statement-breakpoint
-ALTER TABLE "data_tables" ADD CONSTRAINT "data_tables_app_id_slug_unique" UNIQUE("app_id","slug");
