@@ -1,5 +1,5 @@
 import { db } from 'hub:db'
-import { users } from 'hub:db:schema'
+import { users, companies, companyMembers } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
 import { verifyPassword } from '~~/server/utils/auth/password'
 import { createSession } from '~~/server/utils/auth/session'
@@ -47,8 +47,23 @@ export default defineEventHandler(async (event) => {
     .set({ lastLoginAt: new Date() })
     .where(eq(users.id, user.id))
 
-  // Create session
-  const session = await createSession(user.id)
+  // Get user's companies
+  const userCompanies = await db
+    .select({
+      company: companies,
+      member: companyMembers,
+    })
+    .from(companyMembers)
+    .innerJoin(companies, eq(companyMembers.companyId, companies.id))
+    .where(eq(companyMembers.userId, user.id))
+
+  // If user has exactly 1 company, auto-apply it to the session
+  // If user has multiple companies, let them choose (don't set default)
+  // If user has no companies, session will have no company and user needs to create/join one
+  const defaultCompany = userCompanies.length === 1 ? userCompanies[0].company.id : undefined
+
+  // Create session with default company if user has exactly one
+  const session = await createSession(user.id, defaultCompany)
 
   // Set session cookie
   setCookie(event, 'session_token', session.token, {
@@ -71,7 +86,17 @@ export default defineEventHandler(async (event) => {
     session: {
       token: session.token,
       expiresAt: session.expiresAt,
+      companyId: session.companyId,
     },
+    companies: userCompanies.map(({ company, member }) => ({
+      id: company.id,
+      name: company.name,
+      slug: company.slug,
+      description: company.description,
+      logo: company.logo,
+      role: member.role,
+      createdAt: company.createdAt,
+    })),
   })
 })
 

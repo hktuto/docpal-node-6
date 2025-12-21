@@ -106,6 +106,7 @@ function isRouteActive(itemUrl?: any): boolean {
                 :selected="isRouteActive(item.url)"
                 @click="handleClick(item)"
             />
+            <CommonMenuUserMenu :expandState="expandState" />
             <slot name="footer" />
         </div>
     </div>

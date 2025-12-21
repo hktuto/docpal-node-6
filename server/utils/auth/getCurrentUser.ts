@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { users, sessions, companies, companyMembers } from 'hub:db:schema'
 import { eq, and, gte } from 'drizzle-orm'
 import type { H3Event } from 'h3'
+import { getCookie, getHeader } from 'h3'
 
 export interface CurrentUser {
   id: string
