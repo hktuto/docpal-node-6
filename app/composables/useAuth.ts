@@ -120,10 +120,10 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      const response = await $api<{
+      const response = await $api<SuccessResponse<{
         user: AuthUser
         session: { token: string; expiresAt: Date }
-      }>('/api/auth/magic-link/verify', {
+      }>>('/api/auth/magic-link/verify', {
         method: 'POST',
         body: { token },
       })
