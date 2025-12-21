@@ -105,10 +105,12 @@ onMounted(async () => {
   await auth.fetchUser()
 
   // Fetch invite details (we need a new API endpoint for this)
+  const {$api} = useNuxtApp()
   try {
-    const data = await $apiResponse<InviteInfo>(
+    const response = await $api<InviteInfo>(
       `/api/companies/invites/${inviteCode.value}`
     )
+    const data = response.data
     invite.value = data
   } catch (e: any) {
     error.value = e.data?.message || 'Invalid or expired invitation'

@@ -132,10 +132,11 @@ watch(() => auth.user.value, async () => {
 })
 
 const fetchCompanies = async () => {
+  const {$api} = useNuxtApp()
   try {
     loading.value = true
-    const data = await $apiResponse<{ companies: Company[] }>('/api/companies')
-    companies.value = data.companies
+    const response = await $api<{ companies: Company[] }>('/api/companies')
+    companies.value = response.data.companies
   } catch (e) {
     console.error('Failed to fetch companies:', e)
     companies.value = []

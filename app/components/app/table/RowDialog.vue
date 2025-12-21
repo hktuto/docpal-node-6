@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { DataTable, DataTableColumn } from '#shared/types/db'
-import { $apiResponse } from '~/composables/useApiResponse'
 
 interface Props {
   visible: boolean
@@ -157,9 +156,10 @@ async function handleSave() {
       submitData[col.name] = value
     })
     
+    const {$api} = useNuxtApp()
     if (isEdit.value) {
       // Update existing row
-      await $apiResponse(
+      await $api(
         `/api/apps/${props.appSlug}/tables/${props.tableSlug}/rows/${props.row.id}`,
         {
           method: 'PUT',
@@ -169,7 +169,7 @@ async function handleSave() {
       ElMessage.success('Row updated successfully')
     } else {
       // Create new row
-      await $apiResponse(
+      await $api(
         `/api/apps/${props.appSlug}/tables/${props.tableSlug}/rows`,
         {
           method: 'POST',

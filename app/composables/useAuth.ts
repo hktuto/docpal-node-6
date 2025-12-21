@@ -1,3 +1,4 @@
+import { successResponse } from '~~/server/utils/response';
 export interface AuthUser {
   id: string
   email: string
@@ -67,15 +68,15 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      const data = await $apiResponse<{
+      const response = await $api<SuccessResponse<{
         user: AuthUser
         session: { token: string; expiresAt: Date }
-      }>('/api/auth/login', {
+      }>>('/api/auth/login', {
         method: 'POST',
         body: { email, password },
       })
 
-      user.value = data.user
+      user.value = response.data.user
       
       // Fetch full user data including company
       await fetchUser()
@@ -97,7 +98,7 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      await $apiResponse('/api/auth/magic-link/send', {
+      await $api('/api/auth/magic-link/send', {
         method: 'POST',
         body: { email },
       })
@@ -119,7 +120,7 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      const data = await $apiResponse<{
+      const response = await $api<{
         user: AuthUser
         session: { token: string; expiresAt: Date }
       }>('/api/auth/magic-link/verify', {
@@ -127,7 +128,7 @@ export const useAuth = () => {
         body: { token },
       })
 
-      user.value = data.user
+      user.value = response.data.user
 
       // Fetch full user data including company
       await fetchUser()
@@ -147,7 +148,7 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       loading.value = true
-      await $apiResponse('/api/auth/logout', { method: 'POST' })
+      await $api('/api/auth/logout', { method: 'POST' })
     } catch (e) {
       console.error('Logout error:', e)
     } finally {
@@ -168,7 +169,7 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      await $apiResponse('/api/companies/switch', {
+      await $api('/api/companies/switch', {
         method: 'POST',
         body: { companyId },
       })
@@ -193,7 +194,7 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      await $apiResponse('/api/companies/invites/accept', {
+      await $api('/api/companies/invites/accept', {
         method: 'POST',
         body: { inviteCode },
       })

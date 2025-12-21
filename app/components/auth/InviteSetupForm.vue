@@ -140,9 +140,10 @@ const handleSubmit = async () => {
     loading.value = true
     error.value = null
 
+    const {$api} = useNuxtApp()
     try {
       // First, register the user
-      const registerResult = await $apiResponse('/api/auth/register', {
+      const registerResult = await $api('/api/auth/register', {
         method: 'POST',
         body: {
           email: form.email,

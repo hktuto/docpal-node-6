@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { useApiResponse } from '~/composables/useApiResponse'
-
 definePageMeta({
   layout: 'admin',
   middleware: 'admin'
 })
 
 // Admin dashboard - system overview
-const { data: stats, pending } = await useApiResponse('/api/admin/stats')
+const { data: stats, pending } = await useApi('/api/admin/stats')
 </script>
 
 <template>

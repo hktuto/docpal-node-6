@@ -178,7 +178,8 @@ async function suggestColumnType(index: number) {
         config: col.config || {}
       }))
     
-    const response = await $apiResponse('/api/ai/suggest-column-type', {
+    const {$api} = useNuxtApp()
+    const response = await $api('/api/ai/suggest-column-type', {
       method: 'POST',
       body: {
         columnName: column.name,
@@ -256,7 +257,8 @@ async function handleCreate() {
     
     loading.value = true
     
-    const table = await $apiResponse(`/api/apps/${props.appSlug}/tables`, {
+    const {$api} = useNuxtApp()
+    const response = await $api(`/api/apps/${props.appSlug}/tables`, {
       method: 'POST',
       body: {
         name: form.value.name,

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { DataTable, DataTableColumn } from '#shared/types/db'
 import type { VxeGridPropTypes } from 'vxe-table'
-import { useApiResponse, $apiResponse } from '~/composables/useApiResponse'
 
 definePageMeta({
   layout: 'app'
@@ -18,7 +17,7 @@ onMounted(() => {
 })
 
 // Fetch table metadata (with columns) - only schema, not rows
-const { data: table, pending: tablePending, refresh: refreshTable } = await useApiResponse<DataTable & { columns: DataTableColumn[] }>(
+const { data: table, pending: tablePending, refresh: refreshTable } = await useApi<DataTable & { columns: DataTableColumn[] }>(
   () => `/api/apps/${appSlug.value}/tables/${tableSlug.value}`,
   {
     key: `table-${appSlug.value}-${tableSlug.value}`,
@@ -33,13 +32,15 @@ const proxyConfig = computed<VxeGridPropTypes.ProxyConfig>(() => ({
   ajax: {
     // Query method - vxe-table will call this automatically
     query: async ({ page, sort, filters }) => {
+      const {$api} = useNuxtApp()
       try {
         const limit = page.pageSize
         const offset = (page.currentPage - 1) * page.pageSize
         
-        const response = await $apiResponse<any[]>(
+        const apiResponse = await $api<any[]>(
           `/api/apps/${appSlug.value}/tables/${tableSlug.value}/rows?limit=${limit}&offset=${offset}`
         )
+        const response = apiResponse.data
         
         return {
           result: response || [],
@@ -110,7 +111,8 @@ async function handleDeleteRow(row: any) {
       }
     )
 
-    await $apiResponse(
+    const {$api} = useNuxtApp()
+    await $api(
       `/api/apps/${appSlug.value}/tables/${tableSlug.value}/rows/${row.id}`,
       { method: 'DELETE' }
     )

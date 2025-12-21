@@ -9,7 +9,7 @@ const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
 
 // Fetch app data
-const { data: app, pending, refresh: refreshApp, error } = await useApiResponse<App>(() => `/api/apps/${appSlug.value}`, {
+const { data: app, pending, refresh: refreshApp, error } = await useApi<App>(() => `/api/apps/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
@@ -20,12 +20,14 @@ const { data: app, pending, refresh: refreshApp, error } = await useApiResponse<
 const updateApp = useDebounceFn(updateAppApi, 500)
 
 async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
+  const {$api} = useNuxtApp()
   try {
     console.log('💾 updateAppApi called with data:', JSON.stringify(data))
-    const updated = await $apiResponse<App>(`/api/apps/${appSlug.value}`, {
+    const response = await $api<App>(`/api/apps/${appSlug.value}`, {
       method: 'PUT',
       body: data
     })
+    const updated = response.data
     
     await refreshApp()
     return updated
@@ -37,8 +39,9 @@ async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'descripti
 
 // Delete app
 async function deleteApp(): Promise<boolean> {
+  const {$api} = useNuxtApp()
   try {
-    await $apiResponse(`/api/apps/${appSlug.value}`, {
+    await $api(`/api/apps/${appSlug.value}`, {
       method: 'DELETE'
     })
     return true

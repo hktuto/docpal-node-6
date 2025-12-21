@@ -23,10 +23,11 @@
   const createApp = async () => {
     if (!formRef.value) return
     
+    const {$api} = useNuxtApp()
     try {
       await formRef.value.validate()
       
-      await $apiResponse('/api/apps', {
+      await $api('/api/apps', {
         method: 'POST',
         body: {
           name: form.value.name,
@@ -98,7 +99,8 @@
         }
       )
 
-      await $apiResponse(`/api/apps/${app.slug}`, {
+      const {$api} = useNuxtApp()
+      await $api(`/api/apps/${app.slug}`, {
         method: 'DELETE' as any
       })
 

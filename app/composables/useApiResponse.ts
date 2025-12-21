@@ -47,7 +47,7 @@ export async function $apiResponse<T>(
   url: string,
   options?: any
 ): Promise<T> {
-  const response = await $fetch<SuccessResponse<T>>(url, options)
+  const response = await useNuxtApp().$api<SuccessResponse<T>>(url, options)
   return response.data
 }
 
