@@ -7,10 +7,11 @@ import { eq, and } from 'drizzle-orm'
  * 
  * Runs on app-specific routes to:
  * 1. Extract appSlug from URL
- * 2. Load app data (scoped to company)
+ * 2. Load app data (scoped to user's company)
  * 3. Attach to event.context
  * 
  * Only runs for routes matching: /api/apps/:appSlug/*
+ * Requires auth middleware (00.auth.ts) to set user context
  */
 export default defineEventHandler(async (event) => {
   const path = event.path
@@ -22,18 +23,25 @@ export default defineEventHandler(async (event) => {
   }
 
   const appSlug = appRouteMatch[1]
-  console.log(`[App Middleware] Processing: ${path}, slug: ${appSlug}`)
 
-  const companyId = event.context.companyId
+  // Get user from context (set by auth middleware)
+  const user = event.context.user
 
-  // Company context should be set by previous middleware
-  if (!companyId) {
-    console.error('[App Middleware] Company context not set by 1.company.ts middleware!')
+  if (!user) {
     throw createError({
-      statusCode: 500,
-      message: 'Company context not found. Middleware order issue.',
+      statusCode: 401,
+      message: 'Authentication required',
     })
   }
+
+  if (!user.company) {
+    throw createError({
+      statusCode: 400,
+      message: 'No company selected. Please select a company first.',
+    })
+  }
+
+  const companyId = user.company.id
 
   // Load app data (scoped to company)
   const app = await db
@@ -46,9 +54,7 @@ export default defineEventHandler(async (event) => {
     .limit(1)
     .then(rows => rows[0])
 
-  // If app not found, return 404 early
   if (!app) {
-    console.error(`[App Middleware] App '${appSlug}' not found in company ${companyId}`)
     throw createError({
       statusCode: 404,
       message: `App '${appSlug}' not found in your company.`,
@@ -58,7 +64,5 @@ export default defineEventHandler(async (event) => {
   // Attach to event context
   event.context.app = app
   event.context.appId = app.id
-
-  console.log(`[App Middleware] ✓ Set context: ${app.slug} (${app.id}) in company ${companyId}`)
 })
 

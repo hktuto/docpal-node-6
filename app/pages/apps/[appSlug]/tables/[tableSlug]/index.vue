@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DataTable, DataTableColumn } from '#shared/types/db'
-import type { SuccessResponse } from '#shared/types/api'
 import type { VxeGridPropTypes } from 'vxe-table'
+import { useApiResponse, $apiResponse } from '~/composables/useApiResponse'
 
 definePageMeta({
   layout: 'app'
@@ -18,14 +18,12 @@ onMounted(() => {
 })
 
 // Fetch table metadata (with columns) - only schema, not rows
-const { data: tableResponse, pending: tablePending, refresh: refreshTable } = await useFetch<SuccessResponse<DataTable & { columns: DataTableColumn[] }>>(
+const { data: table, pending: tablePending, refresh: refreshTable } = await useApiResponse<DataTable & { columns: DataTableColumn[] }>(
   () => `/api/apps/${appSlug.value}/tables/${tableSlug.value}`,
   {
     key: `table-${appSlug.value}-${tableSlug.value}`,
   }
 )
-
-const table = computed(() => tableResponse.value?.data)
 
 // Grid ref for manual operations
 const gridRef = ref()
@@ -185,16 +183,16 @@ function navigateToSettings() {
       </div>
     </div>
     
-    <!-- Row Dialog (TODO: Create component) -->
-    <!-- <AppTableRowDialog
+    <!-- Row Dialog -->
+    <AppTableRowDialog
       v-if="table"
-      v-model="showRowDialog"
+      v-model:visible="showRowDialog"
       :app-slug="appSlug"
       :table-slug="tableSlug"
       :table="table"
       :row="editingRow"
       @saved="handleRowSaved"
-    /> -->
+    />
   </div>
 </template>
 

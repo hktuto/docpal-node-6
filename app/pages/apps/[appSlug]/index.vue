@@ -10,13 +10,18 @@ const isMounted = ref(false)
 onMounted(() => {
   isMounted.value = true
 })
+
+function navigateToSettings() {
+  console.log('navigateToSettings', app.value?.slug)
+  navigateTo(`/apps/${app.value.slug}/settings`)
+}
 </script>
 
 <template>
   <div class="app-overview-page">
     <!-- Teleport: Page Actions -->
     <Teleport v-if="isMounted" to="#app-page-actions">
-      <el-button>
+      <el-button @click="navigateToSettings">
         <Icon name="lucide:settings" />
         Settings
       </el-button>

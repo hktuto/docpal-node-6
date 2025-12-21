@@ -1,24 +1,6 @@
 import type { H3Event } from 'h3'
 import type { Company, App } from '#shared/types/db'
 
-/**
- * Get current company from event context
- * Company is set by 1.company.ts middleware
- * 
- * @throws Error if company context not found
- */
-export function requireCompany(event: H3Event): Company {
-  const company = event.context.company
-
-  if (!company) {
-    throw createError({
-      statusCode: 500,
-      message: 'Company context not found. Middleware error.',
-    })
-  }
-
-  return company
-}
 
 /**
  * Get current company ID from event context

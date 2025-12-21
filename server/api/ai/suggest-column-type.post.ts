@@ -1,99 +1,122 @@
-import { defineApiResponse } from '~/server/utils/response'
+import { successResponse } from '~~/server/utils/response'
+import { generateJSONCompletion, isAIEnabled, getAIProvider } from '~~/server/utils/ai'
 import type { TableColumnDef } from '#shared/types/db'
+import { db } from 'hub:db'
+import { eq } from 'drizzle-orm'
+import { apps, dataTables, dataTableColumns } from 'hub:db:schema'
 
 export default defineEventHandler(async (event) => {
-  return defineApiResponse(event, async () => {
-    const body = await readBody(event)
-    const { columnName, columnLabel, tableDescription, appSlug } = body
+  const body = await readBody(event)
+  const { columnName, columnLabel, tableDescription, appSlug, currentTableColumns } = body
 
-    if (!columnName) {
-      throw createError({
-        statusCode: 400,
-        message: 'Column name is required'
-      })
-    }
+  if (!columnName) {
+    throw createError({
+      statusCode: 400,
+      message: 'Column name is required'
+    })
+  }
 
-    // Get app context to understand existing table structures
-    let appContext = null
-    if (appSlug) {
-      try {
-        appContext = await getAppContext(event, appSlug)
-      } catch (error) {
-        console.warn('Could not fetch app context:', error)
-        // Continue without context
-      }
-    }
-
-    // Get Ollama configuration from environment
-    const ollamaBaseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434'
-    const ollamaModel = process.env.OLLAMA_MODEL || 'qwen2.5-coder:7b'
-
-    // Check if Ollama is configured
-    if (!process.env.OLLAMA_BASE_URL && !process.env.OLLAMA_MODEL) {
-      console.warn('Ollama not configured. Using fallback logic.')
-      return {
-        suggestedType: fallbackTypeSuggestion(columnName),
-        confidence: 'low',
-        reason: 'AI not configured. Using basic pattern matching.',
-        aiEnabled: false
-      }
-    }
-
+  // Get app context to understand existing table structures
+  let appContext = null
+  if (appSlug) {
     try {
-      // Build context for the LLM
-      const context = buildPromptContext(columnName, columnLabel, tableDescription, appContext)
-      
-      // Call Ollama API
-      const response = await $fetch(`${ollamaBaseUrl}/api/generate`, {
-        method: 'POST',
-        body: {
-          model: ollamaModel,
-          prompt: context,
-          stream: false,
-          options: {
-            temperature: 0.3, // Lower temperature for more consistent results
-            top_p: 0.9,
-          }
-        },
-        timeout: 10000 // 10 second timeout
-      })
-
-      // Parse the response
-      const suggestion = parseAIResponse(response.response, columnName, columnLabel)
-      
-      return {
-        ...suggestion,
-        aiEnabled: true
-      }
-    } catch (error: any) {
-      console.error('Error calling Ollama:', error)
-      
-      // Fallback to basic suggestion if AI fails
-      return {
-        suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
-        confidence: 'low',
-        reason: `AI service unavailable: ${error.message}. Using basic pattern matching.`,
-        aiEnabled: false
-      }
+      appContext = await getAppContext(event, appSlug)
+    } catch (error) {
+      console.warn('Could not fetch app context:', error)
+      // Continue without context
     }
-  })
+  }
+
+  // Check if AI is configured
+  if (!isAIEnabled()) {
+    console.warn('AI not configured. Using fallback logic.')
+    return successResponse({
+      suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
+      confidence: 'low',
+      reason: 'AI not configured. Using basic pattern matching.',
+      aiEnabled: false,
+      provider: 'none'
+    })
+  }
+
+  try {
+    // Build context for the LLM with rich information
+    const prompt = buildPromptContext(
+      columnName, 
+      columnLabel, 
+      tableDescription, 
+      currentTableColumns,
+      appContext
+    )
+    
+    // Call AI API (works with both OpenAI and Ollama)
+    const aiResponse = await generateJSONCompletion<{
+      type: string
+      required: boolean
+      config: any
+      confidence: string
+      reason: string
+    }>(
+      [
+        {
+          role: 'system',
+          content: 'You are a database schema design expert. Analyze column requirements and suggest complete, production-ready column configurations.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      {
+        temperature: 0.3,
+        maxTokens: 500
+      }
+    )
+
+    if (!aiResponse) {
+      throw new Error('Failed to parse AI response')
+    }
+
+    // Build the suggestion from AI response
+    const result = {
+      suggestedColumn: {
+        name: columnName,
+        label: columnLabel || generateLabelFromName(columnName),
+        type: aiResponse.type || 'text',
+        required: aiResponse.required ?? false,
+        config: aiResponse.config || {}
+      } as TableColumnDef,
+      confidence: aiResponse.confidence || 'medium',
+      reason: aiResponse.reason || 'Suggested by AI',
+      aiEnabled: true,
+      provider: getAIProvider()
+    }
+    
+    return successResponse(result)
+  } catch (error: any) {
+    console.error('Error calling AI:', error)
+    
+    // Fallback to basic suggestion if AI fails
+    return successResponse({
+      suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
+      confidence: 'low',
+      reason: `AI service unavailable: ${error.message}. Using basic pattern matching.`,
+      aiEnabled: false,
+      provider: 'none'
+    })
+  }
 })
 
 /**
  * Get app context including existing tables and their schemas
  */
 async function getAppContext(event: any, appSlug: string) {
-  const db = await useDatabase()
   
   // Get app with company context
   const { app, company } = event.context
   
   if (!app || app.slug !== appSlug) {
     // Query the app if not in context
-    const tables = await import('hub:db:schema')
-    const { apps, dataTables, dataTableColumns } = tables
-    const { eq, and } = await import('drizzle-orm')
-    
     const appRecord = await db
       .select()
       .from(apps)
@@ -146,139 +169,130 @@ async function getAppContext(event: any, appSlug: string) {
   
   return null
 }
-  })
-})
+
 
 /**
- * Build a prompt for the LLM to suggest full column configuration
+ * Build a rich prompt for the LLM to suggest complete column configuration
  */
 function buildPromptContext(
   columnName: string, 
   columnLabel?: string, 
   tableDescription?: string,
+  currentTableColumns?: TableColumnDef[],
   appContext?: any
 ): string {
   const availableTypes = [
-    'text - for short text fields (names, titles, single-line inputs)',
-    'long_text - for longer text content (descriptions, notes, multi-line content)',
-    'number - for numeric values (quantities, prices, counts)',
-    'date - for date and time values',
-    'switch - for boolean yes/no values (active/inactive, enabled/disabled)'
+    'text - Short text fields (names, titles, email, phone, single-line inputs)',
+    'long_text - Longer text content (descriptions, notes, comments, multi-line content)',
+    'number - Numeric values (quantities, prices, counts, scores, ratings)',
+    'date - Date and time values (birthdays, created_at, due_date, scheduled_time)',
+    'switch - Boolean yes/no values (is_active, is_published, enabled, completed)'
   ]
 
-  let prompt = `You are a database schema expert. Analyze the column and suggest a complete column configuration.
+  let prompt = `Analyze this new database column and suggest a complete, production-ready configuration.
 
-Available column types:
+# Available Column Types
 ${availableTypes.map(t => `- ${t}`).join('\n')}
 
-Column information:
-- Column name: "${columnName}"`
+# New Column Information
+- Column name: "${columnName}"
+- Display label: "${columnLabel || 'Not provided'}"
+${tableDescription ? `- Table purpose: "${tableDescription}"` : ''}
 
-  if (columnLabel) {
-    prompt += `\n- Display label: "${columnLabel}"`
-  }
-  
-  if (tableDescription) {
-    prompt += `\n- Table description: "${tableDescription}"`
+# Current Table Columns`
+
+  if (currentTableColumns && currentTableColumns.length > 0) {
+    prompt += `\nExisting columns in this table:`
+    currentTableColumns.forEach((col: any) => {
+      prompt += `\n- ${col.name} (${col.label}): ${col.type}${col.required ? ' [Required]' : ''}`
+      if (col.config) {
+        const configDetails = []
+        if (col.config.maxLength) configDetails.push(`max:${col.config.maxLength}`)
+        if (col.config.min !== undefined) configDetails.push(`min:${col.config.min}`)
+        if (col.config.max !== undefined) configDetails.push(`max:${col.config.max}`)
+        if (configDetails.length > 0) {
+          prompt += ` (${configDetails.join(', ')})`
+        }
+      }
+    })
+  } else {
+    prompt += `\nThis is the first column in a new table.`
   }
 
   // Add app context if available
   if (appContext?.tables?.length > 0) {
-    prompt += `\n\nExisting tables in this app:`
+    prompt += `\n\n# Related Tables in This App`
+    if (appContext.appName) {
+      prompt += `\nApp: "${appContext.appName}"`
+    }
     for (const table of appContext.tables.slice(0, 3)) { // Limit to first 3 tables
-      prompt += `\n- ${table.name}${table.description ? ` (${table.description})` : ''}`
+      prompt += `\n\n## ${table.name}`
+      if (table.description) {
+        prompt += ` - ${table.description}`
+      }
       if (table.columns?.length > 0) {
-        prompt += `\n  Columns: ${table.columns.map((c: any) => `${c.name}:${c.type}`).join(', ')}`
+        prompt += `\nColumns: ${table.columns.map((c: any) => `${c.name}(${c.type})`).join(', ')}`
       }
     }
   }
 
-  prompt += `\n\nAnalyze the column and respond with a complete configuration in JSON format:
+  prompt += `\n\n# Your Task
+Analyze the column name, label, existing table structure, and app context to suggest:
+1. The most appropriate column type
+2. Whether it should be required
+3. Smart configuration options (validations, formats, constraints)
+4. Helpful placeholder text
 
+# Configuration Options by Type
+
+**text**:
+- maxLength: Maximum character limit (e.g., 100 for names, 255 for emails)
+- minLength: Minimum character limit (optional)
+- placeholder: Helpful example text
+
+**long_text**:
+- maxLength: Character limit (e.g., 1000-5000)
+- placeholder: Helpful example text
+
+**number**:
+- min: Minimum value (e.g., 0 for quantities, prices)
+- max: Maximum value (optional)
+- decimals: Decimal places (0 for integers, 2 for currency)
+
+**date**:
+- format: "date" (date only), "datetime" (date + time), or "time" (time only)
+
+**switch**:
+- defaultValue: true or false
+
+# Response Format (JSON only)
 {
-  "type": "one of: text, long_text, number, date, switch",
+  "type": "text|long_text|number|date|switch",
   "required": boolean,
   "config": {
-    // For text: "maxLength", "placeholder"
-    // For number: "min", "max", "decimals"
-    // For date: "format" (date|datetime|time)
-    // Add only relevant fields
+    // Include ONLY relevant config fields for the chosen type
+    // Examples:
+    // For text: { "maxLength": 255, "placeholder": "john@example.com" }
+    // For number: { "min": 0, "max": 100, "decimals": 0 }
+    // For date: { "format": "datetime" }
   },
-  "confidence": "one of: high, medium, low",
-  "reason": "brief explanation of your suggestions"
+  "confidence": "high|medium|low",
+  "reason": "Brief 1-2 sentence explanation of why these settings make sense"
 }
 
-Provide smart defaults:
-- Common fields like "email", "name" should be required
-- Set reasonable maxLength for text fields
-- Add helpful placeholders
-- For numbers, suggest min/max if applicable
+# Best Practices
+- Common fields (name, email, phone) should be required
+- Email/URL fields need appropriate maxLength (255)
+- Prices/money should have decimals: 2, min: 0
+- Quantities/counts should have decimals: 0, min: 0
+- Descriptions should be long_text with 1000-5000 maxLength
+- Status fields (is_active, enabled) should be switch with defaultValue
+- Timestamps should be date with format: "datetime"
+- Due dates/birthdays should be date with format: "date"
 
-JSON response:`
+Respond with ONLY valid JSON, no other text.`
 
   return prompt
-}
-
-/**
- * Parse AI response and extract full column suggestion
- */
-function parseAIResponse(aiResponse: string, columnName: string, columnLabel?: string): {
-  suggestedColumn: TableColumnDef
-  confidence: string
-  reason: string
-} {
-  try {
-    // Try to extract JSON from the response
-    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0])
-      
-      return {
-        suggestedColumn: {
-          name: columnName,
-          label: columnLabel || generateLabelFromName(columnName),
-          type: parsed.type || 'text',
-          required: parsed.required ?? false,
-          config: parsed.config || {}
-        },
-        confidence: parsed.confidence || 'medium',
-        reason: parsed.reason || 'Suggested by AI'
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing AI response:', error)
-  }
-
-  // If parsing fails, try to extract type from text
-  const lowerResponse = aiResponse.toLowerCase()
-  let type = 'text'
-  let reason = 'Default text type'
-  
-  if (lowerResponse.includes('long_text') || lowerResponse.includes('long text')) {
-    type = 'long_text'
-    reason = 'Contains description or notes'
-  } else if (lowerResponse.includes('number') || lowerResponse.includes('numeric')) {
-    type = 'number'
-    reason = 'Appears to be numeric data'
-  } else if (lowerResponse.includes('date') || lowerResponse.includes('time')) {
-    type = 'date'
-    reason = 'Appears to be date/time data'
-  } else if (lowerResponse.includes('switch') || lowerResponse.includes('boolean')) {
-    type = 'switch'
-    reason = 'Appears to be boolean data'
-  }
-
-  return {
-    suggestedColumn: {
-      name: columnName,
-      label: columnLabel || generateLabelFromName(columnName),
-      type: type as any,
-      required: false,
-      config: {}
-    },
-    confidence: 'medium',
-    reason
-  }
 }
 
 /**

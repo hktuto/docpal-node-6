@@ -1,3 +1,8 @@
+---
+alwaysApply: true
+---
+
+
 # DocPal Project Rules
 
 ## Project Overview
@@ -361,12 +366,58 @@ const createApp = async () => {
 4. Seed data if needed: `pnpm seed`
 5. Start dev server: `pnpm dev`
 
+## Documentation Structure
+
+### Project Documentation
+The project uses a simple, organized documentation structure:
+
+```
+docs/
+├── README.md                    # Master plan overview
+├── DEVELOPMENT_PLAN/           # Phase plans (goals & actions)
+│   ├── phase1.md              # POC - Dynamic Tables (Complete)
+│   ├── phase2.md              # Authentication (Next)
+│   ├── phase1.5.md            # Table Enhancements (Planned)
+│   ├── phase3.md              # Basic Workflows (Planned)
+│   ├── phase4.md              # Real-time Features (Planned)
+│   └── phase5.md              # Advanced Features (Planned)
+├── DEVELOPMENT_PROCESS/        # Daily work logs
+│   └── YYYY-MM-DD.md          # Daily progress logs
+├── AI_SETUP.md                 # AI configuration (OpenAI/Ollama)
+├── API_RESPONSE_FORMAT.md      # API standards
+└── MIDDLEWARE_GUIDE.md         # Server middleware guide
+```
+
+### Phase Document Format
+Each phase document follows a simple, actionable structure:
+
+```markdown
+# Phase X: Title
+
+**Status**: pending | in_progress | finish | skip
+
+## Goals
+- [ ] Goal 1
+- [ ] Goal 2
+
+## Actions
+- [ ] Action 1
+- [ ] Action 2
+```
+
+### Documentation Guidelines
+- **Start here**: Read `docs/README.md` for project overview
+- **Current phase**: Check the relevant phase document in `docs/DEVELOPMENT_PLAN/`
+- **Daily logs**: Update `docs/DEVELOPMENT_PROCESS/` with progress
+- **Technical guides**: Reference AI_SETUP.md, API_RESPONSE_FORMAT.md, MIDDLEWARE_GUIDE.md as needed
+- **Keep it simple**: Phase documents focus on goals and actions, not implementation details
+
 ## References
 
 - Element Plus Docs: https://element-plus.org/
 - Nuxt 4 Docs: https://nuxt.com/
 - NuxtHub Docs: https://hub.nuxt.com/
 - Drizzle ORM Docs: https://orm.drizzle.team/
-- Project Architecture: `docs/ARCHITECTURE.md`
-- Development Plan: `docs/DEVELOPMENT_PLAN.md`
+- Project Overview: `docs/README.md`
+- Current Phase: `docs/DEVELOPMENT_PLAN/phase2.md` (Authentication - Next)
 

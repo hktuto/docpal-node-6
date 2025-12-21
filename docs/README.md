@@ -1,152 +1,122 @@
-# DocPal Documentation
+# DocPal - Master Development Plan
 
-This folder contains the essential documentation for the DocPal project.
+## Project Overview
 
-## 📋 Documentation Files
+A low-code platform built with Nuxt + NuxtHub allowing users to create companies, apps, dynamic data tables, views, dashboards, and automation workflows.
 
-### [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md) (44KB)
-**The master plan for the entire project.**
+## Tech Stack
 
-**Contains:**
-- Complete 5-phase development roadmap
-- Detailed database schemas for each phase
-- API endpoint specifications
-- Frontend structure and components
-- Field type specifications (basic + advanced)
-- Audit logging system (Phase 2)
-- Workflow engine architecture (Phase 3)
-- Activity feed with comments and approvals (Phase 4)
-- Timeline estimates and deliverables
-- Risk mitigation strategies
-
-**Use this for:**
-- Understanding the full project scope
-- Implementation guidance
-- Technical specifications
-- Feature planning
+- **Frontend**: Nuxt 4, Element Plus, SCSS + CSS Variables
+- **Backend**: NuxtHub, PostgreSQL, Drizzle ORM
+- **File Storage**: MinIO (S3-compatible)
+- **AI**: OpenAI + Ollama (optional, self-hosted LLM)
+- **Workflow Engine**: Temporal (Phase 5)
+- **Real-time**: WebSockets/SSE (Phase 4)
 
 ---
 
-### [ARCHITECTURE.md](./ARCHITECTURE.md) (27KB)
-**Key architectural decisions and system design.**
+## Development Phases
 
-**Contains:**
-- High-level system architecture
-- Database design (two-tier: metadata + dynamic tables)
-- Company-prefixed table naming strategy (`dt_[companyId]_[tableId]`)
-- Multi-tenancy isolation approach
-- Dynamic schema management
-- Type system and field mappings
-- Query building system
-- Context provider pattern (provide/inject)
-- Permission system design
-- Security considerations
-- Performance optimization strategies
-- Caching strategy
-- Technology decisions and rationale
+| Phase | Status | Duration | Details |
+|-------|--------|----------|---------|
+| Phase 1: POC - Dynamic Tables | ✅ **Complete** | 3 weeks | [View Plan](./DEVELOPMENT_PLAN/phase1.md) |
+| Phase 2: Authentication | 🔄 **Next** | 2-3 weeks | [View Plan](./DEVELOPMENT_PLAN/phase2.md) |
+| Phase 1.5: Table Enhancements | 📋 Planned | 2-3 weeks | [View Plan](./DEVELOPMENT_PLAN/phase1.5.md) |
+| Phase 3: Basic Workflows | 📋 Planned | 3-4 weeks | [View Plan](./DEVELOPMENT_PLAN/phase3.md) |
+| Phase 4: Real-time Features | 📋 Planned | 3-4 weeks | [View Plan](./DEVELOPMENT_PLAN/phase4.md) |
+| Phase 5: Advanced Features | 📋 Planned | 4-5 weeks | [View Plan](./DEVELOPMENT_PLAN/phase5.md) |
 
-**Use this for:**
-- Understanding why we made specific decisions
-- Architectural reference
-- Multi-tenancy strategy
-- Scalability planning
-- Security guidelines
+**Total Estimated Timeline**: 5-6 months
 
 ---
 
-## 🎯 Quick Start
+## Documentation Structure
 
-For setup instructions, see the main [README.md](../README.md) in the project root.
-
-For detailed phase-by-phase implementation, start with [DEVELOPMENT_PLAN.md](./DEVELOPMENT_PLAN.md).
-
----
-
-## 📚 What's NOT Here (Intentionally)
-
-**Removed for simplicity:**
-- ~~PHASE_1_TECHNICAL_SPEC.md~~ - Details consolidated into DEVELOPMENT_PLAN.md
-- ~~GETTING_STARTED.md~~ - Setup info in main README.md
-- ~~MULTI_TENANCY_STRATEGY.md~~ - Key points in ARCHITECTURE.md
-- ~~ADVANCED_FIELD_TYPES.md~~ - Implementation details in DEVELOPMENT_PLAN.md
-
-**Reason**: Keep documentation lean and maintainable. All essential information is in the 2 core docs.
-
----
-
-## 🔄 Documentation Updates
-
-When making changes:
-
-1. **Architecture changes** → Update ARCHITECTURE.md
-2. **Feature specs/timeline** → Update DEVELOPMENT_PLAN.md
-3. **Setup/quick start** → Update main README.md
-
-Keep these docs **in sync** with actual implementation.
+```
+docs/
+├── README.md                    # This file - master plan overview
+├── DEVELOPMENT_PLAN/            # Phase plans with goals and actions
+│   ├── phase1.md               # Phase 1: POC (Complete)
+│   ├── phase2.md               # Phase 2: Authentication (Next)
+│   ├── phase1.5.md             # Phase 1.5: Table Enhancements
+│   ├── phase3.md               # Phase 3: Workflows
+│   ├── phase4.md               # Phase 4: Real-time
+│   └── phase5.md               # Phase 5: Advanced
+├── DEVELOPMENT_PROCESS/         # Daily work logs
+│   └── 2025-12-20.md           # Phase 1 completion log
+├── AI_SETUP.md                  # AI configuration guide (OpenAI/Ollama)
+├── API_RESPONSE_FORMAT.md       # API standards
+└── MIDDLEWARE_GUIDE.md          # Server middleware guide
+```
 
 ---
 
-## 📖 Reading Order
+## Quick Start
 
-**For new team members:**
-1. Main README.md (project overview)
-2. ARCHITECTURE.md (understand the system)
-3. DEVELOPMENT_PLAN.md (implementation details)
+### For New Developers
 
-**For implementation:**
-1. DEVELOPMENT_PLAN.md → Find your phase
-2. Follow the specifications
-3. Reference ARCHITECTURE.md for design decisions
+1. **Read this README** - Understand overall project structure
+2. **Check current phase plan** - See what we're working on
+3. **Review latest process log** - See recent progress
+4. **Set up environment** - Follow setup instructions in phase docs
 
----
+### For Continuing Development
 
-## 🎯 Key Features Documented
-
-### Phase 1: Dynamic Tables
-- Company-prefixed table naming
-- Runtime schema management
-- 13 field types (basic + advanced)
-- Auto-generated forms and views
-
-### Phase 2: Auth & Audit
-- Session-based authentication
-- Company management with invitations
-- **Audit logging system** (all operations tracked)
-- Magic links and invite codes
-
-### Phase 3: Workflows
-- Trigger system (record events)
-- Action engine (update, create, user forms)
-- **Workflow audit integration**
-- Execution history
-
-### Phase 4: Real-time & Activity
-- WebSocket connections
-- User presence tracking
-- **Unified activity feed** (audits + comments + workflows)
-- **Interactive workflow approvals**
-- @mentions and notifications
-- Live updates
-
-### Phase 5: Advanced
-- Temporal workflows
-- Row-level permissions
-- Dashboard builder
-- Folder system
-- Document generation
+1. **Check current phase** - Review goals and actions
+2. **Update task status** - Mark completed actions
+3. **Log your work** - Update `DEVELOPMENT_PROCESS/` daily
+4. **Move to next phase** - When all actions complete
 
 ---
 
-## 💡 Design Principles
+## Key Decisions
 
-1. **Company-First**: Everything scoped to company for multi-tenancy
-2. **Dynamic by Default**: Tables, forms, views all runtime-configurable
-3. **Physical Tables**: Use real PostgreSQL tables (not JSON) for performance
-4. **Audit Everything**: Immutable audit log for compliance
-5. **Real-time Collaboration**: Activity feed brings everything together
-6. **Progressive Enhancement**: Start simple (Phase 1), add complexity incrementally
+### Multi-Tenancy
+- Company-prefixed table names: `dt_[companyId]_[tableId]`
+- Slugs unique per company (not globally)
+- Physical data isolation
+
+### API Standards
+- Modified JSend format
+- Slug-based routing
+- Type-safe shared types
+- Server middleware for context
+
+### AI Integration (Optional)
+- Supports OpenAI (cloud) and Ollama (self-hosted)
+- Reusable AI service
+- Graceful fallback to patterns
+- See `AI_SETUP.md` for details
 
 ---
 
-Last updated: December 2025
+## Phase 1 Achievements (Complete)
 
+**What We Built:**
+- ✅ Dynamic table creation with physical PostgreSQL tables
+- ✅ Full CRUD operations (15 API endpoints)
+- ✅ DataGrid with vxe-table (virtual scrolling)
+- ✅ AI-powered column suggestions
+- ✅ Multi-tenant architecture
+- ✅ Comprehensive documentation
+
+**Statistics:**
+- 35+ files created
+- 15 API endpoints
+- 12 components
+- 8,000+ lines of code
+
+---
+
+## Current Focus
+
+**Phase 2: Authentication & Company Management**
+
+Building user authentication, company management, and multi-tenancy features to enable real usage of the platform.
+
+See [`DEVELOPMENT_PLAN/phase2.md`](./DEVELOPMENT_PLAN/phase2.md) for details.
+
+---
+
+**Last Updated**: December 20, 2025  
+**Next Milestone**: Phase 2 - Authentication

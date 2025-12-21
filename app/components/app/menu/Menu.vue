@@ -29,7 +29,46 @@ const localMenu = ref<MenuItem[]>([])
 // Watch for menu prop changes
 watch(() => props.menu, (newMenu) => {
   localMenu.value = JSON.parse(JSON.stringify(newMenu || []))
+  // Auto-expand folders containing active items
+  expandActiveFolders()
 }, { immediate: true })
+
+// Watch route changes to expand folders containing newly active items
+watch(() => route.path, () => {
+  expandActiveFolders()
+})
+
+// Auto-expand folders that contain the currently active item
+function expandActiveFolders() {
+  const expandParentFolders = (items: MenuItem[], parents: string[] = []): boolean => {
+    for (const item of items) {
+      const currentParents = [...parents, item.id]
+      
+      // Check if this item is active
+      if (isItemActive(item)) {
+        // Expand all parent folders
+        parents.forEach(parentId => {
+          expandedFolders.value.add(parentId)
+        })
+        return true
+      }
+      
+      // If it's a folder, recursively check children
+      if (item.type === 'folder' && item.children && item.children.length > 0) {
+        if (expandParentFolders(item.children, currentParents)) {
+          // Expand this folder too if it contains an active item
+          expandedFolders.value.add(item.id)
+          return true
+        }
+      }
+    }
+    return false
+  }
+  
+  if (localMenu.value.length > 0) {
+    expandParentFolders(localMenu.value)
+  }
+}
 
 // Update order recursively
 function updateOrder(items: MenuItem[], startOrder = 0): MenuItem[] {
@@ -108,6 +147,11 @@ function hasActiveChild(item: MenuItem): boolean {
 // Navigate to item
 function navigateToItem(item: MenuItem) {
   if (!props.appSlug) return
+  
+  // If it's a folder, also expand it when clicking
+  if (item.type === 'folder') {
+    expandedFolders.value.add(item.id)
+  }
   
   const basePath = `/apps/${props.appSlug}`
   navigateTo(`${basePath}/${item.type}s/${item.slug}`)

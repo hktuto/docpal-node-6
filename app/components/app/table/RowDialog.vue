@@ -1,147 +1,169 @@
 <script setup lang="ts">
 import type { DataTable, DataTableColumn } from '#shared/types/db'
+import { $apiResponse } from '~/composables/useApiResponse'
 
 interface Props {
-  modelValue: boolean
+  visible: boolean
   appSlug: string
   tableSlug: string
   table: DataTable & { columns: DataTableColumn[] }
-  row?: any // If provided, we're editing; otherwise creating
+  row?: any | null
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: boolean): void
-  (e: 'saved'): void
+  'update:visible': [value: boolean]
+  'saved': []
 }>()
 
-// Form data
-const formData = ref<Record<string, any>>({})
+const dialogVisible = computed({
+  get: () => props.visible,
+  set: (value) => emit('update:visible', value)
+})
+
+const isEdit = computed(() => !!props.row)
+const dialogTitle = computed(() => isEdit.value ? 'Edit Row' : 'Add New Row')
+
 const formRef = ref()
+const formData = ref<Record<string, any>>({})
 const loading = ref(false)
 
-// Initialize form data
-watch(() => [props.modelValue, props.row], () => {
-  if (props.modelValue) {
-    if (props.row) {
-      // Edit mode - populate with existing data
-      formData.value = { ...props.row }
-    } else {
-      // Create mode - initialize empty form with defaults
-      formData.value = {}
-      props.table.columns.forEach(col => {
-        if (col.type === 'switch') {
-          formData.value[col.name] = col.config?.defaultValue ?? false
-        } else {
-          formData.value[col.name] = null
-        }
-      })
-    }
+// Initialize form data when dialog opens or row changes
+watch(() => props.visible, (visible) => {
+  if (visible) {
+    initFormData()
   }
-}, { immediate: true })
+})
 
-// Validation rules
-const rules = computed(() => {
-  const validationRules: Record<string, any[]> = {}
+watch(() => props.row, () => {
+  if (props.visible) {
+    initFormData()
+  }
+})
+
+function initFormData() {
+  if (props.row) {
+    // Edit mode - populate with existing data
+    formData.value = { ...props.row }
+  } else {
+    // Add mode - initialize empty form
+    formData.value = {}
+    props.table.columns.forEach(col => {
+      // Set default values based on column type
+      if (col.type === 'switch') {
+        formData.value[col.name] = col.config?.defaultValue ?? false
+      } else if (col.type === 'number') {
+        formData.value[col.name] = null
+      } else {
+        formData.value[col.name] = ''
+      }
+    })
+  }
+}
+
+// Get form rules based on column configuration
+const formRules = computed(() => {
+  const rules: Record<string, any[]> = {}
   
   props.table.columns.forEach(col => {
     const colRules: any[] = []
     
+    // Required validation
     if (col.required) {
       colRules.push({
         required: true,
-        message: `${col.label || col.name} is required`,
+        message: `${col.label} is required`,
         trigger: 'blur'
       })
     }
     
-    // Type-specific validation
-    switch (col.type) {
-      case 'text':
-      case 'long_text':
-        if (col.config?.minLength) {
-          colRules.push({
-            min: col.config.minLength,
-            message: `Minimum length is ${col.config.minLength}`,
-            trigger: 'blur'
-          })
-        }
-        if (col.config?.maxLength) {
-          colRules.push({
-            max: col.config.maxLength,
-            message: `Maximum length is ${col.config.maxLength}`,
-            trigger: 'blur'
-          })
-        }
-        break
-        
-      case 'number':
+    // Type-specific validations
+    if (col.type === 'text' || col.type === 'long_text') {
+      if (col.config?.minLength) {
         colRules.push({
-          type: 'number',
-          message: 'Must be a valid number',
-          trigger: 'blur',
-          transform: (value: any) => Number(value)
+          min: col.config.minLength,
+          message: `Minimum length is ${col.config.minLength}`,
+          trigger: 'blur'
         })
-        if (col.config?.min !== undefined) {
-          colRules.push({
-            type: 'number',
-            min: col.config.min,
-            message: `Minimum value is ${col.config.min}`,
-            trigger: 'blur'
-          })
-        }
-        if (col.config?.max !== undefined) {
-          colRules.push({
-            type: 'number',
-            max: col.config.max,
-            message: `Maximum value is ${col.config.max}`,
-            trigger: 'blur'
-          })
-        }
-        break
+      }
+      if (col.config?.maxLength) {
+        colRules.push({
+          max: col.config.maxLength,
+          message: `Maximum length is ${col.config.maxLength}`,
+          trigger: 'blur'
+        })
+      }
     }
     
-    if (colRules.length > 0) {
-      validationRules[col.name] = colRules
+    if (col.type === 'number') {
+      colRules.push({
+        type: 'number',
+        message: `${col.label} must be a number`,
+        trigger: 'blur',
+        transform: (value: any) => {
+          if (value === '' || value === null) return null
+          return Number(value)
+        }
+      })
+      
+      if (col.config?.min !== undefined) {
+        colRules.push({
+          type: 'number',
+          min: col.config.min,
+          message: `Minimum value is ${col.config.min}`,
+          trigger: 'blur'
+        })
+      }
+      
+      if (col.config?.max !== undefined) {
+        colRules.push({
+          type: 'number',
+          max: col.config.max,
+          message: `Maximum value is ${col.config.max}`,
+          trigger: 'blur'
+        })
+      }
     }
+    
+    rules[col.name] = colRules
   })
   
-  return validationRules
+  return rules
 })
 
-// Save row
 async function handleSave() {
   if (!formRef.value) return
   
   try {
     await formRef.value.validate()
-    
     loading.value = true
     
-    // Prepare data - exclude system fields and null values for optional fields
-    const payload: Record<string, any> = {}
+    // Prepare data for submission
+    const submitData: Record<string, any> = {}
     props.table.columns.forEach(col => {
-      const value = formData.value[col.name]
+      let value = formData.value[col.name]
+      
+      // Convert empty strings to null for optional fields
+      if (value === '' && !col.required) {
+        value = null
+      }
       
       // Convert number strings to actual numbers
       if (col.type === 'number' && value !== null && value !== '') {
-        payload[col.name] = Number(value)
-      } else if (value !== null && value !== '') {
-        payload[col.name] = value
-      } else if (col.required) {
-        // Required fields must have a value
-        payload[col.name] = value
+        value = Number(value)
       }
+      
+      submitData[col.name] = value
     })
     
-    if (props.row) {
+    if (isEdit.value) {
       // Update existing row
       await $apiResponse(
         `/api/apps/${props.appSlug}/tables/${props.tableSlug}/rows/${props.row.id}`,
         {
           method: 'PUT',
-          body: payload
+          body: submitData
         }
       )
       ElMessage.success('Row updated successfully')
@@ -151,13 +173,14 @@ async function handleSave() {
         `/api/apps/${props.appSlug}/tables/${props.tableSlug}/rows`,
         {
           method: 'POST',
-          body: payload
+          body: submitData
         }
       )
       ElMessage.success('Row created successfully')
     }
     
     emit('saved')
+    handleClose()
   } catch (error: any) {
     console.error('Error saving row:', error)
     if (error?.data?.message) {
@@ -170,161 +193,105 @@ async function handleSave() {
   }
 }
 
-// Close dialog
 function handleClose() {
+  formRef.value?.resetFields()
   formData.value = {}
-  formRef.value?.clearValidate()
-  emit('update:modelValue', false)
+  dialogVisible.value = false
 }
 
-// Computed
-const visible = computed({
-  get: () => props.modelValue,
-  set: (val) => emit('update:modelValue', val)
-})
-
-const dialogTitle = computed(() => {
-  return props.row ? `Edit Row` : `Add Row to ${props.table.name}`
-})
-
-// Render field based on column type
-function getFieldComponent(column: DataTableColumn) {
+// Get input type for column
+function getInputType(column: DataTableColumn): string {
   switch (column.type) {
-    case 'long_text':
-      return 'el-input'
     case 'number':
-      return 'el-input-number'
+      return 'number'
     case 'date':
-      return 'el-date-picker'
-    case 'switch':
-      return 'el-switch'
+      return column.config?.format === 'datetime' ? 'datetime-local' : 'date'
     default:
-      return 'el-input'
-  }
-}
-
-// Get field props based on column type
-function getFieldProps(column: DataTableColumn) {
-  const baseProps: any = {
-    placeholder: column.config?.placeholder || `Enter ${column.label || column.name}`
-  }
-  
-  switch (column.type) {
-    case 'long_text':
-      return {
-        ...baseProps,
-        type: 'textarea',
-        rows: 4,
-        maxlength: column.config?.maxLength,
-        showWordLimit: !!column.config?.maxLength
-      }
-    case 'number':
-      return {
-        ...baseProps,
-        min: column.config?.min,
-        max: column.config?.max,
-        precision: column.config?.decimals,
-        step: column.config?.decimals ? 1 / Math.pow(10, column.config.decimals) : 1,
-        controlsPosition: 'right',
-        style: { width: '100%' }
-      }
-    case 'date':
-      return {
-        ...baseProps,
-        type: column.config?.format === 'datetime' ? 'datetime' : 'date',
-        format: column.config?.format === 'datetime' ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD',
-        valueFormat: column.config?.format === 'datetime' ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD',
-        style: { width: '100%' }
-      }
-    case 'switch':
-      return {}
-    default:
-      return {
-        ...baseProps,
-        clearable: true,
-        maxlength: column.config?.maxLength,
-        showWordLimit: !!column.config?.maxLength
-      }
+      return 'text'
   }
 }
 </script>
 
 <template>
   <el-dialog
-    v-model="visible"
+    v-model="dialogVisible"
     :title="dialogTitle"
     width="600px"
     :before-close="handleClose"
+    destroy-on-close
   >
     <el-form
       ref="formRef"
       :model="formData"
-      :rules="rules"
+      :rules="formRules"
       label-position="top"
-      :disabled="loading"
+      v-loading="loading"
     >
       <el-form-item
         v-for="column in table.columns"
         :key="column.id"
-        :label="column.label || column.name"
+        :label="column.label"
         :prop="column.name"
-        :required="column.required"
       >
-        <template #label>
-          <span>{{ column.label || column.name }}</span>
-          <span v-if="column.required" style="color: var(--el-color-danger)"> *</span>
-          <span v-if="column.config?.helpText" class="help-text">
-            <el-tooltip :content="column.config.helpText" placement="top">
-              <Icon name="lucide:help-circle" size="14" style="margin-left: 4px" />
-            </el-tooltip>
-          </span>
-        </template>
-        
         <!-- Text Input -->
         <el-input
           v-if="column.type === 'text'"
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
+          :placeholder="column.config?.placeholder || `Enter ${column.label}`"
+          :maxlength="column.config?.maxLength"
+          show-word-limit
         />
         
-        <!-- Long Text -->
+        <!-- Long Text Input -->
         <el-input
           v-else-if="column.type === 'long_text'"
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
+          type="textarea"
+          :rows="4"
+          :placeholder="column.config?.placeholder || `Enter ${column.label}`"
+          :maxlength="column.config?.maxLength"
+          show-word-limit
         />
         
-        <!-- Number -->
+        <!-- Number Input -->
         <el-input-number
           v-else-if="column.type === 'number'"
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
+          :min="column.config?.min"
+          :max="column.config?.max"
+          :precision="column.config?.decimals"
+          :placeholder="`Enter ${column.label}`"
+          style="width: 100%"
         />
         
-        <!-- Date -->
+        <!-- Date Input -->
         <el-date-picker
           v-else-if="column.type === 'date'"
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
+          :type="column.config?.format === 'datetime' ? 'datetime' : 'date'"
+          :placeholder="`Select ${column.label}`"
+          style="width: 100%"
         />
         
-        <!-- Switch -->
+        <!-- Switch Input -->
         <el-switch
           v-else-if="column.type === 'switch'"
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
         />
         
-        <!-- Fallback -->
+        <!-- Fallback: Text Input -->
         <el-input
           v-else
           v-model="formData[column.name]"
-          v-bind="getFieldProps(column)"
+          :placeholder="`Enter ${column.label}`"
         />
         
-        <!-- Field Description -->
-        <div v-if="column.config?.description" class="field-description">
-          {{ column.config.description }}
+        <!-- Help Text -->
+        <div
+          v-if="column.config?.helpText"
+          class="help-text"
+        >
+          {{ column.config.helpText }}
         </div>
       </el-form-item>
     </el-form>
@@ -334,12 +301,8 @@ function getFieldProps(column: DataTableColumn) {
         <el-button @click="handleClose" :disabled="loading">
           Cancel
         </el-button>
-        <el-button 
-          type="primary" 
-          @click="handleSave"
-          :loading="loading"
-        >
-          {{ row ? 'Update' : 'Create' }}
+        <el-button type="primary" @click="handleSave" :loading="loading">
+          {{ isEdit ? 'Update' : 'Create' }}
         </el-button>
       </div>
     </template>
@@ -348,13 +311,8 @@ function getFieldProps(column: DataTableColumn) {
 
 <style lang="scss" scoped>
 .help-text {
-  color: var(--app-text-color-secondary);
-  cursor: help;
-}
-
-.field-description {
-  margin-top: var(--app-space-xs);
-  font-size: var(--app-font-size-s);
+  margin-top: var(--app-space-xxs);
+  font-size: var(--app-font-size-xs);
   color: var(--app-text-color-secondary);
   line-height: 1.4;
 }
@@ -365,4 +323,3 @@ function getFieldProps(column: DataTableColumn) {
   gap: var(--app-space-s);
 }
 </style>
-

@@ -3,21 +3,15 @@ import { apps } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
 import { generateSlug } from '#shared/utils/slug'
 import { successResponse } from '~~/server/utils/response'
+import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
 
 /**
  * Create a new app in the current company
- * Company is determined by middleware from cookie/session
  */
 export default defineEventHandler(async (event) => {
+  const user = requireCompany(event)
   const body = await readBody(event)
-  const companyId = event.context.companyId
-
-  if (!companyId) {
-    throw createError({
-      statusCode: 500,
-      message: 'Company context not found. Middleware error.',
-    })
-  }
+  const companyId = user.company.id
   
   // Generate base slug from name if not provided
   let slug = body.slug || generateSlug(body.name)

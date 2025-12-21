@@ -16,23 +16,25 @@ function generateLabel(name: string): string {
 
 /**
  * Create a new dynamic table in an app
- * App and company context provided by middleware
+ * App context provided by middleware, company from user session
  */
 export default eventHandler(async (event) => {
   const app = event.context.app
-  const companyId = event.context.companyId
+  const user = event.context.user
   const body = await readBody<{
     name: string
     description?: string
     columns: TableColumnDef[]
   }>(event)
 
-  if (!app || !companyId) {
+  if (!app || !user?.company) {
     throw createError({
       statusCode: 500,
       message: 'App/Company context not found. Middleware error.'
     })
   }
+
+  const companyId = user.company.id
 
   if (!body.name) {
     throw createError({

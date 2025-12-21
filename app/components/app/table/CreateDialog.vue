@@ -152,7 +152,7 @@ function onColumnLabelChange(column: TableColumnDef, index: number) {
   debounceTimers.value.set(index, timer)
 }
 
-// Suggest column type using AI
+// Suggest column type using AI with rich context
 async function suggestColumnType(index: number) {
   const column = form.value.columns[index]
   
@@ -167,17 +167,29 @@ async function suggestColumnType(index: number) {
   try {
     suggestingType.value = index
     
+    // Prepare current table columns (exclude the current one being edited)
+    const currentTableColumns = form.value.columns
+      .filter((_, idx) => idx !== index && _.name && _.label)
+      .map(col => ({
+        name: col.name,
+        label: col.label,
+        type: col.type,
+        required: col.required,
+        config: col.config || {}
+      }))
+    
     const response = await $apiResponse('/api/ai/suggest-column-type', {
       method: 'POST',
       body: {
         columnName: column.name,
         columnLabel: column.label,
         tableDescription: form.value.description,
+        currentTableColumns: currentTableColumns,
         appSlug: props.appSlug
       },
       signal: abortController.signal
     })
-    
+    console.log('response', response)
     // Only store suggestion if this request wasn't aborted
     if (!abortController.signal.aborted) {
       suggestions.value.set(index, {
@@ -402,6 +414,7 @@ const visible = computed({
                 :prop="`columns.${index}.label`"
                 label="Display Label"
               >
+              
                 <el-input
                   v-model="column.label"
                   placeholder="Auto-generated from name"
@@ -413,34 +426,66 @@ const visible = computed({
                   v-if="suggestions.has(index)" 
                   class="ai-suggestion"
                 >
-                  <div class="suggestion-content">
+                  <div class="suggestion-header">
                     <Icon 
                       :name="suggestions.get(index).aiEnabled ? 'lucide:sparkles' : 'lucide:lightbulb'" 
                       class="suggestion-icon"
                     />
-                    <div class="suggestion-text">
-                      <span class="suggestion-type">
-                        {{ columnTypes.find(t => t.value === suggestions.get(index).column.type)?.label }}
+                    <span class="suggestion-title">
+                      {{ suggestions.get(index).aiEnabled ? '🤖 AI Suggestion' : '💡 Smart Suggestion' }}
+                    </span>
+                    <el-tag 
+                      size="small" 
+                      :type="suggestions.get(index).confidence === 'high' ? 'success' : suggestions.get(index).confidence === 'medium' ? 'warning' : 'info'"
+                    >
+                      {{ suggestions.get(index).confidence }} confidence
+                    </el-tag>
+                  </div>
+                  
+                  <div class="suggestion-content">
+                    <div class="suggestion-main">
+                      <div class="suggestion-type-line">
+                        <strong>Type:</strong>
+                        <span class="type-badge">
+                          <Icon :name="columnTypes.find(t => t.value === suggestions.get(index).column.type)?.icon" size="14" />
+                          {{ columnTypes.find(t => t.value === suggestions.get(index).column.type)?.label }}
+                        </span>
                         <template v-if="suggestions.get(index).column.required">
                           <el-tag size="small" type="warning">Required</el-tag>
                         </template>
-                      </span>
-                      <span class="suggestion-reason">{{ suggestions.get(index).reason }}</span>
+                      </div>
+                      
+                      <!-- Show config details -->
+                      <div v-if="suggestions.get(index).column.config && Object.keys(suggestions.get(index).column.config).length > 0" class="suggestion-config">
+                        <strong>Configuration:</strong>
+                        <ul class="config-list">
+                          <li v-for="(value, key) in suggestions.get(index).column.config" :key="key">
+                            <code>{{ key }}</code>: {{ value }}
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div class="suggestion-reason">
+                        <strong>Why:</strong> {{ suggestions.get(index).reason }}
+                      </div>
                     </div>
                   </div>
+                  
                   <div class="suggestion-actions">
                     <el-button 
                       size="small" 
                       type="primary"
                       @click="applySuggestion(index)"
                     >
-                      Apply
+                      <Icon name="lucide:check" />
+                      Apply Suggestion
                     </el-button>
                     <el-button 
                       size="small" 
                       text
                       @click="dismissSuggestion(index)"
                     >
+                      <Icon name="lucide:x" />
                       Dismiss
                     </el-button>
                   </div>
@@ -576,39 +621,99 @@ const visible = computed({
   margin-top: var(--app-space-s);
   padding: var(--app-space-m);
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: var(--app-border-radius-s);
+  border-radius: var(--app-border-radius-m);
   color: white;
   animation: slideDown 0.3s ease-out;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
   
-  .suggestion-content {
+  .suggestion-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--app-space-s);
-    margin-bottom: var(--app-space-s);
+    margin-bottom: var(--app-space-m);
+    padding-bottom: var(--app-space-s);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     
     .suggestion-icon {
-      font-size: 20px;
-      flex-shrink: 0;
-      margin-top: 2px;
+      font-size: 18px;
     }
     
-    .suggestion-text {
+    .suggestion-title {
+      font-weight: 600;
+      font-size: 14px;
       flex: 1;
+    }
+  }
+  
+  .suggestion-content {
+    margin-bottom: var(--app-space-m);
+    
+    .suggestion-main {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: var(--app-space-s);
       
-      .suggestion-type {
-        font-weight: 600;
-        font-size: 14px;
+      .suggestion-type-line {
         display: flex;
         align-items: center;
         gap: var(--app-space-s);
+        flex-wrap: wrap;
+        
+        strong {
+          font-weight: 600;
+        }
+        
+        .type-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px 8px;
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: var(--app-border-radius-s);
+          font-size: 13px;
+          font-weight: 500;
+        }
+      }
+      
+      .suggestion-config {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        
+        strong {
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+        
+        .config-list {
+          margin: 0;
+          padding-left: var(--app-space-l);
+          list-style: disc;
+          
+          li {
+            font-size: 13px;
+            line-height: 1.6;
+            
+            code {
+              background: rgba(255, 255, 255, 0.2);
+              padding: 2px 6px;
+              border-radius: 3px;
+              font-family: 'Monaco', 'Courier New', monospace;
+              font-size: 12px;
+              font-weight: 600;
+            }
+          }
+        }
       }
       
       .suggestion-reason {
-        font-size: 12px;
-        opacity: 0.9;
+        font-size: 13px;
+        line-height: 1.5;
+        opacity: 0.95;
+        
+        strong {
+          font-weight: 600;
+        }
       }
     }
   }
@@ -617,6 +722,8 @@ const visible = computed({
     display: flex;
     gap: var(--app-space-s);
     justify-content: flex-end;
+    
+    
   }
 }
 

@@ -2,20 +2,14 @@ import { db } from 'hub:db'
 import { apps } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
+import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
 
 /**
  * List all apps in the current company
- * Company is determined by middleware from cookie/session
  */
 export default defineEventHandler(async (event) => {
-  const companyId = event.context.companyId
-
-  if (!companyId) {
-    throw createError({
-      statusCode: 500,
-      message: 'Company context not found. Middleware error.',
-    })
-  }
+  const user = requireCompany(event)
+  const companyId = user.company.id
 
   // Get apps scoped to company
   const allApps = await db
