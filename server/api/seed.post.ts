@@ -1,6 +1,7 @@
 import { db } from 'hub:db'
 import { users, companies, companyMembers } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
+import { sql } from 'drizzle-orm'
 import { hashPassword } from '~~/server/utils/auth/password'
 import { successResponse } from '~~/server/utils/response'
 
@@ -121,6 +122,19 @@ export default defineEventHandler(async (event) => {
     })
   } catch (error: any) {
     console.error('Seed error:', error)
+    
+    // Check if error is due to missing tables
+    if (error.message?.includes('does not exist') || 
+        error.message?.includes('relation') ||
+        error.cause?.message?.includes('does not exist') ||
+        error.cause?.message?.includes('relation')) {
+      throw createError({
+        statusCode: 500,
+        statusMessage: 'Database tables do not exist',
+        message: 'Please run migrations first: pnpm db:migrate',
+      })
+    }
+    
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to seed data',

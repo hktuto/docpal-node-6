@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
     console.log('🗑️  Starting database reset...')
 
     // Drop all tables in reverse order (respect foreign keys)
+    // Also drop _hub_migrations to reset migration tracking
     const tables = [
       'audit_logs',
       'company_invites',
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
       'apps',
       'companies',
       'users',
+      '_hub_migrations', // Drop migration tracking to allow fresh migrations
     ]
 
     for (const table of tables) {
