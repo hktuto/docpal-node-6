@@ -12,7 +12,6 @@ onMounted(() => {
 })
 
 function navigateToSettings() {
-  console.log('navigateToSettings', app.value?.slug)
   navigateTo(`/apps/${app.value.slug}/settings`)
 }
 </script>

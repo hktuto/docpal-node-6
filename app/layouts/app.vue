@@ -9,11 +9,11 @@ const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
 
 // Fetch app data
-const { data: app, pending, refresh: refreshApp, error } = await useApi<App>(() => `/api/apps/${appSlug.value}`, {
+const { data: appResponse, pending, refresh: refreshApp, error } = await useApi<App>(() => `/api/apps/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
-
+const app = computed(() => appResponse.value?.data)
 // ==================== App Context Methods ====================
 
 // Update app
@@ -22,7 +22,6 @@ const updateApp = useDebounceFn(updateAppApi, 500)
 async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
   const {$api} = useNuxtApp()
   try {
-    console.log('💾 updateAppApi called with data:', JSON.stringify(data))
     const response = await $api<App>(`/api/apps/${appSlug.value}`, {
       method: 'PUT',
       body: data
@@ -195,7 +194,7 @@ const staticNav = [
     
     <div v-else-if="app" class="appContainer">
       <aside class="sidebar">
-         <CommonMenu v-model:expandState="expandState" />
+         <CommonMenu v-model:expandState="expandState" :menu="app.menu || []" />
        </aside>
        <main>
         <el-splitter class="app-splitter">

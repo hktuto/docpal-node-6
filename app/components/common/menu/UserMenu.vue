@@ -128,7 +128,7 @@ interface Company {
 const user = computed(() => auth.user.value)
 const companies = ref<Company[]>([])
 const loading = ref(false)
-
+const showCreateCompanyDialog = ref(false)
 const userInitials = computed(() => {
   if (!user.value?.name) {
     return user.value?.email?.charAt(0).toUpperCase() || 'U'

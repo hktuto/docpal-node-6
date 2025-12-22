@@ -330,6 +330,7 @@ function handleCreateTable(table: any) {
     </div>
     
     <!-- Menu Items -->
+    
     <div class="menu-items">
       <div v-if="!localMenu || localMenu.length === 0" class="empty-state">
         <Icon name="lucide:inbox" size="32" />
