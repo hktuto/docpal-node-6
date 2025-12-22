@@ -2,12 +2,12 @@ import { successResponse } from '~~/server/utils/response'
 import { generateJSONCompletion, isAIEnabled, getAIProvider } from '~~/server/utils/ai'
 import type { TableColumnDef } from '#shared/types/db'
 import { db, schema } from 'hub:db'
-import { eq } from 'drizzle-orm'
-import { suggestFieldType, getFieldType } from '~~/server/utils/fieldTypes'
+import { eq, and } from 'drizzle-orm'
+import { getAllFieldTypes } from '~~/server/utils/fieldTypes'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { columnName, columnLabel, tableDescription, appSlug, currentTableColumns } = body
+  const { columnName, columnLabel, appSlug, tableSlug } = body
 
   if (!columnName) {
     throw createError({
@@ -16,15 +16,58 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Get app context to understand existing table structures
+  if (!appSlug || !tableSlug) {
+    throw createError({
+      statusCode: 400,
+      message: 'App slug and table slug are required'
+    })
+  }
+
+  // Get app and table context
   let appContext = null
-  if (appSlug) {
-    try {
-      appContext = await getAppContext(event, appSlug)
-    } catch (error) {
-      console.warn('Could not fetch app context:', error)
-      // Continue without context
+  let currentTable = null
+  let currentTableColumns: any[] = []
+  
+  try {
+    // Get app
+    const app = await db
+      .select()
+      .from(schema.apps)
+      .where(eq(schema.apps.slug, appSlug))
+      .limit(1)
+      .then(rows => rows[0])
+    
+    if (!app) {
+      throw createError({
+        statusCode: 404,
+        message: 'App not found'
+      })
     }
+    
+    // Get current table and its columns
+    currentTable = await db
+      .select()
+      .from(schema.dataTables)
+      .where(and(
+        eq(schema.dataTables.appId, app.id),
+        eq(schema.dataTables.slug, tableSlug)
+      ))
+      .limit(1)
+      .then(rows => rows[0])
+    
+    if (currentTable) {
+      // Get columns for the current table
+      currentTableColumns = await db
+        .select()
+        .from(schema.dataTableColumns)
+        .where(eq(schema.dataTableColumns.dataTableId, currentTable.id))
+    }
+    
+    // Get all other tables in the app for context
+    appContext = await getAppContext(app.id, app.name)
+  } catch (error) {
+    console.warn('Could not fetch app/table context:', error)
+    // Continue without context
   }
 
   // Check if AI is configured
@@ -44,7 +87,7 @@ export default defineEventHandler(async (event) => {
     const prompt = buildPromptContext(
       columnName, 
       columnLabel, 
-      tableDescription, 
+      currentTable?.description || undefined,
       currentTableColumns,
       appContext
     )
@@ -101,64 +144,44 @@ export default defineEventHandler(async (event) => {
 /**
  * Get app context including existing tables and their schemas
  */
-async function getAppContext(event: any, appSlug: string) {
+async function getAppContext(appId: string, appName: string) {
+  // Get all tables in this app with their columns
+  const existingTables = await db
+    .select({
+      table: schema.dataTables,
+      columns: schema.dataTableColumns
+    })
+    .from(schema.dataTables)
+    .leftJoin(schema.dataTableColumns, eq(schema.dataTables.id, schema.dataTableColumns.dataTableId))
+    .where(eq(schema.dataTables.appId, appId))
   
-  // Get app with company context
-  const { app, company } = event.context
-  
-  if (!app || app.slug !== appSlug) {
-    // Query the app if not in context
-    const appRecord = await db
-      .select()
-      .from(schema.apps)
-      .where(eq(schema.apps.slug, appSlug))
-      .limit(1)
-      .then(rows => rows[0])
+  // Group columns by table
+  const tablesMap = new Map()
+  for (const row of existingTables) {
+    if (!row.table) continue
     
-    if (!appRecord) {
-      return null
-    }
-    
-    // Get all tables in this app with their columns
-    const existingTables = await db
-      .select({
-        table: schema.dataTables,
-        columns: schema.dataTableColumns
+    if (!tablesMap.has(row.table.id)) {
+      tablesMap.set(row.table.id, {
+        name: row.table.name,
+        description: row.table.description,
+        columns: []
       })
-      .from(schema.dataTables)
-      .leftJoin(schema.dataTableColumns, eq(schema.dataTables.id, schema.dataTableColumns.dataTableId))
-      .where(eq(schema.dataTables.appId, appRecord.id))
-    
-    // Group columns by table
-    const tablesMap = new Map()
-    for (const row of existingTables) {
-      if (!row.table) continue
-      
-      if (!tablesMap.has(row.table.id)) {
-        tablesMap.set(row.table.id, {
-          name: row.table.name,
-          description: row.table.description,
-          columns: []
-        })
-      }
-      
-      if (row.columns) {
-        tablesMap.get(row.table.id).columns.push({
-          name: row.columns.name,
-          label: row.columns.label,
-          type: row.columns.type,
-          required: row.columns.required
-        })
-      }
     }
     
-    return {
-      appName: appRecord.name,
-      tables: Array.from(tablesMap.values())
+    if (row.columns) {
+      tablesMap.get(row.table.id).columns.push({
+        name: row.columns.name,
+        label: row.columns.label,
+        type: row.columns.type,
+        required: row.columns.required
+      })
     }
   }
   
-  return null
+  return {
+    appName,
+    tables: Array.from(tablesMap.values())
+  }
 }
 
 
@@ -169,16 +192,15 @@ function buildPromptContext(
   columnName: string, 
   columnLabel?: string, 
   tableDescription?: string,
-  currentTableColumns?: TableColumnDef[],
+  currentTableColumns?: any[],
   appContext?: any
 ): string {
-  const availableTypes = [
-    'text - Short text fields (names, titles, email, phone, single-line inputs)',
-    'long_text - Longer text content (descriptions, notes, comments, multi-line content)',
-    'number - Numeric values (quantities, prices, counts, scores, ratings)',
-    'date - Date and time values (birthdays, created_at, due_date, scheduled_time)',
-    'switch - Boolean yes/no values (is_active, is_published, enabled, completed)'
-  ]
+  // Get all available field types from the registry
+  const allFieldTypes = getAllFieldTypes()
+  const availableTypes = allFieldTypes.map((type: any) => {
+    const hints = Array.isArray(type.aiHints) ? type.aiHints.join(', ') : ''
+    return `${type.name} - ${type.description}${hints ? ` (${hints})` : ''}`
+  })
 
   let prompt = `Analyze this new database column and suggest a complete, production-ready configuration.
 
@@ -236,50 +258,35 @@ Analyze the column name, label, existing table structure, and app context to sug
 
 # Configuration Options by Type
 
-**text**:
-- maxLength: Maximum character limit (e.g., 100 for names, 255 for emails)
-- minLength: Minimum character limit (optional)
-- placeholder: Helpful example text
-
-**long_text**:
-- maxLength: Character limit (e.g., 1000-5000)
-- placeholder: Helpful example text
-
-**number**:
-- min: Minimum value (e.g., 0 for quantities, prices)
-- max: Maximum value (optional)
-- decimals: Decimal places (0 for integers, 2 for currency)
-
-**date**:
-- format: "date" (date only), "datetime" (date + time), or "time" (time only)
-
-**switch**:
-- defaultValue: true or false
+${allFieldTypes.map((type: any) => {
+  const config = type.defaultConfig || {}
+  const configStr = Object.keys(config).length > 0 
+    ? `\n  Default config: ${JSON.stringify(config, null, 2)}`
+    : ''
+  return `**${type.name}**:${configStr}`
+}).join('\n\n')}
 
 # Response Format (JSON only)
 {
-  "type": "text|long_text|number|date|switch",
+  "type": "${allFieldTypes.map((t: any) => t.name).join('|')}",
   "required": boolean,
   "config": {
     // Include ONLY relevant config fields for the chosen type
-    // Examples:
-    // For text: { "maxLength": 255, "placeholder": "john@example.com" }
-    // For number: { "min": 0, "max": 100, "decimals": 0 }
-    // For date: { "format": "datetime" }
+    // Use the default configs shown above as reference
   },
   "confidence": "high|medium|low",
   "reason": "Brief 1-2 sentence explanation of why these settings make sense"
 }
 
 # Best Practices
+- Use specialized types: 'email' for emails, 'phone' for phones, 'url' for URLs, not generic 'text'
+- Use 'select' for predefined options, 'multi_select' for multiple choices
 - Common fields (name, email, phone) should be required
-- Email/URL fields need appropriate maxLength (255)
-- Prices/money should have decimals: 2, min: 0
-- Quantities/counts should have decimals: 0, min: 0
-- Descriptions should be long_text with 1000-5000 maxLength
-- Status fields (is_active, enabled) should be switch with defaultValue
-- Timestamps should be date with format: "datetime"
-- Due dates/birthdays should be date with format: "date"
+- For select/multi_select, provide options with label, value, and color
+- For date fields, use dateFormatType ('date', 'datetime', 'time') and dateFormatString
+- Prices/money should use 'currency' type or 'number' with min: 0, decimal: true
+- Status fields should be 'switch' with trueLabel/falseLabel
+- Color fields should use 'color' type with colorFormat
 
 Respond with ONLY valid JSON, no other text.`
 

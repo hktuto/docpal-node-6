@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { validateUrl, normalizeUrl } from '#shared/utils/validators'
+
 interface Props {
   modelValue: string | null | undefined
   placeholder?: string
@@ -27,55 +29,23 @@ const inputValue = computed({
 
 const errorMessage = ref('')
 
-function validateUrl(url: string): boolean {
-  if (!url) return true
-  
-  try {
-    new URL(url)
-    return true
-  } catch {
-    // Try with https:// prefix
-    try {
-      new URL(`https://${url}`)
-      return true
-    } catch {
-      return false
-    }
-  }
-}
-
-function normalizeUrl(url: string): string {
-  if (!url) return ''
-  
-  // If URL doesn't have protocol, add https://
-  if (!/^https?:\/\//i.test(url)) {
-    return `https://${url}`
-  }
-  
-  return url
-}
-
 function handleBlur() {
   if (!inputValue.value) {
     errorMessage.value = ''
     return
   }
   
-  if (!validateUrl(inputValue.value)) {
-    errorMessage.value = 'Invalid URL format'
+  const result = validateUrl(inputValue.value, {
+    requireHttps: props.requireHttps
+  })
+  
+  if (!result.valid) {
+    errorMessage.value = result.error || 'Invalid URL'
     return
   }
   
   // Normalize URL (add https:// if missing)
-  const normalized = normalizeUrl(inputValue.value)
-  
-  if (props.requireHttps && !normalized.startsWith('https://')) {
-    errorMessage.value = 'HTTPS is required'
-    return
-  }
-  
-  // Update with normalized URL
-  inputValue.value = normalized
+  inputValue.value = normalizeUrl(inputValue.value)
   errorMessage.value = ''
 }
 
@@ -87,7 +57,7 @@ function handleInput() {
 }
 
 function openUrl() {
-  if (inputValue.value && validateUrl(inputValue.value)) {
+  if (inputValue.value) {
     const url = normalizeUrl(inputValue.value)
     window.open(url, props.openInNewTab ? '_blank' : '_self')
   }

@@ -127,7 +127,8 @@ async function fetchAISuggestion() {
       body: {
         columnName: form.value.name,
         columnLabel: form.value.label,
-        appSlug: props.appSlug
+        appSlug: props.appSlug,
+        tableSlug: props.tableSlug
       },
       signal: cancelToken.value.signal
     })

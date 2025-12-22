@@ -5,6 +5,8 @@
  * PostgreSQL mapping, and configuration options.
  */
 
+import { validateFieldValue as sharedValidateFieldValue } from '#shared/utils/validators'
+
 export interface FieldTypeDefinition {
   name: string
   label: string
@@ -107,24 +109,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Integer or decimal number',
     category: 'number',
     pgType: (config) => config?.decimal ? 'DECIMAL(10,2)' : 'INTEGER',
-    validate: (value, config) => {
-      if (value === null || value === undefined || value === '') return { valid: true }
-      
-      const num = Number(value)
-      if (isNaN(num)) {
-        return { valid: false, error: 'Must be a valid number' }
-      }
-      
-      if (config?.min !== undefined && num < config.min) {
-        return { valid: false, error: `Must be at least ${config.min}` }
-      }
-      
-      if (config?.max !== undefined && num > config.max) {
-        return { valid: false, error: `Must be at most ${config.max}` }
-      }
-      
-      return { valid: true }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'number', config),
     defaultConfig: {
       decimal: false,
       min: undefined,
@@ -213,16 +198,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Email address with validation',
     category: 'text',
     pgType: () => 'VARCHAR(255)',
-    validate: (value) => {
-      if (!value) return { valid: true }
-      
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(value)) {
-        return { valid: false, error: 'Invalid email format' }
-      }
-      
-      return { valid: true }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'email', config),
     defaultConfig: {
       placeholder: 'name@example.com',
       allowMultiple: false
@@ -254,25 +230,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Phone number with formatting',
     category: 'text',
     pgType: () => 'VARCHAR(20)',
-    validate: (value, config) => {
-      if (!value) return { valid: true }
-      
-      // Remove all non-digit characters for validation
-      const digitsOnly = value.replace(/\D/g, '')
-      
-      const minLength = config?.minLength || 10
-      const maxLength = config?.maxLength || 15
-      
-      if (digitsOnly.length < minLength) {
-        return { valid: false, error: `Phone number must be at least ${minLength} digits` }
-      }
-      
-      if (digitsOnly.length > maxLength) {
-        return { valid: false, error: `Phone number must be at most ${maxLength} digits` }
-      }
-      
-      return { valid: true }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'phone', config),
     defaultConfig: {
       format: 'international', // 'international' | 'us' | 'uk' | 'custom'
       placeholder: '+1 (555) 123-4567',
@@ -311,22 +269,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Website URL with validation',
     category: 'text',
     pgType: () => 'TEXT',
-    validate: (value) => {
-      if (!value) return { valid: true }
-      
-      try {
-        new URL(value)
-        return { valid: true }
-      } catch {
-        // Try with https:// prefix
-        try {
-          new URL(`https://${value}`)
-          return { valid: true }
-        } catch {
-          return { valid: false, error: 'Invalid URL format' }
-        }
-      }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'url', config),
     defaultConfig: {
       placeholder: 'https://example.com',
       openInNewTab: true,
@@ -370,18 +313,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Single select dropdown',
     category: 'select',
     pgType: () => 'VARCHAR(255)',
-    validate: (value, config) => {
-      if (!value) return { valid: true }
-      
-      const options = config?.options || []
-      const validValues = options.map((opt: any) => opt.value)
-      
-      if (!validValues.includes(value)) {
-        return { valid: false, error: 'Invalid option selected' }
-      }
-      
-      return { valid: true }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'select', config),
     defaultConfig: {
       options: [],
       placeholder: 'Select an option',
@@ -420,24 +352,7 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     description: 'Multiple select dropdown',
     category: 'select',
     pgType: () => 'JSONB',
-    validate: (value, config) => {
-      if (!value || !Array.isArray(value)) return { valid: true }
-      
-      const options = config?.options || []
-      const validValues = options.map((opt: any) => opt.value)
-      
-      for (const val of value) {
-        if (!validValues.includes(val)) {
-          return { valid: false, error: `Invalid option: ${val}` }
-        }
-      }
-      
-      if (config?.maxSelections && value.length > config.maxSelections) {
-        return { valid: false, error: `Maximum ${config.maxSelections} selections allowed` }
-      }
-      
-      return { valid: true }
-    },
+    validate: (value, config) => sharedValidateFieldValue(value, 'multi_select', config),
     defaultConfig: {
       options: [],
       placeholder: 'Select options',
@@ -518,20 +433,15 @@ export function suggestFieldType(label: string): string | null {
 }
 
 /**
- * Validate field value
+ * Validate field value (uses shared validators)
  */
 export function validateFieldValue(
   value: any, 
   fieldType: string, 
-  config?: any
+  config?: any,
+  required?: boolean
 ): { valid: boolean; error?: string } {
-  const definition = getFieldType(fieldType)
-  
-  if (!definition || !definition.validate) {
-    return { valid: true }
-  }
-  
-  return definition.validate(value, config)
+  return sharedValidateFieldValue(value, fieldType, config, required)
 }
 
 /**

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { validateEmail, validateMultipleEmails } from '#shared/utils/validators'
+
 interface Props {
   modelValue: string | null | undefined
   placeholder?: string
@@ -25,35 +27,17 @@ const inputValue = computed({
 
 const errorMessage = ref('')
 
-function validateEmail(email: string): boolean {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  return emailRegex.test(email)
-}
-
 function handleBlur() {
   if (!inputValue.value) {
     errorMessage.value = ''
     return
   }
   
-  if (props.allowMultiple) {
-    // Validate comma-separated emails
-    const emails = inputValue.value.split(',').map(e => e.trim())
-    const invalidEmails = emails.filter(email => email && !validateEmail(email))
-    
-    if (invalidEmails.length > 0) {
-      errorMessage.value = `Invalid email: ${invalidEmails[0]}`
-    } else {
-      errorMessage.value = ''
-    }
-  } else {
-    // Validate single email
-    if (!validateEmail(inputValue.value)) {
-      errorMessage.value = 'Invalid email format'
-    } else {
-      errorMessage.value = ''
-    }
-  }
+  const result = props.allowMultiple 
+    ? validateMultipleEmails(inputValue.value)
+    : validateEmail(inputValue.value)
+  
+  errorMessage.value = result.error || ''
 }
 
 function handleInput() {

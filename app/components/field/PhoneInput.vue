@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { validatePhone, formatPhoneNumber } from '#shared/utils/validators'
+
 interface Props {
   modelValue: string | null | undefined
   placeholder?: string
@@ -25,46 +27,18 @@ const inputValue = computed({
 
 const errorMessage = ref('')
 
-function validatePhone(phone: string): boolean {
-  // Remove all non-digit characters
-  const digitsOnly = phone.replace(/\D/g, '')
-  
-  // Check length (10-15 digits is reasonable for most countries)
-  return digitsOnly.length >= 10 && digitsOnly.length <= 15
-}
-
-function formatPhone(phone: string): string {
-  if (!phone) return ''
-  
-  // Remove all non-digit characters
-  const digitsOnly = phone.replace(/\D/g, '')
-  
-  if (props.format === 'us' && digitsOnly.length === 10) {
-    // Format as (555) 123-4567
-    return `(${digitsOnly.slice(0, 3)}) ${digitsOnly.slice(3, 6)}-${digitsOnly.slice(6)}`
-  } else if (props.format === 'us' && digitsOnly.length === 11 && digitsOnly[0] === '1') {
-    // Format as +1 (555) 123-4567
-    return `+1 (${digitsOnly.slice(1, 4)}) ${digitsOnly.slice(4, 7)}-${digitsOnly.slice(7)}`
-  }
-  
-  // For international or other formats, just return with spaces
-  return phone
-}
-
 function handleBlur() {
   if (!inputValue.value) {
     errorMessage.value = ''
     return
   }
   
-  if (!validatePhone(inputValue.value)) {
-    errorMessage.value = 'Invalid phone number'
-  } else {
-    errorMessage.value = ''
-    // Auto-format on blur if US format
-    if (props.format === 'us') {
-      inputValue.value = formatPhone(inputValue.value)
-    }
+  const result = validatePhone(inputValue.value)
+  errorMessage.value = result.error || ''
+  
+  // Auto-format on blur if valid
+  if (result.valid && props.format === 'us') {
+    inputValue.value = formatPhoneNumber(inputValue.value, 'us')
   }
 }
 
