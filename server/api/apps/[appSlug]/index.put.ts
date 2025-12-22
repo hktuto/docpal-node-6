@@ -1,6 +1,7 @@
 import { db } from 'hub:db'
 import { apps } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
+import { auditAppOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 /**
@@ -47,6 +48,24 @@ export default defineEventHandler(async (event) => {
       message: 'Failed to update app'
     })
   }
+  
+  // Audit log app update
+  await auditAppOperation(event, 'update', app.id, app.companyId, event.context.user.id, {
+    before: {
+      name: app.name,
+      slug: app.slug,
+      icon: app.icon,
+      description: app.description,
+      menu: app.menu,
+    },
+    after: {
+      name: updatedApp.name,
+      slug: updatedApp.slug,
+      icon: updatedApp.icon,
+      description: updatedApp.description,
+      menu: updatedApp.menu,
+    },
+  })
   
   console.log('✅ API updated app:', JSON.stringify(updatedApp))
   

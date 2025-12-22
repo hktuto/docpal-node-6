@@ -30,6 +30,7 @@ export default defineEventHandler(async (event) => {
       'company_members',
       'magic_links',
       'sessions',
+      'data_table_views',
       'data_table_columns',
       'data_tables',
       'apps',

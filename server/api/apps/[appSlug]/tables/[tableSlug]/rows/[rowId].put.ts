@@ -3,6 +3,7 @@ import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName, validateColumnName } from '~~/server/utils/dynamicTable'
+import { auditRowOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 /**
@@ -85,6 +86,11 @@ export default eventHandler(async (event) => {
   // Always update the updated_at timestamp
   setClauses.push(`updated_at = NOW()`)
 
+  // Get existing row for audit log (before update)
+  const beforeRowSQL = `SELECT * FROM "${validatedTableName}" WHERE id = '${rowId}'::uuid`
+  const beforeResult = await db.execute(sql.raw(beforeRowSQL))
+  const beforeRow = beforeResult[0] || null
+
   // Execute raw UPDATE
   const updateSQL = `UPDATE "${validatedTableName}" SET ${setClauses.join(', ')} WHERE id = '${rowId}'::uuid RETURNING *`
 
@@ -94,6 +100,28 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Row not found' })
   }
 
-  return successResponse(result[0], { message: 'Row updated successfully' })
+  const updatedRow = result[0]
+
+  // Audit log row update
+  if (beforeRow) {
+    const changes: Record<string, any> = {}
+    for (const col of columns) {
+      if (col.name in body && beforeRow[col.name] !== updatedRow[col.name]) {
+        changes[col.name] = {
+          before: beforeRow[col.name],
+          after: updatedRow[col.name],
+        }
+      }
+    }
+    
+    if (Object.keys(changes).length > 0) {
+      await auditRowOperation(event, 'update', rowId, table.id, table.companyId, event.context.user.id, {
+        before: beforeRow,
+        after: updatedRow,
+      })
+    }
+  }
+
+  return successResponse(updatedRow, { message: 'Row updated successfully' })
 })
 

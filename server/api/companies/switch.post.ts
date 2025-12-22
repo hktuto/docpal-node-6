@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { companies, companyMembers } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '~~/server/utils/auth/getCurrentUser'
+import { auditUserOperation } from '~~/server/utils/audit'
 import { updateSessionCompany } from '~~/server/utils/auth/session'
 import { successResponse } from '~~/server/utils/response'
 
@@ -45,6 +46,9 @@ export default defineEventHandler(async (event) => {
 
   // Update session
   await updateSessionCompany(user.session.id, companyId)
+
+  // Audit log company switch
+  await auditUserOperation(event, 'switch_company', user.id, companyId)
 
   return successResponse({
     message: 'Company switched successfully',

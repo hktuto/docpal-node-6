@@ -2,12 +2,14 @@
 import type { VxeGridProps, VxeColumnPropTypes, VxeGridPropTypes } from 'vxe-table'
 
 interface Column {
+  id?: string // Column ID for management operations
   field: string
   title: string
   width?: number | string
   minWidth?: number | string
   sortable?: boolean
   fixed?: VxeColumnPropTypes.Fixed
+  visible?: boolean // Support column visibility from view
   formatter?: (params: { cellValue: any, row: any }) => string
   slots?: {
     default?: string
@@ -34,10 +36,15 @@ interface Props {
   // Proxy mode - let vxe-table handle everything
   proxyConfig?: VxeGridPropTypes.ProxyConfig
   
+  // Auto proxy mode - provide API endpoint details
+  appSlug?: string
+  tableSlug?: string
+  autoProxy?: boolean // Enable automatic proxy configuration
+  
   // Virtual scrolling - for large datasets
   virtualScroll?: boolean
   scrollYLoad?: boolean // Enable lazy loading on scroll
-  scrollY?: VxeGridPropTypes.ScrollY
+  scrollY?: any // VxeGridPropTypes.ScrollY
   
   // Selection
   checkboxConfig?: VxeGridProps['checkboxConfig']
@@ -46,6 +53,9 @@ interface Props {
   showActions?: boolean
   actionsWidth?: number | string
   actionsFixed?: VxeColumnPropTypes.Fixed
+  
+  // Column Management
+  allowColumnManagement?: boolean // Enable column editing features
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -59,11 +69,13 @@ const props = withDefaults(defineProps<Props>(), {
   pageSize: 50,
   total: 0,
   pageSizes: () => [10, 20, 50, 100, 200],
+  autoProxy: false, // Disabled by default
   virtualScroll: true, // Enable virtual scroll by default for performance
   scrollYLoad: false, // Lazy loading on scroll (disabled by default, use with proxy)
   showActions: true,
   actionsWidth: 120,
   actionsFixed: 'right',
+  allowColumnManagement: false, // Disabled by default
 })
 
 interface Emits {
@@ -76,6 +88,12 @@ interface Emits {
   (e: 'delete', row: T): void
   (e: 'view', row: T): void
   (e: 'selectionChange', rows: T[]): void
+  // Column management events
+  (e: 'add-column-left', column: Column): void
+  (e: 'add-column-right', column: Column): void
+  (e: 'edit-column', column: Column): void
+  (e: 'remove-column', column: Column): void
+  (e: 'column-reorder', params: { oldColumn: Column, newColumn: Column, dragPos: 'left' | 'right' }): void
 }
 
 const emit = defineEmits<Emits>()
@@ -99,6 +117,43 @@ defineExpose({
   }
 })
 
+// Build automatic proxy configuration
+function buildAutoProxyConfig(appSlug: string, tableSlug: string): VxeGridPropTypes.ProxyConfig {
+  return {
+    ajax: {
+      query: async ({ page, sort, filters }) => {
+        const { $api } = useNuxtApp()
+        try {
+          const limit = page.pageSize
+          const offset = (page.currentPage - 1) * page.pageSize
+          
+          const apiResponse = await $api<{ data: any[], meta?: any }>(
+            `/api/apps/${appSlug}/tables/${tableSlug}/rows?limit=${limit}&offset=${offset}`
+          )
+          
+          return {
+            result: apiResponse.data || [],
+            page: {
+              total: apiResponse.meta?.pagination?.total || 0
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching rows:', error)
+          // Show error message if available
+          if (typeof ElMessage !== 'undefined') {
+            ElMessage.error('Failed to load table data')
+          }
+          return {
+            result: [],
+            page: { total: 0 }
+          }
+        }
+      }
+    },
+    autoLoad: true
+  }
+}
+
 // Computed grid config
 const gridOptions = computed<VxeGridProps>(() => {
   const config: VxeGridProps = {
@@ -109,6 +164,13 @@ const gridOptions = computed<VxeGridProps>(() => {
     showOverflow: props.showOverflow,
     columns: buildColumns(),
     checkboxConfig: props.checkboxConfig,
+    menuConfig: buildMenuConfig(), // Add menu config for column management
+    columnConfig: props.allowColumnManagement ? {
+      resizable: true,
+      drag: true, // Enable column drag-to-reorder
+    } : {
+      resizable: true,
+    },
   }
   
   // Enable virtual scrolling for large datasets
@@ -129,9 +191,14 @@ const gridOptions = computed<VxeGridProps>(() => {
     }
   }
   
+  // Auto proxy mode - build proxy config automatically
+  const finalProxyConfig = props.proxyConfig || (props.autoProxy && props.appSlug && props.tableSlug 
+    ? buildAutoProxyConfig(props.appSlug, props.tableSlug)
+    : null)
+  
   // Proxy mode - let vxe-table handle everything
-  if (props.proxyConfig) {
-    config.proxyConfig = props.proxyConfig
+  if (finalProxyConfig) {
+    config.proxyConfig = finalProxyConfig
     config.pagerConfig = {
       enabled: true,
       pageSize: props.pageSize,
@@ -155,15 +222,40 @@ const gridOptions = computed<VxeGridProps>(() => {
   return config
 })
 
+// Handle column menu clicks
+function handleColumnMenuClick({ menu, column }: { menu: any, column: any }) {
+  // Find the original column data from props.columns
+  const columnData = props.columns.find(col => col.field === column.field)
+  if (!columnData) return
+  
+  switch (menu.code) {
+    case 'add-column-left':
+      emit('add-column-left', columnData)
+      break
+    case 'add-column-right':
+      emit('add-column-right', columnData)
+      break
+    case 'edit-column':
+      emit('edit-column', columnData)
+      break
+    case 'remove-column':
+      emit('remove-column', columnData)
+      break
+  }
+}
+
 // Build columns config
 function buildColumns(): any[] {
-  const cols: any[] = props.columns.map(col => ({
+  const cols: any[] = props.columns
+    .filter(col => col.visible !== false) // Filter out hidden columns
+    .map(col => ({
     field: col.field,
     title: col.title,
     width: col.width,
     minWidth: col.minWidth,
     sortable: col.sortable,
     fixed: col.fixed,
+      visible: col.visible !== false, // Default to visible
     showOverflow: props.showOverflow,
     ...(col.formatter && { formatter: col.formatter }),
     ...(col.slots && { slots: col.slots }),
@@ -182,6 +274,57 @@ function buildColumns(): any[] {
   return cols
 }
 
+// Build menu config for column management
+function buildMenuConfig() {
+  if (!props.allowColumnManagement) return undefined
+  
+  return {
+    header: {
+      options: [
+        [
+          {
+            code: 'add-column-left',
+            name: 'Add Column Left',
+            prefixIcon: 'vxe-icon-square-plus',
+            visible: true,
+            disabled: false
+          },
+          {
+            code: 'add-column-right',
+            name: 'Add Column Right',
+            prefixIcon: 'vxe-icon-square-plus',
+            visible: true,
+            disabled: false
+          }
+        ],
+        [
+          {
+            code: 'edit-column',
+            name: 'Edit Column',
+            prefixIcon: 'vxe-icon-edit',
+            visible: true,
+            disabled: false
+          },
+          {
+            code: 'remove-column',
+            name: 'Remove Column',
+            prefixIcon: 'vxe-icon-delete',
+            visible: true,
+            disabled: false
+          }
+        ]
+      ]
+    },
+    visibleMethod: ({ type, options, column }: any) => {
+      // Only show menu on header
+      if (type === 'header') {
+        return true
+      }
+      return false
+    }
+  }
+}
+
 // Handle pagination change
 function handlePageChange({ currentPage, pageSize }: { currentPage: number, pageSize: number }) {
   emit('update:currentPage', currentPage)
@@ -192,6 +335,23 @@ function handlePageChange({ currentPage, pageSize }: { currentPage: number, page
 // Handle selection change
 function handleSelectionChange({ records }: { records: T[] }) {
   emit('selectionChange', records)
+}
+
+// Handle column drag end
+function handleColumnDragEnd({ newColumn, oldColumn, dragPos }: any) {
+  if (!props.allowColumnManagement) return
+  
+  // Find the original column data from props.columns
+  const oldColumnData = props.columns.find(col => col.field === oldColumn.field)
+  const newColumnData = props.columns.find(col => col.field === newColumn.field)
+  
+  if (oldColumnData && newColumnData) {
+    emit('column-reorder', {
+      oldColumn: oldColumnData,
+      newColumn: newColumnData,
+      dragPos
+    })
+  }
 }
 
 // Action handlers
@@ -218,7 +378,10 @@ function handleView(row: T) {
       @checkbox-all="handleSelectionChange"
       @proxy-query="(params) => emit('proxyQuery', params)"
       @proxy-delete="(params) => emit('proxyDelete', params)"
+      @menu-click="handleColumnMenuClick"
+      @column-dragend="handleColumnDragEnd"
     >
+      
       <!-- Actions column slot -->
       <template #actions="{ row }">
         <div class="actions-cell">

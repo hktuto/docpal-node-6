@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { apps } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
 import { generateSlug } from '#shared/utils/slug'
+import { auditAppOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
 
@@ -42,6 +43,16 @@ export default defineEventHandler(async (event) => {
     description: body.description,
     companyId,
   }).returning()
+  
+  // Audit log app creation
+  await auditAppOperation(event, 'create', app.id, companyId, user.id, {
+    after: {
+      name: app.name,
+      slug: app.slug,
+      icon: app.icon,
+      description: app.description,
+    },
+  })
   
   return successResponse(app, { message: 'App created successfully' })
 })

@@ -2,6 +2,7 @@ import { eventHandler, readBody, createError } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq } from 'drizzle-orm'
 import { generateUniqueSlug } from '#shared/utils/slug'
+import { auditTableOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 import { generatePhysicalTableName } from '~~/server/utils/dynamicTable'
 import { createPhysicalTable } from '~~/server/utils/tableOperations'
@@ -15,8 +16,31 @@ function generateLabel(name: string): string {
 }
 
 /**
+ * Generate default columns for a new table
+ * System columns (id, created_at, updated_at) are automatically added by createPhysicalTable
+ * We add a default "name" column as the first user-facing field
+ */
+function generateDefaultColumns(): TableColumnDef[] {
+  return [
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      required: true,
+      order: 0,
+      config: {
+        placeholder: 'Enter name...',
+      }
+    }
+  ]
+}
+
+/**
  * Create a new dynamic table in an app
  * App context provided by middleware, company from user session
+ * 
+ * Now simplified: only requires table name and optional description
+ * Default columns are auto-generated
  */
 export default eventHandler(async (event) => {
   const app = event.context.app
@@ -24,7 +48,7 @@ export default eventHandler(async (event) => {
   const body = await readBody<{
     name: string
     description?: string
-    columns: TableColumnDef[]
+    columns?: TableColumnDef[] // Now optional
   }>(event)
 
   if (!app || !user?.company) {
@@ -43,12 +67,10 @@ export default eventHandler(async (event) => {
     })
   }
 
-  if (!body.columns || body.columns.length === 0) {
-    throw createError({
-      statusCode: 400,
-      message: 'At least one column is required'
-    })
-  }
+  // Use provided columns or generate defaults
+  const columns = body.columns && body.columns.length > 0 
+    ? body.columns 
+    : generateDefaultColumns()
 
   // Generate slug for table (unique per app)
   // Get existing table slugs in this app
@@ -66,7 +88,7 @@ export default eventHandler(async (event) => {
 
   try {
     // Step 1: Create physical PostgreSQL table
-    await createPhysicalTable(physicalTableName, body.columns)
+    await createPhysicalTable(physicalTableName, columns)
 
     // Step 2: Create metadata entry
     const [newTable] = await db
@@ -78,14 +100,15 @@ export default eventHandler(async (event) => {
         tableName: physicalTableName,
         appId: app.id,
         companyId,
-        schema: body.columns,
+        description: body.description,
       })
       .returning()
 
     // Step 3: Create column entries (for easier querying)
-    if (body.columns.length > 0) {
-      await db.insert(schema.dataTableColumns).values(
-        body.columns.map((col, index) => ({
+    let columnIds: string[] = []
+    if (columns.length > 0) {
+      const createdColumns = await db.insert(schema.dataTableColumns).values(
+        columns.map((col, index) => ({
           dataTableId: newTable.id,
           name: col.name,
           label: col.label || generateLabel(col.name), // Auto-generate label if not provided
@@ -94,10 +117,39 @@ export default eventHandler(async (event) => {
           order: col.order ?? index,
           config: col.config || null,
         }))
-      )
+      ).returning()
+      
+      columnIds = createdColumns.map(col => col.id)
     }
 
-    console.log(`✅ Created table: ${body.name} (${physicalTableName})`)
+    // Step 4: Create default table view
+    await db.insert(schema.dataTableViews).values({
+      dataTableId: newTable.id,
+      name: 'All Records',
+      slug: 'all-records',
+      type: 'table',
+      isDefault: true,
+      visibleColumns: columnIds, // Show all columns by default
+      sort: [], // No default sorting
+      filters: { operator: 'AND', conditions: [] }, // No filters
+      viewConfig: {
+        rowHeight: 'default',
+        showRowNumbers: true,
+      },
+      createdBy: user.id,
+    })
+
+    console.log(`✅ Created table: ${body.name} (${physicalTableName}) with default view`)
+
+    // Audit log table creation
+    await auditTableOperation(event, 'create', newTable.id, companyId, user.id, {
+      after: {
+        name: newTable.name,
+        slug: newTable.slug,
+        description: newTable.description,
+        columns: columns,
+      },
+    })
 
     return successResponse(newTable, { message: 'Table created successfully' })
   } catch (error) {

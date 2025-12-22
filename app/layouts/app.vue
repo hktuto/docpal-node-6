@@ -74,6 +74,11 @@ async function navigateToSettings() {
   await router.push(getAppPath('settings'))
 }
 
+// Refresh current page
+function refreshCurrentPage() {
+  router.go(0)
+}
+
 // Provide app context to all child components
 const appContext: AppContext = {
   // Data
@@ -211,13 +216,23 @@ const staticNav = [
                   <h2 class="app-name">{{ app.name }}</h2>
                   <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
                 </div>
-                <button 
-                  class="app-header-settings"
-                  @click="navigateToSettings"
-                  title="App Settings"
-                >
-                  <Icon name="lucide:settings" size="18" />
-                </button>
+                <div class="actionsButtons">
+
+                  <button 
+                    class="app-header-button"
+                    @click="refreshCurrentPage"
+                    title="Refresh Page"
+                  >
+                    <Icon name="lucide:refresh-cw" />
+                  </button>
+                  <button 
+                    class="app-header-button"
+                    @click="navigateToSettings"
+                    title="App Settings"
+                  >
+                    <Icon name="lucide:settings"  />
+                  </button>
+                </div>
               </div>
               
               <!-- Dynamic App Menu -->
@@ -387,19 +402,25 @@ main {
         white-space: nowrap;
       }
     }
-    
-    .app-header-settings {
+    .actionsButtons{
+      display: flex;
+      flex-flow: row wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--app-space-xs);
+    }
+    .app-header-button {
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
+      
       border: none;
-      background: transparent;
       color: var(--app-text-color-secondary);
-      border-radius: var(--app-border-radius-s);
       cursor: pointer;
       transition: all 0.2s;
-      
+      font-size: var(--app-font-size-s);
+      padding:0;
       &:hover {
         background: var(--app-fill-color-light);
         color: var(--app-primary-color);
@@ -447,10 +468,10 @@ main {
 .app-content {
   height: 100%;
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto 1fr;
   overflow: hidden;
-  
+  position: relative;
   .content-header {
     display: flex;
     justify-content: space-between;
@@ -504,8 +525,7 @@ main {
   
   .content-body {
     height: 100%;
-    flex: 1 0 auto;
-    overflow: hidden;
+    overflow: auto;
   }
 }
 </style>

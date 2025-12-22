@@ -1,13 +1,14 @@
-# Phase 1.5: Table Management Enhancements
+# Phase 1.5: Views & Bulk Operations
 
 **Status**: 📋 **Planned**  
 **Estimated Duration**: 2-3 weeks
+
+**Note:** Column management moved to Phase 2.4 (before AI Assistant)
 
 ---
 
 ## Goals
 
-- [ ] Column management (add/remove/reorder after table creation)
 - [ ] Views with filters and sorting
 - [ ] Visual query builder for filters
 - [ ] Bulk operations (update, delete, export)
@@ -20,13 +21,7 @@
 
 ### Backend
 
-#### Column Management
-- [ ] API: Add column to existing table
-- [ ] API: Remove column from table
-- [ ] API: Update column (name, type, config)
-- [ ] API: Reorder columns
-- [ ] Utility: Alter dynamic table schema (add/drop column)
-- [ ] Validation: Prevent breaking changes (e.g., can't delete column with data)
+**Note:** Column management APIs moved to Phase 2.4
 
 #### Views
 - [ ] Views schema (table_views table)
@@ -47,13 +42,7 @@
 
 ### Frontend
 
-#### Column Management UI
-- [ ] Column settings panel
-- [ ] Add column button (in table settings)
-- [ ] Remove column dialog (with warnings)
-- [ ] Edit column dialog
-- [ ] Reorder columns (drag-and-drop)
-- [ ] Column visibility toggle
+**Note:** Column management UI moved to Phase 2.4
 
 #### Views UI
 - [ ] View switcher (in table toolbar)
@@ -107,7 +96,6 @@
 
 ## Success Criteria
 
-- [ ] User can add/remove columns after table creation
 - [ ] User can create filtered views
 - [ ] Visual query builder is intuitive
 - [ ] Bulk operations work correctly
@@ -116,7 +104,7 @@
 
 ---
 
-**Blocked By**: Phase 2 (needs user context)  
+**Blocked By**: Phase 2 (Auth) ✅ | Phase 2.4 (Column Management) - Soft dependency  
 **Blocks**: None (enhancement of Phase 1)  
 **Next Phase**: Phase 3 - Basic Workflows
 

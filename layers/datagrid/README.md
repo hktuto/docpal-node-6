@@ -39,13 +39,47 @@ pnpm add vxe-table vxe-pc-ui
 
 ## Usage
 
-DataGrid supports two modes:
-1. **Manual Mode** - You fetch and provide data directly
-2. **Proxy Mode** (Recommended) - vxe-table handles data fetching, pagination, and lazy loading automatically
+DataGrid supports three modes:
+1. **Auto Proxy Mode** (Recommended) - Just provide appSlug/tableSlug, DataGrid handles everything
+2. **Custom Proxy Mode** - Full control over data fetching with custom proxy config
+3. **Manual Mode** - You fetch and provide data directly
 
-### Proxy Mode (Recommended)
+### Auto Proxy Mode (Recommended - Simplest)
 
-This is the recommended approach for large datasets. vxe-table handles all data fetching, pagination, and lazy loading automatically.
+The easiest way to use DataGrid. Just provide `appSlug` and `tableSlug`:
+
+```vue
+<template>
+  <DataGrid
+    ref="gridRef"
+    :columns="columns"
+    :app-slug="appSlug"
+    :table-slug="tableSlug"
+    :auto-proxy="true"
+    height="100%"
+    @edit="handleEdit"
+    @delete="handleDelete"
+  />
+</template>
+
+<script setup lang="ts">
+const appSlug = ref('my-app')
+const tableSlug = ref('contacts')
+
+const columns = [
+  { field: 'name', title: 'Name', minWidth: 120, sortable: true },
+  { field: 'email', title: 'Email', minWidth: 200, sortable: true }
+]
+
+function handleEdit(row: any) {
+  console.log('Edit:', row)
+}
+</script>
+```
+
+### Custom Proxy Mode (Advanced)
+
+For custom data fetching logic, provide your own proxy config:
 
 ```vue
 <template>
@@ -294,6 +328,7 @@ interface Column {
   width?: number | string
   minWidth?: number | string
   sortable?: boolean
+  visible?: boolean     // Column visibility (default: true)
   fixed?: 'left' | 'right'
   formatter?: (params: { cellValue: any, row: any }) => string
   slots?: {

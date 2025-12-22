@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { DataTable, DataTableColumn } from '#shared/types/db'
-import type { VxeGridPropTypes } from 'vxe-table'
+import type { DataTable, DataTableColumn, DataTableView } from '#shared/types/db'
 
 definePageMeta({
   layout: 'app'
@@ -17,66 +16,57 @@ onMounted(() => {
 })
 
 // Fetch table metadata (with columns) - only schema, not rows
-const { data: table, pending: tablePending, refresh: refreshTable } = await useApi<DataTable & { columns: DataTableColumn[] }>(
+const { data: table, pending: tablePending, refresh: refreshTable } = await useApi<SuccessResponse<DataTable & { columns: DataTableColumn[] }>>(
   () => `/api/apps/${appSlug.value}/tables/${tableSlug.value}`,
   {
     key: `table-${appSlug.value}-${tableSlug.value}`,
   }
 )
 
+// Fetch default view (contains view settings + columns)
+const { data: currentView, pending: viewPending, refresh: refreshView } = await useApi<SuccessResponse<DataTableView & { 
+  columns: DataTableColumn[]
+  allColumns: DataTableColumn[] 
+}>>(
+  () => `/api/apps/${appSlug.value}/tables/${tableSlug.value}/views/default`,
+  {
+    key: `view-${appSlug.value}-${tableSlug.value}-default`,
+  }
+)
+
 // Grid ref for manual operations
 const gridRef = ref()
 
-// Proxy configuration - offload data fetching to vxe-table
-const proxyConfig = computed<VxeGridPropTypes.ProxyConfig>(() => ({
-  ajax: {
-    // Query method - vxe-table will call this automatically
-    query: async ({ page, sort, filters }) => {
-      const {$api} = useNuxtApp()
-      try {
-        const limit = page.pageSize
-        const offset = (page.currentPage - 1) * page.pageSize
-        
-        const apiResponse = await $api<any[]>(
-          `/api/apps/${appSlug.value}/tables/${tableSlug.value}/rows?limit=${limit}&offset=${offset}`
-        )
-        const response = apiResponse.data
-        
-        return {
-          result: response || [],
-          page: {
-            total: response.meta?.pagination?.total || 0
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching rows:', error)
-        ElMessage.error('Failed to load table data')
-        return {
-          result: [],
-          page: { total: 0 }
-        }
-      }
-    },
-  },
-  // Auto query on load
-  autoLoad: true
-}))
-
-// Transform columns for DataGrid
+// Transform columns for DataGrid (use view's visible columns)
 const gridColumns = computed(() => {
-  if (!table.value?.columns) return []
+  if (!currentView.value?.data.columns) return []
   
-  return table.value.columns.map(col => ({
+  // Use columns from the view (already in correct order and filtered)
+  return currentView.value.data.columns.map((col: DataTableColumn) => {
+    // Get custom width from view config if available
+    const customWidths = currentView.value?.data.columnWidths as Record<string, number> | undefined
+    const width = customWidths?.[col.id]
+    
+    return {
+      id: col.id, // Include column ID for management operations
     field: col.name,
     title: col.label,
-    minWidth: 120,
+      minWidth: width || 120,
+      width: width,
     sortable: true,
-  }))
+      visible: !col.isHidden, // Respect column visibility
+    }
+  })
 })
 
 // Row dialog state
 const showRowDialog = ref(false)
 const editingRow = ref<any>(null)
+
+// Column dialog state
+const showColumnDialog = ref(false)
+const editingColumn = ref<DataTableColumn | undefined>(undefined)
+const columnPosition = ref<number | null>(null) // Index where column should be inserted
 
 // Refresh rows (works with proxy mode)
 async function refreshRows() {
@@ -138,6 +128,172 @@ async function handleRowSaved() {
 function navigateToSettings() {
   navigateTo(`/apps/${appSlug.value}/tables/${tableSlug.value}/settings`)
 }
+
+// Column management handlers
+function handleAddColumnLeft(column: any) {
+  console.log('Add column left of:', column)
+  editingColumn.value = undefined
+  
+  // Find the index of the clicked column
+  const columnIndex = currentView.value?.data.columns.findIndex((col: DataTableColumn) => col.id === column.id)
+  if (columnIndex !== undefined && columnIndex !== -1) {
+    columnPosition.value = columnIndex // Insert before this column
+  } else {
+    columnPosition.value = 0 // Default to beginning
+  }
+  
+  showColumnDialog.value = true
+}
+
+function handleAddColumnRight(column: any) {
+  console.log('Add column right of:', column)
+  editingColumn.value = undefined
+  
+  // Find the index of the clicked column
+  const columnIndex = currentView.value?.data.columns.findIndex((col: DataTableColumn) => col.id === column.id)
+  if (columnIndex !== undefined && columnIndex !== -1) {
+    columnPosition.value = columnIndex + 1 // Insert after this column
+  } else {
+    columnPosition.value = currentView.value?.data.columns.length || 0 // Default to end
+  }
+  
+  showColumnDialog.value = true
+}
+
+function handleEditColumn(column: any) {
+  console.log('Edit column:', column)
+  // Find full column data from view
+  const fullColumn = currentView.value?.data.columns.find((col: DataTableColumn) => col.id === column.id)
+  if (fullColumn) {
+    editingColumn.value = fullColumn
+    columnPosition.value = null
+    showColumnDialog.value = true
+  } else {
+    ElMessage.error('Column not found')
+  }
+}
+
+async function handleRemoveColumn(column: any) {
+  try {
+    await ElMessageBox.confirm(
+      `Are you sure you want to remove the column "${column.title}"? This action cannot be undone.`,
+      'Remove Column',
+      {
+        confirmButtonText: 'Remove',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    
+    const {$api} = useNuxtApp()
+    await $api(
+      `/api/apps/${appSlug.value}/tables/${tableSlug.value}/columns/${column.id}`,
+      { method: 'DELETE' as any }
+    )
+    
+    ElMessage.success(`Column "${column.title}" removed`)
+    await refreshView()
+    await refreshTable()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Error removing column:', error)
+      ElMessage.error('Failed to remove column')
+    }
+  }
+}
+
+// Handle column reorder
+async function handleColumnReorder({ oldColumn, newColumn, dragPos }: any) {
+  console.log('Column reordered:', oldColumn.field, '→', newColumn.field, dragPos)
+  
+  if (!currentView.value?.data.columns) return
+  
+  try {
+    // Calculate new order on frontend
+    const columns = [...currentView.value.data.columns]
+    const oldIndex = columns.findIndex(col => col.id === oldColumn.id)
+    const newIndex = columns.findIndex(col => col.id === newColumn.id)
+    
+    if (oldIndex === -1 || newIndex === -1) return
+    
+    // Remove from old position
+    const [movedColumn] = columns.splice(oldIndex, 1)
+    
+    if (!movedColumn) return
+    
+    // Insert at new position
+    let insertIndex = newIndex
+    if (dragPos === 'right') {
+      insertIndex = oldIndex < newIndex ? newIndex : newIndex + 1
+    } else {
+      insertIndex = oldIndex < newIndex ? newIndex - 1 : newIndex
+    }
+    columns.splice(insertIndex, 0, movedColumn)
+    
+    // Send ordered column IDs to backend (update view, not column metadata)
+    const columnIds = columns.map(col => col.id)
+    
+    const {$api} = useNuxtApp()
+    await $api(
+      `/api/apps/${appSlug.value}/tables/${tableSlug.value}/columns/reorder`,
+      {
+        method: 'PUT',
+        body: { 
+          viewId: currentView.value.data.id,
+          columnIds 
+        }
+      }
+    )
+    
+    ElMessage.success('Column order updated')
+  } catch (error: any) {
+    console.error('Error reordering column:', error)
+    ElMessage.error('Failed to update column order')
+  }
+}
+
+// Column saved
+async function handleColumnSaved(savedColumn: DataTableColumn) {
+  if (savedColumn && currentView.value?.data && !editingColumn.value) {
+    // Only add to view if it's a new column (not editing)
+    try {
+      const visibleColumns = (currentView.value.data.columns?.map((col: DataTableColumn) => col.id) || []) as string[]
+      
+      // Use the columnPosition index directly
+      const insertIndex = columnPosition.value !== null ? columnPosition.value : visibleColumns.length
+      
+      // Insert column at the specified position
+      visibleColumns.splice(insertIndex, 0, savedColumn.id)
+      
+      // Update the view
+      await $fetch(
+        `/api/apps/${appSlug.value}/tables/${tableSlug.value}/views/${currentView.value.data.id}`,
+        {
+          // @ts-ignore - Nuxt $fetch PUT method type issue
+          method: 'PUT',
+          body: {
+            visibleColumns
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Error adding column to view:', error)
+      ElMessage.warning('Column created but failed to add to view. Please refresh the page.')
+    }
+  }
+  
+  await refreshView()
+  await refreshTable()
+  handleCloseColumnDialog()
+}
+
+// Close column dialog and reset state
+function handleCloseColumnDialog() {
+  showColumnDialog.value = false
+  editingColumn.value = undefined
+  columnPosition.value = null
+}
 </script>
 
 <template>
@@ -155,43 +311,63 @@ function navigateToSettings() {
     </Teleport>
     
     <!-- Loading State -->
-    <div v-if="tablePending" class="loading-state">
+    <div v-if="tablePending || viewPending" class="loading-state">
       <el-skeleton :rows="5" animated />
     </div>
     
     <!-- Error State -->
-    <div v-else-if="!table" class="error-state">
+    <div v-else-if="!table || !currentView" class="error-state">
       <Icon name="lucide:alert-circle" size="48" />
-      <h3>Table not found</h3>
-      <p>The table you're looking for doesn't exist or has been deleted.</p>
+      <h3>{{ !table ? 'Table not found' : 'View not found' }}</h3>
+      <p>{{ !table ? "The table you're looking for doesn't exist or has been deleted." : "The default view for this table is missing." }}</p>
     </div>
     
     <!-- Table Content -->
     <div v-else class="table-content">
       
-      <!-- Data Grid with Proxy & Virtual Scroll -->
+      <!-- Data Grid with Auto Proxy & Virtual Scroll -->
       <div class="table-data">
         <DataGrid
           ref="gridRef"
           :columns="gridColumns"
-          :proxy-config="proxyConfig"
+          :app-slug="appSlug"
+          :table-slug="tableSlug"
+          :auto-proxy="true"
+          :allow-column-management="true"
           :virtual-scroll="true"
           :scroll-y-load="false"
           :page-size="50"
           height="100%"
           @edit="handleEditRow"
           @delete="handleDeleteRow"
+          @add-column-left="handleAddColumnLeft"
+          @add-column-right="handleAddColumnRight"
+          @edit-column="handleEditColumn"
+          @remove-column="handleRemoveColumn"
+          @column-reorder="handleColumnReorder"
         />
       </div>
     </div>
     
+    <!-- Column Dialog -->
+    <AppTableColumnDialog
+      v-if="table && currentView"
+      v-model:visible="showColumnDialog"
+      :column="editingColumn"
+      :position="columnPosition"
+      :app-slug="appSlug"
+      :table-slug="tableSlug"
+      @saved="handleColumnSaved"
+      @update:visible="(val) => { if (!val) handleCloseColumnDialog() }"
+    />
+    
     <!-- Row Dialog -->
     <AppTableRowDialog
-      v-if="table"
+      v-if="table && currentView"
       v-model:visible="showRowDialog"
       :app-slug="appSlug"
       :table-slug="tableSlug"
-      :table="table"
+      :table="table.data"
       :row="editingRow"
       @saved="handleRowSaved"
     />

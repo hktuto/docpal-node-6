@@ -3,6 +3,7 @@ import { users } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
 import { verifyMagicLink } from '~~/server/utils/auth/magicLink'
 import { createSession } from '~~/server/utils/auth/session'
+import { auditUserOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 export default defineEventHandler(async (event) => {
@@ -61,6 +62,9 @@ export default defineEventHandler(async (event) => {
     maxAge: 60 * 60 * 24 * 30, // 30 days
     path: '/',
   })
+
+  // Audit log login (magic link login)
+  await auditUserOperation(event, 'login', user.id, session.companyId || undefined)
 
   return successResponse({
     user: {

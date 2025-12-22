@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { companyMembers, companyInvites, companies, users } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '~~/server/utils/auth/getCurrentUser'
+import { auditFromEvent } from '~~/server/utils/audit'
 import { generateInviteCode } from '~~/server/utils/auth/token'
 import { sendInviteEmail } from '~~/server/utils/email'
 import { successResponse } from '~~/server/utils/response'
@@ -118,6 +119,23 @@ export default defineEventHandler(async (event) => {
       })
     }
   }
+
+  // Audit log invite
+  await auditFromEvent(event, {
+    companyId,
+    userId: user.id,
+    action: 'invite',
+    entityType: 'user',
+    entityId: invite.id,
+    changes: {
+      after: {
+        email: invite.email,
+        role: invite.role,
+        inviteCode: invite.inviteCode,
+        expiresAt: invite.expiresAt,
+      },
+    },
+  })
 
   return successResponse({
     invite: {

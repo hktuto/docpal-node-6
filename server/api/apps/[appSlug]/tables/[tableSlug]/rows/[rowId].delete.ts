@@ -3,6 +3,7 @@ import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName } from '~~/server/utils/dynamicTable'
+import { auditRowOperation } from '~~/server/utils/audit'
 import { messageResponse } from '~~/server/utils/response'
 
 /**
@@ -46,14 +47,24 @@ export default eventHandler(async (event) => {
   }
   const validatedTableName = table.tableName
 
+  // Get existing row for audit log (before deletion)
+  const beforeRowSQL = `SELECT * FROM "${validatedTableName}" WHERE id = '${rowId}'::uuid`
+  const beforeResult = await db.execute(sql.raw(beforeRowSQL))
+  const beforeRow = beforeResult[0]
+
+  if (!beforeRow) {
+    throw createError({ statusCode: 404, message: 'Row not found' })
+  }
+
+  // Audit log row deletion (before deletion)
+  await auditRowOperation(event, 'delete', rowId, table.id, table.companyId, event.context.user.id, {
+    before: beforeRow,
+  })
+
   // Execute raw DELETE query
   const deleteSQL = `DELETE FROM "${validatedTableName}" WHERE id = '${rowId}'::uuid RETURNING *`
 
   const result = await db.execute(sql.raw(deleteSQL))
-
-  if (result.length === 0) {
-    throw createError({ statusCode: 404, message: 'Row not found' })
-  }
 
   return messageResponse(result[0], 'Row deleted successfully')
 })

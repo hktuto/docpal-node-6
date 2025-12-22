@@ -149,3 +149,21 @@ export async function auditCompanyOperation(
   })
 }
 
+export async function auditAppOperation(
+  event: H3Event,
+  action: 'create' | 'update' | 'delete',
+  appId: string,
+  companyId: string,
+  userId: string,
+  changes?: { before?: any; after?: any }
+) {
+  await auditFromEvent(event, {
+    companyId,
+    userId,
+    action,
+    entityType: 'app',
+    entityId: appId,
+    changes,
+  })
+}
+

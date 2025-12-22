@@ -1,6 +1,6 @@
 import { db } from 'hub:db'
 import { auditLogs, users } from 'hub:db:schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
 import { successResponse } from '~~/server/utils/response'
 

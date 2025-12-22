@@ -3,6 +3,7 @@ import { users, companies, companyMembers } from 'hub:db:schema'
 import { eq } from 'drizzle-orm'
 import { verifyPassword } from '~~/server/utils/auth/password'
 import { createSession } from '~~/server/utils/auth/session'
+import { auditUserOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 export default defineEventHandler(async (event) => {
@@ -73,6 +74,9 @@ export default defineEventHandler(async (event) => {
     maxAge: 60 * 60 * 24 * 30, // 30 days
     path: '/',
   })
+
+  // Audit log login (after successful session creation)
+  await auditUserOperation(event, 'login', user.id, defaultCompany)
 
   return successResponse({
     user: {

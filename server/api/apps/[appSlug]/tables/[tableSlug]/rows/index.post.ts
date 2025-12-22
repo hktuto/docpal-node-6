@@ -3,6 +3,7 @@ import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName, validateColumnName } from '~~/server/utils/dynamicTable'
+import { auditRowOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 /**
@@ -96,6 +97,14 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 500, message: 'Failed to insert row' })
   }
 
-  return successResponse(result[0], { message: 'Row created successfully' })
+  const createdRow = result[0]
+  const rowId = createdRow.id
+
+  // Audit log row creation
+  await auditRowOperation(event, 'create', rowId, table.id, table.companyId, event.context.user.id, {
+    after: body,
+  })
+
+  return successResponse(createdRow, { message: 'Row created successfully' })
 })
 

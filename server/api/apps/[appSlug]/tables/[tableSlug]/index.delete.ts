@@ -2,6 +2,7 @@ import { eventHandler, createError, getRouterParam } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { dropPhysicalTable } from '~~/server/utils/tableOperations'
+import { auditTableOperation } from '~~/server/utils/audit'
 import { messageResponse } from '~~/server/utils/response'
 
 /**
@@ -33,6 +34,16 @@ export default eventHandler(async (event) => {
   if (!existingTable) {
     throw createError({ statusCode: 404, message: 'Table not found' })
   }
+
+  // Audit log table deletion (before deletion)
+  await auditTableOperation(event, 'delete', existingTable.id, existingTable.companyId, event.context.user.id, {
+    before: {
+      name: existingTable.name,
+      slug: existingTable.slug,
+      description: existingTable.description,
+      tableName: existingTable.tableName,
+    },
+  })
 
   // Drop the physical PostgreSQL table
   try {

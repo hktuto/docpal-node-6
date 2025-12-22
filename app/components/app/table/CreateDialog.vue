@@ -15,9 +15,7 @@ const emit = defineEmits<{
 const form = ref({
   name: '',
   description: '',
-  columns: [
-    { name: 'name', label: 'Name', type: 'text' as ColumnType, required: true, order: 0 }
-  ] as TableColumnDef[]
+  columns: [] as TableColumnDef[] // Start with no columns - system will add defaults
 })
 
 const formRef = ref()
@@ -190,14 +188,14 @@ async function suggestColumnType(index: number) {
       },
       signal: abortController.signal
     })
-    console.log('response', response)
+    console.log('response', response.data)
     // Only store suggestion if this request wasn't aborted
     if (!abortController.signal.aborted) {
       suggestions.value.set(index, {
-        column: response.suggestedColumn,
-        confidence: response.confidence,
-        reason: response.reason,
-        aiEnabled: response.aiEnabled
+        column: response.data.suggestedColumn,
+        confidence: response.data.confidence,
+        reason: response.data.reason,
+        aiEnabled: response.data.aiEnabled
       })
     }
   } catch (error: any) {
@@ -258,17 +256,23 @@ async function handleCreate() {
     loading.value = true
     
     const {$api} = useNuxtApp()
+    const body: any = {
+      name: form.value.name,
+      description: form.value.description,
+    }
+    
+    // Only include columns if user added custom ones
+    if (form.value.columns.length > 0) {
+      body.columns = form.value.columns
+    }
+    
     const response = await $api(`/api/apps/${props.appSlug}/tables`, {
       method: 'POST',
-      body: {
-        name: form.value.name,
-        description: form.value.description,
-        columns: form.value.columns
-      }
+      body
     })
     
     ElMessage.success('Table created successfully!')
-    emit('created', table)
+    emit('created', response.data)
     handleClose()
   } catch (error: any) {
     console.error('Error creating table:', error)
@@ -360,10 +364,10 @@ const visible = computed({
         />
       </el-form-item>
       
-      <!-- Columns Section -->
+      <!-- Columns Section (Optional) -->
       <div class="columns-section">
         <div class="columns-header">
-          <h4>Columns</h4>
+          <h4>Columns <span class="optional-badge">(Optional)</span></h4>
           <el-button 
             size="small" 
             @click="addColumn"
@@ -374,6 +378,17 @@ const visible = computed({
           </el-button>
         </div>
         
+        <el-alert
+          v-if="form.columns.length === 0"
+          type="info"
+          :closable="false"
+          show-icon
+        >
+          <template #title>
+            A default "Name" column will be created automatically. You can add more columns now or later.
+          </template>
+        </el-alert>
+        
         <div class="columns-list">
           <div 
             v-for="(column, index) in form.columns" 
@@ -383,7 +398,6 @@ const visible = computed({
             <div class="column-header">
               <span class="column-number">{{ index + 1 }}</span>
               <el-button
-                v-if="form.columns.length > 1"
                 text
                 type="danger"
                 size="small"
@@ -766,6 +780,13 @@ const visible = computed({
   display: flex;
   justify-content: flex-end;
   gap: var(--app-space-s);
+}
+
+.optional-badge {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--app-text-color-secondary);
+  opacity: 0.8;
 }
 </style>
 

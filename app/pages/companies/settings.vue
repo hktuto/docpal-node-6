@@ -42,6 +42,19 @@ const userRole = computed(() => (companyData.value as any)?.data?.role)
 const members = computed(() => (membersData.value as any)?.data?.members || [])
 const invites = computed(() => (invitesData.value as any)?.data?.invites || [])
 
+// Audit logs state
+const auditLogs = ref<any[]>([])
+const auditLogsLoading = ref(false)
+const auditLogsPagination = ref({
+  total: 0,
+  limit: 50,
+  offset: 0,
+})
+const auditLogsFilters = ref({
+  entityType: '',
+  action: '',
+})
+
 // Check if user can manage company (owner or admin)
 const canManage = computed(() => ['owner', 'admin'].includes(userRole.value || ''))
 
@@ -125,6 +138,95 @@ const getRoleColor = (role: string) => {
       return 'warning'
     default:
       return 'info'
+  }
+}
+
+// Fetch audit logs
+const fetchAuditLogs = async () => {
+  if (!companyId.value || !canManage.value) return
+  
+  auditLogsLoading.value = true
+  try {
+    const { $api } = useNuxtApp()
+    const params = new URLSearchParams({
+      limit: auditLogsPagination.value.limit.toString(),
+      offset: auditLogsPagination.value.offset.toString(),
+    })
+    
+    if (auditLogsFilters.value.entityType) {
+      params.append('entityType', auditLogsFilters.value.entityType)
+    }
+    if (auditLogsFilters.value.action) {
+      params.append('action', auditLogsFilters.value.action)
+    }
+    
+    const response = await $api(`/api/audit-logs?${params.toString()}`)
+    auditLogs.value = response.data.logs || []
+    auditLogsPagination.value.total = response.meta?.pagination?.total || 0
+  } catch (error) {
+    console.error('Failed to fetch audit logs:', error)
+    ElMessage.error('Failed to load audit logs')
+  } finally {
+    auditLogsLoading.value = false
+  }
+}
+
+// Watch for tab changes to load audit logs
+watch(activeTab, (newTab) => {
+  if (newTab === 'audit' && canManage.value) {
+    fetchAuditLogs()
+  }
+})
+
+// Watch for filter changes
+watch([auditLogsFilters, companyId], () => {
+  if (activeTab.value === 'audit' && canManage.value) {
+    auditLogsPagination.value.offset = 0
+    fetchAuditLogs()
+  }
+})
+
+// Handle pagination
+const handleAuditLogsPageChange = (page: number) => {
+  auditLogsPagination.value.offset = (page - 1) * auditLogsPagination.value.limit
+  fetchAuditLogs()
+}
+
+const currentAuditPage = computed({
+  get: () => Math.floor(auditLogsPagination.value.offset / auditLogsPagination.value.limit) + 1,
+  set: (page: number) => {
+    auditLogsPagination.value.offset = (page - 1) * auditLogsPagination.value.limit
+    fetchAuditLogs()
+  }
+})
+
+// Format date for audit logs
+const formatAuditDate = (date: Date | string) => {
+  return new Date(date).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
+// Get action badge color
+const getActionColor = (action: string) => {
+  switch (action) {
+    case 'create':
+      return 'success'
+    case 'update':
+      return 'primary'
+    case 'delete':
+      return 'danger'
+    case 'login':
+      return 'info'
+    case 'logout':
+      return 'warning'
+    default:
+      return ''
   }
 }
 
@@ -411,6 +513,110 @@ const resendInvite = async (inviteId: string) => {
             </div>
           </el-card>
         </el-tab-pane>
+
+        <!-- Audit Logs Tab (Owner/Admin Only) -->
+        <el-tab-pane v-if="canManage" label="Audit Logs" name="audit">
+          <el-card>
+            <template #header>
+              <div class="card-header">
+                <Icon name="lucide:file-text" size="20" />
+                <span>Audit Logs</span>
+              </div>
+            </template>
+
+            <!-- Filters -->
+            <div class="audit-filters">
+              <el-form :inline="true" size="default">
+                <el-form-item label="Entity Type">
+                  <el-select
+                    v-model="auditLogsFilters.entityType"
+                    placeholder="All Types"
+                    clearable
+                    style="width: 150px"
+                  >
+                    <el-option label="User" value="user" />
+                    <el-option label="Company" value="company" />
+                    <el-option label="App" value="app" />
+                    <el-option label="Table" value="table" />
+                    <el-option label="Row" value="row" />
+                  </el-select>
+                </el-form-item>
+                <el-form-item label="Action">
+                  <el-select
+                    v-model="auditLogsFilters.action"
+                    placeholder="All Actions"
+                    clearable
+                    style="width: 150px"
+                  >
+                    <el-option label="Create" value="create" />
+                    <el-option label="Update" value="update" />
+                    <el-option label="Delete" value="delete" />
+                    <el-option label="Login" value="login" />
+                    <el-option label="Logout" value="logout" />
+                  </el-select>
+                </el-form-item>
+              </el-form>
+            </div>
+
+            <!-- Audit Logs Table -->
+            <div v-loading="auditLogsLoading" class="audit-logs-table">
+              <el-empty v-if="!auditLogsLoading && auditLogs.length === 0" description="No audit logs found" />
+              
+              <div v-else class="audit-logs-list">
+                <div
+                  v-for="log in auditLogs"
+                  :key="log.id"
+                  class="audit-log-item"
+                >
+                  <div class="audit-log-header">
+                    <div class="audit-log-main">
+                      <el-tag :type="getActionColor(log.action)" size="small" effect="plain">
+                        {{ log.action }}
+                      </el-tag>
+                      <span class="audit-entity-type">{{ log.entityType }}</span>
+                      <span v-if="log.entityId" class="audit-entity-id">
+                        {{ log.entityId }}
+                      </span>
+                    </div>
+                    <div class="audit-log-meta">
+                      <span class="audit-date">{{ formatAuditDate(log.createdAt) }}</span>
+                    </div>
+                  </div>
+                  
+                  <div class="audit-log-details">
+                    <div v-if="log.user" class="audit-user">
+                      <Icon name="lucide:user" size="14" />
+                      <span>{{ log.user.name || log.user.email }}</span>
+                    </div>
+                    <div v-if="log.ipAddress" class="audit-ip">
+                      <Icon name="lucide:map-pin" size="14" />
+                      <span>{{ log.ipAddress }}</span>
+                    </div>
+                  </div>
+                  
+                  <div v-if="log.changes" class="audit-changes">
+                    <details>
+                      <summary style="cursor: pointer; color: var(--app-text-color-secondary);">
+                        View Changes
+                      </summary>
+                      <pre class="changes-json">{{ JSON.stringify(log.changes, null, 2) }}</pre>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pagination -->
+              <el-pagination
+                v-if="auditLogsPagination.total > 0"
+                v-model:current-page="currentAuditPage"
+                :page-size="auditLogsPagination.limit"
+                :total="auditLogsPagination.total"
+                layout="total, prev, pager, next"
+                class="audit-pagination"
+              />
+            </div>
+          </el-card>
+        </el-tab-pane>
       </el-tabs>
     </div>
 
@@ -608,6 +814,105 @@ const resendInvite = async (inviteId: string) => {
   :deep(.el-tabs__header) {
     margin-bottom: var(--app-space-l);
   }
+}
+
+// Audit Logs Styles
+.audit-filters {
+  margin-bottom: var(--app-space-l);
+  padding-bottom: var(--app-space-m);
+  border-bottom: 1px solid var(--app-border-color-light);
+}
+
+.audit-logs-table {
+  min-height: 200px;
+}
+
+.audit-logs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--app-space-m);
+}
+
+.audit-log-item {
+  padding: var(--app-space-m);
+  background: var(--app-fill-color-light);
+  border-radius: var(--app-border-radius-m);
+  border: 1px solid var(--app-border-color-light);
+}
+
+.audit-log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--app-space-s);
+  gap: var(--app-space-m);
+}
+
+.audit-log-main {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-s);
+  flex-wrap: wrap;
+}
+
+.audit-entity-type {
+  font-weight: 500;
+  color: var(--app-text-color-primary);
+  text-transform: capitalize;
+}
+
+.audit-entity-id {
+  font-size: var(--app-font-size-s);
+  color: var(--app-text-color-secondary);
+  font-family: monospace;
+}
+
+.audit-log-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-m);
+}
+
+.audit-date {
+  font-size: var(--app-font-size-s);
+  color: var(--app-text-color-secondary);
+}
+
+.audit-log-details {
+  display: flex;
+  gap: var(--app-space-m);
+  margin-top: var(--app-space-xs);
+  font-size: var(--app-font-size-s);
+  color: var(--app-text-color-secondary);
+}
+
+.audit-user,
+.audit-ip {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-xs);
+}
+
+.audit-changes {
+  margin-top: var(--app-space-s);
+  padding-top: var(--app-space-s);
+  border-top: 1px solid var(--app-border-color-light);
+}
+
+.changes-json {
+  margin: var(--app-space-s) 0 0 0;
+  padding: var(--app-space-m);
+  background: var(--app-bg-color);
+  border-radius: var(--app-border-radius-s);
+  font-size: var(--app-font-size-xs);
+  overflow-x: auto;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.audit-pagination {
+  margin-top: var(--app-space-l);
+  justify-content: center;
 }
 
 // Responsive

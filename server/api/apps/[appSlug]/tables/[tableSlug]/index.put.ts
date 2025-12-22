@@ -1,6 +1,7 @@
 import { eventHandler, readBody, createError, getRouterParam } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
+import { auditTableOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
 /**
@@ -83,6 +84,20 @@ export default eventHandler(async (event) => {
     .from(schema.dataTableColumns)
     .where(eq(schema.dataTableColumns.dataTableId, updatedTable!.id))
     .orderBy(schema.dataTableColumns.order)
+
+  // Audit log table update
+  await auditTableOperation(event, 'update', existingTable.id, existingTable.companyId, event.context.user.id, {
+    before: {
+      name: existingTable.name,
+      slug: existingTable.slug,
+      description: existingTable.description,
+    },
+    after: {
+      name: updatedTable.name,
+      slug: updatedTable.slug,
+      description: updatedTable.description,
+    },
+  })
 
   return successResponse({
     ...updatedTable,

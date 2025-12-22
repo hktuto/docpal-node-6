@@ -1,4 +1,4 @@
-import { users, companies, apps, dataTables, dataTableColumns } from 'hub:db:schema'
+import { users, companies, apps, dataTables, dataTableColumns, dataTableViews } from 'hub:db:schema'
 
 // Users
 export type User = typeof users.$inferSelect
@@ -19,6 +19,10 @@ export type NewDataTable = typeof dataTables.$inferInsert
 // Data Table Columns
 export type DataTableColumn = typeof dataTableColumns.$inferSelect
 export type NewDataTableColumn = typeof dataTableColumns.$inferInsert
+
+// Data Table Views
+export type DataTableView = typeof dataTableViews.$inferSelect
+export type NewDataTableView = typeof dataTableViews.$inferInsert
 
 // Menu Item Interface
 export interface MenuItem {

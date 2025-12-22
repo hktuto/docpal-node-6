@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { companies, companyMembers } from 'hub:db:schema'
 import { requireAuth } from '~~/server/utils/auth/getCurrentUser'
 import { updateSessionCompany } from '~~/server/utils/auth/session'
+import { auditCompanyOperation } from '~~/server/utils/audit'
 import { generateSlug } from '#shared/utils/slug'
 import { successResponse } from '~~/server/utils/response'
 
@@ -44,6 +45,16 @@ export default defineEventHandler(async (event) => {
 
   // Switch session to new company
   await updateSessionCompany(user.session.id, company.id)
+
+  // Audit log company creation
+  await auditCompanyOperation(event, 'create', company.id, user.id, {
+    after: {
+      name: company.name,
+      slug: company.slug,
+      description: company.description,
+      logo: company.logo,
+    },
+  })
 
   return successResponse({
     company: {

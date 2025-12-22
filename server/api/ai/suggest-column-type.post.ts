@@ -1,9 +1,9 @@
 import { successResponse } from '~~/server/utils/response'
 import { generateJSONCompletion, isAIEnabled, getAIProvider } from '~~/server/utils/ai'
 import type { TableColumnDef } from '#shared/types/db'
-import { db } from 'hub:db'
+import { db, schema } from 'hub:db'
 import { eq } from 'drizzle-orm'
-import { apps, dataTables, dataTableColumns } from 'hub:db:schema'
+import { suggestFieldType, getFieldType } from '~~/server/utils/fieldTypes'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -30,12 +30,12 @@ export default defineEventHandler(async (event) => {
   // Check if AI is configured
   if (!isAIEnabled()) {
     console.warn('AI not configured. Using fallback logic.')
+    const fallback = fallbackColumnSuggestion(columnName, columnLabel)
     return successResponse({
-      suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
-      confidence: 'low',
-      reason: 'AI not configured. Using basic pattern matching.',
-      aiEnabled: false,
-      provider: 'none'
+      type: fallback.type,
+      required: fallback.required,
+      config: fallback.config,
+      aiEnabled: false
     })
   }
 
@@ -77,32 +77,23 @@ export default defineEventHandler(async (event) => {
       throw new Error('Failed to parse AI response')
     }
 
-    // Build the suggestion from AI response
-    const result = {
-      suggestedColumn: {
-        name: columnName,
-        label: columnLabel || generateLabelFromName(columnName),
+    // Return slim response - just the essentials
+    return successResponse({
         type: aiResponse.type || 'text',
         required: aiResponse.required ?? false,
-        config: aiResponse.config || {}
-      } as TableColumnDef,
-      confidence: aiResponse.confidence || 'medium',
-      reason: aiResponse.reason || 'Suggested by AI',
-      aiEnabled: true,
-      provider: getAIProvider()
-    }
-    
-    return successResponse(result)
+      config: aiResponse.config || {},
+      aiEnabled: true
+    })
   } catch (error: any) {
     console.error('Error calling AI:', error)
     
     // Fallback to basic suggestion if AI fails
+    const fallback = fallbackColumnSuggestion(columnName, columnLabel)
     return successResponse({
-      suggestedColumn: fallbackColumnSuggestion(columnName, columnLabel),
-      confidence: 'low',
-      reason: `AI service unavailable: ${error.message}. Using basic pattern matching.`,
-      aiEnabled: false,
-      provider: 'none'
+      type: fallback.type,
+      required: fallback.required,
+      config: fallback.config,
+      aiEnabled: false
     })
   }
 })
@@ -119,8 +110,8 @@ async function getAppContext(event: any, appSlug: string) {
     // Query the app if not in context
     const appRecord = await db
       .select()
-      .from(apps)
-      .where(eq(apps.slug, appSlug))
+      .from(schema.apps)
+      .where(eq(schema.apps.slug, appSlug))
       .limit(1)
       .then(rows => rows[0])
     
@@ -131,12 +122,12 @@ async function getAppContext(event: any, appSlug: string) {
     // Get all tables in this app with their columns
     const existingTables = await db
       .select({
-        table: dataTables,
-        columns: dataTableColumns
+        table: schema.dataTables,
+        columns: schema.dataTableColumns
       })
-      .from(dataTables)
-      .leftJoin(dataTableColumns, eq(dataTables.id, dataTableColumns.dataTableId))
-      .where(eq(dataTables.appId, appRecord.id))
+      .from(schema.dataTables)
+      .leftJoin(schema.dataTableColumns, eq(schema.dataTables.id, schema.dataTableColumns.dataTableId))
+      .where(eq(schema.dataTables.appId, appRecord.id))
     
     // Group columns by table
     const tablesMap = new Map()

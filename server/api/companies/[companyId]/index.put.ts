@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { companies, companyMembers } from 'hub:db:schema'
 import { eq, and } from 'drizzle-orm'
 import { requireAuth } from '~~/server/utils/auth/getCurrentUser'
+import { auditCompanyOperation } from '~~/server/utils/audit'
 import { generateSlug } from '#shared/utils/slug'
 import { successResponse } from '~~/server/utils/response'
 
@@ -30,6 +31,20 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Get existing company data for audit log
+  const [existingCompany] = await db
+    .select()
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1)
+
+  if (!existingCompany) {
+    throw createError({
+      statusCode: 404,
+      message: 'Company not found',
+    })
+  }
+
   // Prepare update data
   const updateData: any = {
     updatedAt: new Date(),
@@ -54,6 +69,22 @@ export default defineEventHandler(async (event) => {
     .set(updateData)
     .where(eq(companies.id, companyId))
     .returning()
+
+  // Audit log company update
+  await auditCompanyOperation(event, 'update', companyId, user.id, {
+    before: {
+      name: existingCompany.name,
+      slug: existingCompany.slug,
+      description: existingCompany.description,
+      logo: existingCompany.logo,
+    },
+    after: {
+      name: company.name,
+      slug: company.slug,
+      description: company.description,
+      logo: company.logo,
+    },
+  })
 
   return successResponse({
     company: {
