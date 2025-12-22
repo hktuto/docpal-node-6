@@ -6,6 +6,7 @@
 // Public routes that don't require authentication
 const PUBLIC_ROUTES = [
   '/auth/login',
+  '/auth/register',
   '/auth/verify',
   '/auth/invite',
 ]

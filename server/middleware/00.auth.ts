@@ -13,7 +13,6 @@ const PUBLIC_PATHS = [
   '/api/auth/logout',
   '/api/auth/magic-link/send',
   '/api/auth/magic-link/verify',
-  '/api/companies/invites/accept', // Can accept invite after login
 ]
 
 // Check if path starts with any public prefix
@@ -51,7 +50,6 @@ export default defineEventHandler(async (event) => {
   // Get user from session
   try {
     const user = await getCurrentUser(token)
-    
     if (user) {
       // Attach user to context for use in routes and other middleware
       event.context.user = user

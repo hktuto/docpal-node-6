@@ -101,15 +101,16 @@ onMounted(async () => {
     return
   }
 
-  // Check if user is already logged in
-  await auth.fetchUser()
+  // Check if user is already logged in (skip redirect on 401 since user might not be logged in)
+  await auth.fetchUser({ skip401Redirect: true })
 
   // Fetch invite details (we need a new API endpoint for this)
   const {$api} = useNuxtApp()
   try {
-    const response = await $api<InviteInfo>(
+    const response = await $api<{ data: InviteInfo }>(
       `/api/companies/invites/${inviteCode.value}`
     )
+    console.log('response', response)
     const data = response.data
     invite.value = data
   } catch (e: any) {

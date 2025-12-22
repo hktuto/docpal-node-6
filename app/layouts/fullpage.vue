@@ -1,10 +1,7 @@
 <template>
   <div class="fullpage-layout">
     <div class="fullpage-content">
-      <div class="fullpage-logo">
-        <Icon name="lucide:package" size="32" />
-        <h1>DocPal</h1>
-      </div>
+     
       
       <slot />
       
@@ -12,6 +9,7 @@
         <p>&copy; {{ new Date().getFullYear() }} DocPal. All rights reserved.</p>
       </div>
     </div>
+    <LoadingBg />
   </div>
 </template>
 
@@ -21,8 +19,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--app-bg-color-page);
   padding: var(--app-space-l);
+  isolation: isolate;
 }
 
 .fullpage-content {

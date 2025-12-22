@@ -45,7 +45,7 @@ export function getAIConfig(): AIConfig {
   if (aiBaseUrl) {
     return {
       provider: 'ollama',
-      model: aiModel || 'qwen2.5-coder:7b',
+      model: openaiModel || 'qwen2.5-coder:7b',
       baseURL: aiBaseUrl,
       apiKey: openaiApiKey || 'ollama', // Ollama doesn't need a real key
       enabled: true

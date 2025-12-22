@@ -1,5 +1,5 @@
 <template>
-  <div v-if="user" class="user-menu">
+  <div v-if="user" :class="{'user-menu':true, 'expanded':expandState}">
     <el-dropdown 
       trigger="click" 
       placement="top-start"
@@ -72,9 +72,21 @@
             </el-dropdown-item>
           </div>
 
-          <el-dropdown-item v-if="companies.length === 0" disabled>
+          <el-dropdown-item 
+            divided 
+            command="create-company"
+          >
+            <Icon name="lucide:plus" />
+            <span>Create Company</span>
+          </el-dropdown-item>
+
+          <el-dropdown-item 
+            v-if="auth.company.value" 
+            divided 
+            command="company-settings"
+          >
             <Icon name="lucide:building-2" />
-            <span>No companies</span>
+            <span>Company Settings</span>
           </el-dropdown-item>
 
           <el-dropdown-item divided command="settings">
@@ -89,6 +101,12 @@
         </el-dropdown-menu>
       </template>
     </el-dropdown>
+
+    <!-- Create Company Dialog -->
+    <CompaniesCreateCompanyDialog
+      v-model="showCreateCompanyDialog"
+      @success="fetchCompanies"
+    />
   </div>
 </template>
 
@@ -116,8 +134,10 @@ const userInitials = computed(() => {
     return user.value?.email?.charAt(0).toUpperCase() || 'U'
   }
   const names = user.value.name.split(' ')
-  if (names.length >= 2) {
-    return (names[0][0] + names[1][0]).toUpperCase()
+  const first = names[0]
+  const second = names[1]
+  if (names.length >= 2 && first && second && first.length > 0 && second.length > 0) {
+    return (first.charAt(0) + second.charAt(0)).toUpperCase()
   }
   return user.value.name.charAt(0).toUpperCase()
 })
@@ -135,8 +155,8 @@ const fetchCompanies = async () => {
   const {$api} = useNuxtApp()
   try {
     loading.value = true
-    const response = await $api<{ companies: Company[] }>('/api/companies')
-    companies.value = response.data.companies
+    const response = await $api<{ data: { companies: Company[] } }>('/api/companies')
+    companies.value = response.data?.companies || []
   } catch (e) {
     console.error('Failed to fetch companies:', e)
     companies.value = []
@@ -146,18 +166,29 @@ const fetchCompanies = async () => {
 }
 
 const handleCommand = async (command: string) => {
+  console.log('handleCommand', command)
   if (command === 'profile') {
-    await router.push('/profile')
+    router.push('/profile')
+    return
+  }
+
+  if (command === 'create-company') {
+    showCreateCompanyDialog.value = true
+    return
+  }
+
+  if (command === 'company-settings') {
+    router.push('/companies/settings')
     return
   }
 
   if (command === 'settings') {
-    await router.push('/settings')
+    router.push('/settings')
     return
   }
 
   if (command === 'logout') {
-    await auth.logout()
+    auth.logout()
     return
   }
 
@@ -180,6 +211,15 @@ const handleCommand = async (command: string) => {
 <style scoped lang="scss">
 .user-menu {
   width: 100%;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-s);
+  &.expanded {
+    justify-content: flex-start;
+    align-items: flex-start;
+  }
 }
 
 .user-menu-trigger {
@@ -196,7 +236,7 @@ const handleCommand = async (command: string) => {
   }
 
   &.expanded {
-    padding: var(--app-space-s) var(--app-space-m);
+    padding: var(--app-space-s) var(--app-space-s);
   }
 }
 

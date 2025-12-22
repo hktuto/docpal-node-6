@@ -45,7 +45,6 @@ export async function getCurrentUser(sessionToken: string): Promise<CurrentUser 
       )
     )
     .limit(1)
-
   if (!result.length) {
     return null
   }
@@ -127,7 +126,6 @@ export async function getCurrentUserFromEvent(event: H3Event): Promise<CurrentUs
  */
 export function requireAuth(event: H3Event): CurrentUser {
   const user = event.context.user
-  
   if (!user) {
     throw createError({
       statusCode: 401,

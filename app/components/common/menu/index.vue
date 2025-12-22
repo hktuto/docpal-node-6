@@ -1,10 +1,11 @@
 <script setup lang="ts">
-
+import UserMenu from './UserMenu.vue'
 const emit = defineEmits(['expandStateChange'])
 type MenuItem = {
-    label: string | Function
-    icon: string | Function
+    label?: string | Function
+    icon?: string | Function
     url?: string | Function
+    component?: Component
     action?: () => void
 }
 const expandState = defineModel<boolean>('expandState', { required: true })
@@ -39,6 +40,9 @@ const footerMenu:MenuItem[] = [
         label: 'Settings',
         icon: 'lucide:settings',
         url: '/settings',
+    },
+    {
+        component: UserMenu,
     },
     {
         label: () => (expandState.value ? 'Collapse' : 'Expand'),
@@ -97,7 +101,11 @@ function isRouteActive(itemUrl?: any): boolean {
             />
         </div>
         <div class="menuFooter">
-            <CommonMenuItem 
+            <template v-for="(item, index) in footerMenu" >
+                <component :is="item.component" v-if="item.component" :expandState="expandState" />
+                <CommonMenuItem v-else :key="'footer-'+index" :expandState="expandState" :label="item.label" :icon="item.icon" :selected="isRouteActive(item.url)" @click="handleClick(item)" />
+            </template>
+                <!-- <CommonMenuItem 
                 v-for="(item, index) in footerMenu" 
                 :key="'footer-'+index" 
                 :expandState="expandState"
@@ -106,7 +114,7 @@ function isRouteActive(itemUrl?: any): boolean {
                 :selected="isRouteActive(item.url)"
                 @click="handleClick(item)"
             />
-            <CommonMenuUserMenu :expandState="expandState" />
+            <CommonMenuUserMenu :expandState="expandState" /> -->
             <slot name="footer" />
         </div>
     </div>

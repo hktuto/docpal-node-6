@@ -1,7 +1,7 @@
 <template>
-  <el-card class="login-form-card">
+  <el-card class="login-form-card glass">
     <template #header>
-      <h2>{{ useMagicLink ? 'Sign in with Magic Link' : 'Sign In' }}</h2>
+      <p>{{ useMagicLink ? 'Sign in with Magic Link' : 'Sign In' }}</p>
     </template>
 
     <el-form
@@ -81,6 +81,18 @@
       >
         {{ useMagicLink ? 'Sign in with password' : 'Sign in with magic link' }}
       </el-button>
+
+      <div class="form-footer">
+        <span>Don't have an account?</span>
+        <el-button
+          text
+          type="primary"
+          :disabled="loading"
+          @click="navigateToRegister"
+        >
+          Create Account
+        </el-button>
+      </div>
     </el-form>
   </el-card>
 </template>
@@ -90,6 +102,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 
 const auth = useAuth()
 const router = useRouter()
+const route = useRoute()
 
 const formRef = ref<FormInstance>()
 const useMagicLink = ref(false)
@@ -120,6 +133,15 @@ const toggleMagicLink = () => {
   useMagicLink.value = !useMagicLink.value
   magicLinkSent.value = false
   error.value = null
+}
+
+const navigateToRegister = () => {
+  const redirect = route.query.redirect as string
+  if (redirect) {
+    router.push(`/auth/register?redirect=${encodeURIComponent(redirect)}`)
+  } else {
+    router.push('/auth/register')
+  }
 }
 
 const handleSubmit = async () => {
@@ -173,20 +195,16 @@ const handleSubmit = async () => {
 
 <style scoped lang="scss">
 .login-form-card {
+  --el-card-bg-color: transparent;
+  --el-card-border-color: transparent;
+  --el-card-border-radius: var(--app-border-radius-m);
   :deep(.el-card__header) {
-    padding: var(--app-space-l);
+    padding: var(--app-space-s) var(--app-space-m);
     
-    h2 {
-      margin: 0;
-      font-size: var(--app-font-size-xl);
-      font-weight: var(--app-font-weight-title);
-      text-align: center;
-      color: var(--app-text-color-primary);
-    }
   }
 
   :deep(.el-card__body) {
-    padding: var(--app-space-l);
+    padding: var(--app-space-m);
   }
 }
 
@@ -194,7 +212,7 @@ const handleSubmit = async () => {
   display: flex;
   align-items: center;
   text-align: center;
-  margin: var(--app-space-l) 0;
+  margin: var(--app-space-s) 0;
   
   &::before,
   &::after {
@@ -208,6 +226,16 @@ const handleSubmit = async () => {
     color: var(--app-text-color-secondary);
     font-size: var(--app-font-size-s);
   }
+}
+
+.form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-xs);
+  margin-top: var(--app-space-m);
+  font-size: var(--app-font-size-m);
+  color: var(--app-text-color-secondary);
 }
 </style>
 

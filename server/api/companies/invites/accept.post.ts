@@ -1,5 +1,5 @@
 import { db } from 'hub:db'
-import { companyInvites, companyMembers, users } from 'hub:db:schema'
+import { companyInvites, companyMembers, users, companies } from 'hub:db:schema'
 import { eq, and, gte, isNull } from 'drizzle-orm'
 import { requireAuth } from '~~/server/utils/auth/getCurrentUser'
 import { updateSessionCompany } from '~~/server/utils/auth/session'
@@ -51,23 +51,23 @@ export default defineEventHandler(async (event) => {
       )
     )
     .limit(1)
-
+  console.log('existingMembership', existingMembership)
   if (existingMembership.length > 0) {
     throw createError({
       statusCode: 400,
       message: 'You are already a member of this company',
     })
   }
-
+  console.log('invite', invite)
   // Add user to company
-  await db
+  const newMembership = await db
     .insert(companyMembers)
     .values({
       companyId: invite.companyId,
       userId: user.id,
       role: invite.role,
     })
-
+  console.log('newMembership', newMembership)
   // Mark invite as accepted
   await db
     .update(companyInvites)
@@ -75,8 +75,8 @@ export default defineEventHandler(async (event) => {
     .where(eq(companyInvites.id, invite.id))
 
   // Switch session to new company
-  await updateSessionCompany(user.session.id, invite.companyId)
-
+  const updatedSession = await updateSessionCompany(user.session.id, invite.companyId)
+  console.log('updateSessionCompany', updatedSession)
   return successResponse({
     message: 'Invite accepted successfully',
     companyId: invite.companyId,

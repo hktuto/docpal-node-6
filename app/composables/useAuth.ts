@@ -36,21 +36,26 @@ export const useAuth = () => {
   /**
    * Fetch current user from server
    */
-  const fetchUser = async () => {
+  const fetchUser = async (options?: { skip401Redirect?: boolean }) => {
     try {
       loading.value = true
       error.value = null
 
-      const { data, error: fetchError } = await $api('/api/auth/me')
-      console.log('fetchUser', data, fetchError)
-      if (fetchError) {
+      const response = await $api<any>('/api/auth/me', {
+        ...options
+      } as any)
+      console.log('fetchUser', response)
+      
+      if (response.data) {
+        user.value = {
+          ...response.data.user,
+          emailVerifiedAt: response.data.user.emailVerifiedAt ? new Date(response.data.user.emailVerifiedAt) : null,
+        }
+        company.value = response.data.company
+      } else {
         user.value = null
         company.value = null
-        return
       }
-
-      user.value = data.user
-      company.value = data.company
     } catch (e) {
       console.error('Failed to fetch user:', e)
       user.value = null
@@ -194,13 +199,23 @@ export const useAuth = () => {
       loading.value = true
       error.value = null
 
-      await $api('/api/companies/invites/accept', {
+      const response = await $api<any>('/api/companies/invites/accept', {
         method: 'POST',
         body: { inviteCode },
       })
 
-      // Refresh user data
-      await fetchUser()
+      // Update company state with the returned company data
+      if (response.data?.company) {
+        company.value = {
+          id: response.data.company.id,
+          name: response.data.company.name,
+          slug: response.data.company.slug,
+          role: response.data.company.role,
+        }
+      }
+
+      // Refresh user data to ensure everything is in sync
+      await fetchUser({ skip401Redirect: true })
 
       return { success: true }
     } catch (e: any) {

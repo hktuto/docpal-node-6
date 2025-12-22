@@ -52,7 +52,6 @@ export async function updateSessionCompany(sessionId: string, companyId: string)
     .set({ companyId })
     .where(eq(sessions.id, sessionId))
     .returning()
-
   return session
 }
 

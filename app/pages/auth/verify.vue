@@ -42,7 +42,7 @@ const error = ref<string | null>(null)
 
 onMounted(async () => {
   const token = route.query.token as string
-
+  console.log('token', token, route)
   if (!token) {
     verifying.value = false
     error.value = 'No verification token provided'
@@ -51,7 +51,7 @@ onMounted(async () => {
 
   try {
     const result = await auth.verifyMagicLink(token)
-
+    console.log('result', result)
     if (result.success) {
       success.value = true
       ElMessage.success('Successfully signed in!')

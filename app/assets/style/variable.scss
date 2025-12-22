@@ -336,7 +336,8 @@
 
   --el-checkbox-font-size: var(--app-font-size-m);
   // override element
-  --el-border-radius-base: var(--app-border-radius-m);
+  --el-border-radius-base: var(--app-border-radius-m)!important;
 
+  --el-card-border-radius: var(--app-border-radius-m) !important;
 }
 
