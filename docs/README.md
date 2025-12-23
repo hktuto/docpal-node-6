@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-A low-code platform built with Nuxt + NuxtHub allowing users to create companies, apps, dynamic data tables, views, dashboards, and automation workflows.
+A low-code platform built with Nuxt + NuxtHub allowing users to create companies, workspaces, dynamic data tables, views, dashboards, and automation workflows.
+
+**Note**: As of December 23, 2025, we renamed "Apps" to "Workspaces" to better reflect their purpose as data workspace containers. This prepares the platform for a future "Apps" feature that will allow custom page collections with navigation.
 
 ## Tech Stack
 
@@ -84,6 +86,13 @@ docs/
 - Company-prefixed table names: `dt_[companyId]_[tableId]`
 - Slugs unique per company (not globally)
 - Physical data isolation
+
+### Architecture
+- **Companies**: Top-level tenant isolation
+- **Workspaces**: Data workspace containers (formerly "Apps")
+- **Tables**: Dynamic data tables with custom columns
+- **Views**: Different ways to visualize table data
+- **Apps** (Future): Custom page collections with navigation
 
 ### API Standards
 - Modified JSend format

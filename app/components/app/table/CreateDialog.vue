@@ -266,7 +266,7 @@ async function handleCreate() {
       body.columns = form.value.columns
     }
     
-    const response = await $api(`/api/apps/${props.appSlug}/tables`, {
+    const response = await $api(`/api/workspaces/${props.appSlug}/tables`, {
       method: 'POST',
       body
     })

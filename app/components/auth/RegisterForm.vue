@@ -186,7 +186,7 @@ const handleSubmit = async () => {
       ElMessage.success('Account created successfully!')
 
       // Get redirect URL from query or default
-      const redirectTo = (route.query.redirect as string) || '/apps'
+      const redirectTo = (route.query.redirect as string) || '/workspaces'
       
       // Redirect based on whether user has a company
       if (auth.hasCompany.value) {

@@ -7,7 +7,7 @@ import { getAllFieldTypes } from '~~/server/utils/fieldTypes'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { columnName, columnLabel, appSlug, tableSlug } = body
+  const { columnName, columnLabel, workspaceSlug, tableSlug } = body
 
   if (!columnName) {
     throw createError({
@@ -16,31 +16,31 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  if (!appSlug || !tableSlug) {
+  if (!workspaceSlug || !tableSlug) {
     throw createError({
       statusCode: 400,
-      message: 'App slug and table slug are required'
+      message: 'Workspace slug and table slug are required'
     })
   }
 
-  // Get app and table context
-  let appContext = null
+  // Get workspace and table context
+  let workspaceContext = null
   let currentTable = null
   let currentTableColumns: any[] = []
   
   try {
-    // Get app
-    const app = await db
+    // Get workspace
+    const workspace = await db
       .select()
-      .from(schema.apps)
-      .where(eq(schema.apps.slug, appSlug))
+      .from(schema.workspaces)
+      .where(eq(schema.workspaces.slug, workspaceSlug))
       .limit(1)
       .then(rows => rows[0])
     
-    if (!app) {
+    if (!workspace) {
       throw createError({
         statusCode: 404,
-        message: 'App not found'
+        message: 'Workspace not found'
       })
     }
     
@@ -49,7 +49,7 @@ export default defineEventHandler(async (event) => {
       .select()
       .from(schema.dataTables)
       .where(and(
-        eq(schema.dataTables.appId, app.id),
+        eq(schema.dataTables.workspaceId, workspace.id),
         eq(schema.dataTables.slug, tableSlug)
       ))
       .limit(1)
@@ -63,10 +63,10 @@ export default defineEventHandler(async (event) => {
         .where(eq(schema.dataTableColumns.dataTableId, currentTable.id))
     }
     
-    // Get all other tables in the app for context
-    appContext = await getAppContext(app.id, app.name)
+    // Get all other tables in the workspace for context
+    workspaceContext = await getWorkspaceContext(workspace.id, workspace.name)
   } catch (error) {
-    console.warn('Could not fetch app/table context:', error)
+    console.warn('Could not fetch workspace/table context:', error)
     // Continue without context
   }
 
@@ -89,7 +89,7 @@ export default defineEventHandler(async (event) => {
       columnLabel, 
       currentTable?.description || undefined,
       currentTableColumns,
-      appContext
+      workspaceContext
     )
     
     // Call AI API (works with both OpenAI and Ollama)
@@ -144,8 +144,8 @@ export default defineEventHandler(async (event) => {
 /**
  * Get app context including existing tables and their schemas
  */
-async function getAppContext(appId: string, appName: string) {
-  // Get all tables in this app with their columns
+async function getWorkspaceContext(workspaceId: string, workspaceName: string) {
+  // Get all tables in this workspace with their columns
   const existingTables = await db
     .select({
       table: schema.dataTables,
@@ -153,7 +153,7 @@ async function getAppContext(appId: string, appName: string) {
     })
     .from(schema.dataTables)
     .leftJoin(schema.dataTableColumns, eq(schema.dataTables.id, schema.dataTableColumns.dataTableId))
-    .where(eq(schema.dataTables.appId, appId))
+    .where(eq(schema.dataTables.workspaceId, workspaceId))
   
   // Group columns by table
   const tablesMap = new Map()
@@ -179,7 +179,7 @@ async function getAppContext(appId: string, appName: string) {
   }
   
   return {
-    appName,
+    workspaceName,
     tables: Array.from(tablesMap.values())
   }
 }
@@ -193,7 +193,7 @@ function buildPromptContext(
   columnLabel?: string, 
   tableDescription?: string,
   currentTableColumns?: any[],
-  appContext?: any
+  workspaceContext?: any
 ): string {
   // Get all available field types from the registry
   const allFieldTypes = getAllFieldTypes()
@@ -232,13 +232,13 @@ ${tableDescription ? `- Table purpose: "${tableDescription}"` : ''}
     prompt += `\nThis is the first column in a new table.`
   }
 
-  // Add app context if available
-  if (appContext?.tables?.length > 0) {
-    prompt += `\n\n# Related Tables in This App`
-    if (appContext.appName) {
-      prompt += `\nApp: "${appContext.appName}"`
+  // Add workspace context if available
+  if (workspaceContext?.tables?.length > 0) {
+    prompt += `\n\n# Related Tables in This Workspace`
+    if (workspaceContext.workspaceName) {
+      prompt += `\nWorkspace: "${workspaceContext.workspaceName}"`
     }
-    for (const table of appContext.tables.slice(0, 3)) { // Limit to first 3 tables
+    for (const table of workspaceContext.tables.slice(0, 3)) { // Limit to first 3 tables
       prompt += `\n\n## ${table.name}`
       if (table.description) {
         prompt += ` - ${table.description}`

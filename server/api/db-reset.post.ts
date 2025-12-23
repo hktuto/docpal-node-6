@@ -33,7 +33,8 @@ export default defineEventHandler(async (event) => {
       'data_table_views',
       'data_table_columns',
       'data_tables',
-      'apps',
+      "apps",
+      'workspaces',
       'companies',
       'users',
       '_hub_migrations', // Drop migration tracking to allow fresh migrations

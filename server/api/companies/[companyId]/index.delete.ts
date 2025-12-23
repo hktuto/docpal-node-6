@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Delete company (cascade will handle members, apps, tables, etc.)
+  // Delete company (cascade will handle members, workspaces, tables, etc.)
   await db
     .delete(companies)
     .where(eq(companies.id, companyId))

@@ -11,7 +11,7 @@ import type { FetchError } from 'ofetch'
  * 
  * Usage:
  * ```ts
- * const { data, pending, error, refresh } = useApi<App>('/apps/my-app')
+ * const { data, pending, error, refresh } = useApi<App>('/workspaces/my-app')
  * ```
  */
 export function useApi<T>(

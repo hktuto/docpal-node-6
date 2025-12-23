@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { AppContext } from '~/composables/useAppContext'
-import { AppContextKey } from '~/composables/useAppContext'
+import type { WorkspaceContext } from '~/composables/useWorkspaceContext'
+import { WorkspaceContextKey } from '~/composables/useWorkspaceContext'
 import type { MenuItem } from '#shared/types/db'
 import {useDebounceFn} from '@vueuse/core'
 const route = useRoute()
@@ -9,7 +9,7 @@ const appSlug = computed(() => route.params.appSlug as string)
 const expandState = ref(false)
 
 // Fetch app data
-const { data: appResponse, pending, refresh: refreshApp, error } = await useApi<App>(() => `/api/apps/${appSlug.value}`, {
+const { data: appResponse, pending, refresh: refreshApp, error } = await useApi<Workspace>(() => `/api/workspaces/${appSlug.value}`, {
   key: `app-${appSlug.value}`,
   watch: [appSlug]
 })
@@ -19,10 +19,10 @@ const app = computed(() => appResponse.value?.data)
 // Update app
 const updateApp = useDebounceFn(updateAppApi, 500)
 
-async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'description' | 'menu'>>) {
+async function updateAppApi(data: Partial<Pick<Workspace, 'name' | 'icon' | 'description' | 'menu'>>) {
   const {$api} = useNuxtApp()
   try {
-    const response = await $api<App>(`/api/apps/${appSlug.value}`, {
+    const response = await $api<Workspace>(`/api/workspaces/${appSlug.value}`, {
       method: 'PUT',
       body: data
     })
@@ -40,7 +40,7 @@ async function updateAppApi(data: Partial<Pick<App, 'name' | 'icon' | 'descripti
 async function deleteApp(): Promise<boolean> {
   const {$api} = useNuxtApp()
   try {
-    await $api(`/api/apps/${appSlug.value}`, {
+    await $api(`/api/workspaces/${appSlug.value}`, {
       method: 'DELETE'
     })
     return true
@@ -62,7 +62,7 @@ async function updateMenu(newMenu: any[]) {
 
 // Navigation helpers
 function getAppPath(subPath?: string): string {
-  const base = `/apps/${appSlug.value}`
+  const base = `/workspaces/${appSlug.value}`
   return subPath ? `${base}/${subPath}` : base
 }
 
@@ -80,7 +80,7 @@ function refreshCurrentPage() {
 }
 
 // Provide app context to all child components
-const appContext: AppContext = {
+const appContext: WorkspaceContext = {
   // Data
   app: computed(() => app.value),
   appSlug: computed(() => appSlug.value),
@@ -102,7 +102,7 @@ const appContext: AppContext = {
   getAppPath,
 }
 
-provide(AppContextKey, appContext)
+provide(WorkspaceContextKey, appContext)
 
 // ==================== Menu Handlers ====================
 
@@ -123,7 +123,7 @@ async function handleMenuUpdate(newMenu: any[]) {
 // Check if menu item is active
 function isMenuActive(itemUrl: string): boolean {
   if (route.path === itemUrl) return true
-  if (itemUrl !== `/apps/${appSlug.value}` && route.path.startsWith(itemUrl + '/')) return true
+  if (itemUrl !== `/workspaces/${appSlug.value}` && route.path.startsWith(itemUrl + '/')) return true
   return false
 }
 
@@ -148,13 +148,13 @@ function findMenuItemPath(items: MenuItem[], targetSlug: string, path: MenuItem[
 // Breadcrumb built from menu structure
 const breadcrumb = computed(() => {
   const crumbs = [
-    { label: 'Apps', url: '/apps', clickable: true },
-    { label: app.value?.name || 'Loading...', url: `/apps/${appSlug.value}`, clickable: true },
+    { label: 'Workspaces', url: '/workspaces', clickable: true },
+    { label: app.value?.name || 'Loading...', url: `/workspaces/${appSlug.value}`, clickable: true },
   ]
   
   // If not on app home, find current item in menu
-  if (route.path !== `/apps/${appSlug.value}`) {
-    const pathParts = route.path.replace(`/apps/${appSlug.value}/`, '').split('/')
+  if (route.path !== `/workspaces/${appSlug.value}`) {
+    const pathParts = route.path.replace(`/workspaces/${appSlug.value}/`, '').split('/')
     const type = pathParts[0] // e.g., "tables", "folders", "dashboards"
     const slug = pathParts[1] // e.g., "contacts", "my-folder"
     
@@ -168,7 +168,7 @@ const breadcrumb = computed(() => {
           const isLast = index === menuPath.length - 1
           crumbs.push({
             label: item.label,
-            url: `/apps/${appSlug.value}/${item.type}s/${item.slug}`,
+            url: `/workspaces/${appSlug.value}/${item.type}s/${item.slug}`,
             clickable: !isLast // Last item is current page, not clickable
           })
         })
@@ -184,7 +184,7 @@ const staticNav = [
   {
     label: 'Overview',
     icon: 'lucide:home',
-    url: computed(() => `/apps/${appSlug.value}`)
+    url: computed(() => `/workspaces/${appSlug.value}`)
   },
 ]
 </script>
@@ -204,7 +204,7 @@ const staticNav = [
        <main>
         <el-splitter class="app-splitter">
           <el-splitter-panel size="260px" :min="200" :max="500">
-            <!-- Left Sidebar: App Menu -->
+            <!-- Left Sidebar: Workspace Menu -->
             <aside class="app-sidebar">
               <!-- App Header -->
               <div v-loading="pending" class="app-header">

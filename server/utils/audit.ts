@@ -15,7 +15,7 @@ export type AuditAction =
 export type AuditEntityType = 
   | 'user' 
   | 'company' 
-  | 'app' 
+  | 'workspace' 
   | 'table' 
   | 'row' 
   | 'column' 
@@ -149,10 +149,10 @@ export async function auditCompanyOperation(
   })
 }
 
-export async function auditAppOperation(
+export async function auditWorkspaceOperation(
   event: H3Event,
   action: 'create' | 'update' | 'delete',
-  appId: string,
+  workspaceId: string,
   companyId: string,
   userId: string,
   changes?: { before?: any; after?: any }
@@ -161,8 +161,8 @@ export async function auditAppOperation(
     companyId,
     userId,
     action,
-    entityType: 'app',
-    entityId: appId,
+    entityType: 'workspace',
+    entityId: workspaceId,
     changes,
   })
 }

@@ -120,7 +120,7 @@ function isFolderExpanded(folderId: string): boolean {
 
 // Check if menu item is active
 function isItemActive(item: MenuItem): boolean {
-  const basePath = `/apps/${props.appSlug}`
+  const basePath = `/workspaces/${props.appSlug}`
   const itemPath = `${basePath}/${item.type}s/${item.slug}`
   return route.path === itemPath || route.path.startsWith(itemPath + '/')
 }
@@ -153,7 +153,7 @@ function navigateToItem(item: MenuItem) {
     expandedFolders.value.add(item.id)
   }
   
-  const basePath = `/apps/${props.appSlug}`
+  const basePath = `/workspaces/${props.appSlug}`
   navigateTo(`${basePath}/${item.type}s/${item.slug}`)
 }
 

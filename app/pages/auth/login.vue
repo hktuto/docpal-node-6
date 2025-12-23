@@ -19,7 +19,7 @@ onMounted(async () => {
   
   if (auth.isAuthenticated.value) {
     if (auth.hasCompany.value) {
-      await router.push('/apps')
+      await router.push('/workspaces')
     } else {
       await router.push('/companies')
     }

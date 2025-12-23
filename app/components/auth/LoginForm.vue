@@ -171,10 +171,10 @@ const handleSubmit = async () => {
         if (result.success) {
           ElMessage.success('Welcome back!')
           
-          // Get redirect URL from query or default to /apps
+          // Get redirect URL from query or default to /workspaces
           const route = useRoute()
-          const redirectTo = (route.query.redirect as string) || '/apps'
-          // Redirect to requested page or apps/companies
+          const redirectTo = (route.query.redirect as string) || '/workspaces'
+          // Redirect to requested page or workspaces/companies
           if (auth.hasCompany.value) {
             await router.push(redirectTo)
           } else {

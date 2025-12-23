@@ -1,5 +1,5 @@
-import { users, companies, apps, dataTables, dataTableColumns, dataTableViews } from 'hub:db:schema'
-
+import { users, companies, workspaces, dataTables, dataTableColumns, dataTableViews } from 'hub:db:schema'
+import type { ColumnType } from './fieldTypes'
 // Users
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
@@ -8,9 +8,9 @@ export type NewUser = typeof users.$inferInsert
 export type Company = typeof companies.$inferSelect
 export type NewCompany = typeof companies.$inferInsert
 
-// Apps
-export type App = typeof apps.$inferSelect
-export type NewApp = typeof apps.$inferInsert
+// Workspaces
+export type Workspace = typeof workspaces.$inferSelect
+export type NewWorkspace = typeof workspaces.$inferInsert
 
 // Data Tables
 export type DataTable = typeof dataTables.$inferSelect
@@ -34,10 +34,7 @@ export interface MenuItem {
     description?: string
     children?: MenuItem[]
     order: number
-  }
-
-// Column Types
-export type ColumnType = 'text' | 'long_text' | 'number' | 'date' | 'switch'
+}
 
 // Column Configuration
 export interface ColumnConfig {

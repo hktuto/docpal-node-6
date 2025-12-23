@@ -180,7 +180,7 @@ const handleSubmit = async () => {
       handleClose()
 
       // Redirect to apps page
-      await router.push('/apps')
+      await router.push('/workspaces')
     } catch (e: any) {
       error.value = e.data?.message || e.message || 'Failed to create company'
     } finally {

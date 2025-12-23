@@ -97,7 +97,7 @@ const goBack = () => {
               </NuxtLink>
             </li>
             <li>
-              <NuxtLink to="/apps" class="help-link">
+              <NuxtLink to="/workspaces" class="help-link">
                 <Icon name="lucide:database" size="16" />
                 Browse Apps
               </NuxtLink>

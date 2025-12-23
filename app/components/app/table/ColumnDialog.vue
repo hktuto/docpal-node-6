@@ -161,7 +161,7 @@ async function handleSave() {
     if (isEditMode.value) {
       // Update existing column
       const response: any = await $api(
-        `/api/apps/${props.appSlug}/tables/${props.tableSlug}/columns/${props.column?.id}`,
+        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/columns/${props.column?.id}`,
         {
           method: 'PUT',
           body: {
@@ -177,7 +177,7 @@ async function handleSave() {
     } else {
       // Create new column
       const response: any = await $api(
-        `/api/apps/${props.appSlug}/tables/${props.tableSlug}/columns`,
+        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/columns`,
         {
           method: 'POST',
           body: {

@@ -34,6 +34,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Fetch user if not already loaded
   if (!auth.user.value && !auth.loading.value) {
     await auth.fetchUser()
+    console.log('auth.user.value', auth.user.value)
   }
 
   // If not authenticated and trying to access a protected route, redirect to login

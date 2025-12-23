@@ -128,7 +128,7 @@ const handleAcceptInvite = async () => {
 
     if (result.success) {
       ElMessage.success('Invitation accepted!')
-      await router.push('/apps')
+      await router.push('/workspaces')
     } else {
       ElMessage.error(result.error || 'Failed to accept invitation')
     }
@@ -143,7 +143,7 @@ const handleSetupSuccess = async () => {
   ElMessage.success('Account created! Redirecting...')
   
   setTimeout(() => {
-    router.push('/apps')
+    router.push('/workspaces')
   }, 1500)
 }
 </script>

@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, jsonb, timestamp, unique } from 'drizzle-orm/pg-core'
-import { apps } from './app'
+import { workspaces } from './workspace'
 import { companies } from './company'
 
 export const dataTables = pgTable('data_tables', {
@@ -11,9 +11,9 @@ export const dataTables = pgTable('data_tables', {
   tableName: text('table_name').notNull().unique(),
   
   // References
-  appId: uuid('app_id')
+  workspaceId: uuid('workspace_id')
     .notNull()
-    .references(() => apps.id, { onDelete: 'cascade' }),
+    .references(() => workspaces.id, { onDelete: 'cascade' }),
   companyId: uuid('company_id')
     .notNull()
     .references(() => companies.id, { onDelete: 'cascade' }),
@@ -31,8 +31,8 @@ export const dataTables = pgTable('data_tables', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 }, (table) => {
   return {
-    // Slug is unique per app (allows same table name across different apps in same company)
-    uniqueSlugPerApp: unique().on(table.appId, table.slug),
+    // Slug is unique per workspace (allows same table name across different workspaces in same company)
+    uniqueSlugPerWorkspace: unique().on(table.workspaceId, table.slug),
   }
 })
 

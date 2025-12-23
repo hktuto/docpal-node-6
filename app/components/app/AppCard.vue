@@ -1,20 +1,20 @@
 <script setup lang="ts">
 
 interface Props {
-  app: App
+  app: Workspace
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  edit: [app: App]
-  delete: [app: App]
+  edit: [app: Workspace]
+  delete: [app: Workspace]
 }>()
 
 const router = useRouter()
 
 const handleClick = () => {
-  router.push(`/apps/${props.app.slug}`)
+  router.push(`/workspaces/${props.app.slug}`)
 }
 
 const handleCommand = (command: string) => {
@@ -23,7 +23,7 @@ const handleCommand = (command: string) => {
       emit('edit', props.app)
       break
     case 'settings':
-      router.push(`/apps/${props.app.slug}/settings`)
+      router.push(`/workspaces/${props.app.slug}/settings`)
       break
     case 'delete':
       emit('delete', props.app)

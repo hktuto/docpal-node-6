@@ -1,5 +1,5 @@
 import type { H3Event } from 'h3'
-import type { Company, App } from '#shared/types/db'
+import type { Company, Workspace } from '#shared/types/db'
 
 
 /**
@@ -21,39 +21,39 @@ export function requireCompanyId(event: H3Event): string {
 }
 
 /**
- * Get current app from event context
- * App is set by 2.app.ts middleware (only on /api/apps/:slug/* routes)
+ * Get current workspace from event context
+ * Workspace is set by 1.workspace.ts middleware (only on /api/workspaces/:slug/* routes)
  * 
- * @throws Error if app context not found
+ * @throws Error if workspace context not found
  */
-export function requireApp(event: H3Event): App {
-  const app = event.context.app
+export function requireWorkspace(event: H3Event): Workspace {
+  const workspace = event.context.workspace
 
-  if (!app) {
+  if (!workspace) {
     throw createError({
       statusCode: 500,
-      message: 'App context not found. Middleware error.',
+      message: 'Workspace context not found. Middleware error.',
     })
   }
 
-  return app
+  return workspace
 }
 
 /**
- * Get current app ID from event context
+ * Get current workspace ID from event context
  * 
- * @throws Error if app context not found
+ * @throws Error if workspace context not found
  */
-export function requireAppId(event: H3Event): string {
-  const appId = event.context.appId
+export function requireWorkspaceId(event: H3Event): string {
+  const workspaceId = event.context.workspaceId
 
-  if (!appId) {
+  if (!workspaceId) {
     throw createError({
       statusCode: 500,
-      message: 'App context not found. Middleware error.',
+      message: 'Workspace context not found. Middleware error.',
     })
   }
 
-  return appId
+  return workspaceId
 }
 

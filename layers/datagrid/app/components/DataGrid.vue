@@ -118,7 +118,7 @@ defineExpose({
 })
 
 // Build automatic proxy configuration
-function buildAutoProxyConfig(appSlug: string, tableSlug: string): VxeGridPropTypes.ProxyConfig {
+function buildAutoProxyConfig(workspaceSlug: string, tableSlug: string): VxeGridPropTypes.ProxyConfig {
   return {
     ajax: {
       query: async ({ page, sort, filters }) => {
@@ -128,7 +128,7 @@ function buildAutoProxyConfig(appSlug: string, tableSlug: string): VxeGridPropTy
           const offset = (page.currentPage - 1) * page.pageSize
           
           const apiResponse = await $api<{ data: any[], meta?: any }>(
-            `/api/apps/${appSlug}/tables/${tableSlug}/rows?limit=${limit}&offset=${offset}`
+            `/api/workspaces/${workspaceSlug}/tables/${tableSlug}/rows?limit=${limit}&offset=${offset}`
           )
           
           return {

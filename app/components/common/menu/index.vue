@@ -16,9 +16,9 @@ const menu:MenuItem[] = [
         url: '/',
     },
     {
-        label: 'Apps',
+        label: 'Workspaces',
         icon: 'lucide:database',
-        url: '/apps',
+        url: '/workspaces',
     },{
         label: "Chat",
         icon: 'lucide:message-circle',
@@ -75,7 +75,7 @@ function isRouteActive(itemUrl?: any): boolean {
     // Exact match
     if (route.path === itemUrl) return true
     
-    // Child route match (e.g., /apps is active when on /apps/123)
+    // Child route match (e.g., /workspaces is active when on /workspaces/123)
     if (itemUrl !== '/' && route.path.startsWith(itemUrl + '/')) return true
     
     return false

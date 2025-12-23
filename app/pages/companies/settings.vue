@@ -291,7 +291,7 @@ const resendInvite = async (inviteId: string) => {
         sub-title="The company you're looking for doesn't exist or you don't have access to it."
       >
         <template #extra>
-          <el-button type="primary" @click="router.push('/apps')">
+          <el-button type="primary" @click="router.push('/workspaces')">
             Go to Apps
           </el-button>
         </template>

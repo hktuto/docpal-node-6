@@ -59,7 +59,7 @@ onMounted(async () => {
       // Redirect after a short delay
       setTimeout(() => {
         if (auth.hasCompany.value) {
-          router.push('/apps')
+          router.push('/workspaces')
         } else {
           router.push('/companies')
         }

@@ -432,17 +432,6 @@ export function suggestFieldType(label: string): string | null {
   return 'text'
 }
 
-/**
- * Validate field value (uses shared validators)
- */
-export function validateFieldValue(
-  value: any, 
-  fieldType: string, 
-  config?: any,
-  required?: boolean
-): { valid: boolean; error?: string } {
-  return sharedValidateFieldValue(value, fieldType, config, required)
-}
 
 /**
  * Get PostgreSQL type for field

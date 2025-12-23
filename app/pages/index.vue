@@ -6,7 +6,7 @@ definePageMeta({
 const router = useRouter()
 
 const navigateToApps = () => {
-  router.push('/apps')
+  router.push('/workspaces')
 }
 </script>
 
