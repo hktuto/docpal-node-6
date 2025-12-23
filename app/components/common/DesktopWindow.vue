@@ -12,6 +12,7 @@ interface WindowState {
   zIndex: number
   isMaximized: boolean
   isMinimized: boolean
+  savedState?: { x: number, y: number, width: number, height: number }
 }
 
 interface Props {
@@ -27,6 +28,9 @@ const emit = defineEmits<{
   updateSize: [id: string, width: number, height: number]
   toggleMaximize: [id: string]
   updatePageTitle: [id: string, pageTitle: string]
+  dragMove: [id: string, x: number, y: number]
+  dragEnd: [id: string, x: number, y: number]
+  unsnap: [id: string, cursorX: number, cursorY: number]
 }>()
 
 // Dragging state
@@ -52,13 +56,43 @@ const savedState = ref<{ x: number, y: number, width: number, height: number } |
 
 // Start dragging
 const startDrag = (e: MouseEvent) => {
-  if (props.window.isMaximized) return
-  
   isDragging.value = true
   dragStartX.value = e.clientX
   dragStartY.value = e.clientY
-  dragStartWindowX.value = props.window.x
-  dragStartWindowY.value = props.window.y
+  
+  // Check if window is snapped (has saved state but not maximized = snapped to edge/corner)
+  const isSnapped = props.window.savedState && !props.window.isMaximized
+  
+  // If window is maximized, restore it first and position under cursor
+  if (props.window.isMaximized) {
+    emit('toggleMaximize', props.window.id)
+    
+    // Wait for maximize toggle to complete
+    nextTick(() => {
+      // Position window so cursor is in the middle of title bar
+      const newX = e.clientX - (props.window.width / 2)
+      const newY = e.clientY - 20 // Approximate title bar half height
+      
+      dragStartWindowX.value = newX
+      dragStartWindowY.value = newY
+      
+      // Update window position immediately
+      emit('updatePosition', props.window.id, newX, newY)
+    })
+  } else if (isSnapped) {
+    // Window is snapped (edge/corner) - restore original size
+    emit('unsnap', props.window.id, e.clientX, e.clientY)
+    
+    // Wait for unsnap to complete
+    nextTick(() => {
+      dragStartWindowX.value = props.window.x
+      dragStartWindowY.value = props.window.y
+    })
+  } else {
+    dragStartWindowX.value = props.window.x
+    dragStartWindowY.value = props.window.y
+  }
+  
   dragOffset.value = { x: 0, y: 0 }
   
   emit('focus', props.window.id)
@@ -72,23 +106,53 @@ const startDrag = (e: MouseEvent) => {
 const onDrag = (e: MouseEvent) => {
   if (!isDragging.value) return
   
+  // Safety check: if mouse button is not pressed, treat as drag end
+  // This handles cases where mouseup event was missed (e.g., mouse left browser)
+  if (e.buttons === 0) {
+    stopDrag()
+    return
+  }
+  
   const deltaX = e.clientX - dragStartX.value
   const deltaY = e.clientY - dragStartY.value
   
   // Update offset for transform (no reactivity overhead)
   dragOffset.value = { x: deltaX, y: deltaY }
+  
+  // Emit drag move event for snap detection (use cursor position, not window position)
+  emit('dragMove', props.window.id, e.clientX, e.clientY)
 }
 
 const stopDrag = () => {
   if (isDragging.value && (dragOffset.value.x !== 0 || dragOffset.value.y !== 0)) {
-    // Apply final position
+    // Get final cursor position for snap detection
+    const finalX = dragStartX.value + dragOffset.value.x
+    const finalY = dragStartY.value + dragOffset.value.y
+    
+    // Calculate new position from drag
     const newX = dragStartWindowX.value + dragOffset.value.x
     const newY = dragStartWindowY.value + dragOffset.value.y
-    emit('updatePosition', props.window.id, newX, newY)
+    
+    // Clear dragging state and transform BEFORE emitting events
+    isDragging.value = false
+    dragOffset.value = { x: 0, y: 0 }
+    
+    // Emit drag end event (snap detection happens here and may override position)
+    emit('dragEnd', props.window.id, finalX, finalY)
+    
+    // Update position on next tick (after snap has a chance to override)
+    nextTick(() => {
+      // If window position wasn't changed by snap, apply our drag position
+      if (props.window.x === dragStartWindowX.value && props.window.y === dragStartWindowY.value) {
+        emit('updatePosition', props.window.id, newX, newY)
+      }
+      // If snap changed the position, it's already updated and we don't override
+    })
+  } else {
+    isDragging.value = false
+    dragOffset.value = { x: 0, y: 0 }
   }
   
-  isDragging.value = false
-  dragOffset.value = { x: 0, y: 0 }
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
 }
@@ -117,6 +181,12 @@ const startResize = (handle: string, e: MouseEvent) => {
 
 const onResize = (e: MouseEvent) => {
   if (!isResizing.value) return
+  
+  // Safety check: if mouse button is not pressed, treat as resize end
+  if (e.buttons === 0) {
+    stopResize()
+    return
+  }
   
   const deltaX = e.clientX - resizeStartX.value
   const deltaY = e.clientY - resizeStartY.value
@@ -259,7 +329,9 @@ onUnmounted(() => {
     @mousedown="handleFocus"
   >
     <!-- Title Bar -->
-    <div class="window-titlebar" @mousedown="startDrag" @dblclick="handleTitleBarDoubleClick">
+    <div :class="{'window-titlebar':true, isMaximized:window.isMaximized}" 
+      @mousedown="startDrag" 
+      @dblclick="handleTitleBarDoubleClick">
       <div class="window-title">
         <Icon v-if="window.icon" :name="window.icon" class="window-icon" />
         <span>{{ window.currentPageTitle || window.title }}</span>
@@ -310,7 +382,7 @@ onUnmounted(() => {
   flex-direction: column;
   border-radius: var(--app-border-radius-m);
   overflow: hidden;
-  box-shadow: var(--app-shadow-l);
+  box-shadow: var(--app-shadow-s);
   transition: box-shadow 0.2s ease;
   will-change: transform;
   background: var(--app-accent-color);
@@ -354,13 +426,28 @@ onUnmounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   cursor: move;
   user-select: none;
+  &.isMaximized:not(:hover){
+    padding: var(--app-space-xs);
+    .window-title {
+      font-size: var(--app-font-size-xs);
+    }
+    .window-control-btn {
+      width: 12px;
+      height: 12px;
+    }
+    .window-icon{
+      width: 12px;
+      height: 12px;
+
+    }
+  }
 }
 
 .window-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--app-font-size-m);
   font-weight: 500;
   color: var(--color-text, #fff);
 }

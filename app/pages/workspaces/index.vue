@@ -5,7 +5,7 @@
   definePageMeta({
     layout: 'default'
   })
-
+    
   useHead({
     title: 'My Workspaces - DocPal'
   })

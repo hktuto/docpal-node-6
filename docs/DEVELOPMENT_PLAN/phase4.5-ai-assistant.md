@@ -1,8 +1,8 @@
-# Phase 2.5: AI Assistant (Multi-Phase Feature)
+# Phase 4.5: AI Assistant (Multi-Phase Feature)
 
-**Status**: 🚀 **In Progress**  
+**Status**: 📋 **Planned**  
 **Overall Duration**: 6 weeks (across 3 sub-phases)  
-**Started**: Dec 22, 2025  
+**Dependencies**: Phase 4 (Real-time Features) ⚠️ **CRITICAL**  
 **Current Progress**: Planning ⏳
 
 ---
@@ -17,10 +17,48 @@ Build a comprehensive AI Assistant powered by self-hosted Ollama (Qwen 2.5 14B) 
 - Automate repetitive tasks
 - Learn user patterns and provide proactive suggestions
 
+**Key Architecture Decision**: Global AI window in desktop mode that can:
+- Track and interact with all open windows
+- Perform cross-window operations
+- Receive real-time updates via WebSocket for context awareness
+- Trigger changes that propagate instantly to all windows
+
 This is a **multi-phase feature** that will be developed incrementally:
-- **Phase 2.5.1**: Foundation & Core Functions (Week 1-2)
-- **Phase 2.5.2**: Advanced Actions & Intelligence (Week 3-4)
-- **Phase 2.5.3**: Proactive AI & Automation (Week 5-6)
+- **Phase 4.5.1**: Foundation & Core Functions (Week 1-2)
+- **Phase 4.5.2**: Advanced Actions & Intelligence (Week 3-4)
+- **Phase 4.5.3**: Proactive AI & Automation (Week 5-6)
+
+---
+
+## Why After Live Updates?
+
+**Phase 4 (Live Updates) is a critical dependency** because:
+
+1. **Real-time Context Awareness**
+   - AI subscribes to WebSocket events
+   - Knows when users make changes in any window
+   - Can provide context-aware suggestions based on live activity
+   - Example: "I see you just added a 'Status' column, should I create a Kanban view?"
+
+2. **Instant Feedback Loop**
+   - AI creates/modifies structures → Changes appear instantly
+   - No need for manual refresh → Better UX
+   - Users see AI actions happen in real-time across all windows
+
+3. **Multi-Window Synchronization**
+   - Desktop mode can have multiple windows open
+   - AI changes in one window → All windows update automatically
+   - Prevents confusion and stale data
+
+4. **Collaborative Context**
+   - AI can see what other users are doing
+   - Provide suggestions based on team activity
+   - Avoid conflicts when multiple users work simultaneously
+
+5. **Smarter AI Decisions**
+   - Access to real-time activity feed
+   - Learn from live user patterns
+   - Proactive suggestions based on current activity
 
 ---
 
@@ -30,22 +68,25 @@ This is a **multi-phase feature** that will be developed incrementally:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                  Frontend                        │
+│            Frontend (Desktop Mode)               │
 ├─────────────────────────────────────────────────┤
-│ • AiAssistant.vue (sidebar)                     │
+│ • Global AI Window (DesktopWindow)              │
+│ • Active Window Tracker (knows focus)           │
 │ • AiChatMessage.vue (message bubbles)           │
 │ • AiSuggestionCard.vue (structured suggestions) │
 │ • AiActionPreview.vue (confirmation dialogs)    │
 │ • useAiAssistant.ts (state management)          │
+│ • WebSocket integration for live context        │
 └─────────────────────────────────────────────────┘
                        ↕
 ┌─────────────────────────────────────────────────┐
 │                  Backend API                     │
 ├─────────────────────────────────────────────────┤
-│ • POST /api/apps/[appSlug]/ai/chat              │
-│ • POST /api/apps/[appSlug]/ai/context           │
-│ • GET  /api/apps/[appSlug]/ai/history           │
-│ • POST /api/apps/[appSlug]/ai/feedback          │
+│ • POST /api/workspaces/[slug]/ai/chat           │
+│ • POST /api/workspaces/[slug]/ai/context        │
+│ • GET  /api/workspaces/[slug]/ai/history        │
+│ • POST /api/workspaces/[slug]/ai/feedback       │
+│ • WebSocket events subscription                 │
 └─────────────────────────────────────────────────┘
                        ↕
 ┌─────────────────────────────────────────────────┐
@@ -53,16 +94,54 @@ This is a **multi-phase feature** that will be developed incrementally:
 ├─────────────────────────────────────────────────┤
 │ • Ollama Client (Qwen 2.5 14B)                  │
 │ • Function Registry (AI_FUNCTIONS)              │
-│ • Context Builder (app structure + user data)   │
+│ • Context Builder (workspace + live activity)   │
 │ • Permission System (safety checks)             │
 │ • Action Executor (execute AI commands)         │
 │ • Conversation Manager (history + context)      │
+│ • WebSocket Event Listener (real-time context)  │
 └─────────────────────────────────────────────────┘
+```
+
+### Desktop Mode AI Integration
+
+```typescript
+// Global AI Window Context
+interface AiDesktopContext {
+  // Active window tracking
+  activeWindow: {
+    id: string
+    type: 'table' | 'form' | 'dashboard'
+    workspaceSlug: string
+    tableSlug?: string
+    viewId?: string
+    url: string
+  }
+  
+  // All open windows
+  openWindows: Array<{
+    id: string
+    title: string
+    type: string
+    url: string
+  }>
+  
+  // Live activity stream (from WebSocket)
+  recentActivity: Array<{
+    type: 'table_created' | 'column_added' | 'record_updated'
+    userId: string
+    userName: string
+    timestamp: Date
+    data: any
+  }>
+  
+  // User command context
+  targetWindow?: string // User can say "in the Company table, ..."
+}
 ```
 
 ---
 
-## Phase 2.5.1: Foundation & Core Functions
+## Phase 4.5.1: Foundation & Core Functions
 
 **Duration**: 2 weeks  
 **Status**: 📋 Planning
@@ -70,13 +149,14 @@ This is a **multi-phase feature** that will be developed incrementally:
 ### Goals
 
 - [x] Design AI assistant architecture ✅
-- [ ] Build collapsible sidebar UI
+- [ ] Build global AI window in desktop mode
 - [ ] Integrate with Ollama (Qwen 2.5 14B)
 - [ ] Implement function calling system
 - [ ] Create 5-8 core functions
-- [ ] Add context awareness
+- [ ] Add context awareness (desktop mode)
 - [ ] Build confirmation/preview system
 - [ ] Implement streaming responses
+- [ ] Integrate WebSocket for live context
 
 ### Backend Tasks
 
@@ -87,30 +167,31 @@ This is a **multi-phase feature** that will be developed incrementally:
 - [ ] Implement context builder (`server/ai/context.ts`)
 - [ ] Create permission system (`server/ai/permissions.ts`)
 - [ ] Add conversation history manager (`server/ai/conversation.ts`)
+- [ ] WebSocket event listener for live context (`server/ai/liveContext.ts`)
 
 #### Core AI Functions
 - [ ] `createTable` - Create a new table with columns
 - [ ] `addColumn` - Add column to existing table
 - [ ] `removeColumn` - Remove column from table
 - [ ] `updateColumn` - Modify column properties
-- [ ] `createFolder` - Create folder in app menu
+- [ ] `createFolder` - Create folder in workspace menu
 - [ ] `queryData` - Query table data with filters
-- [ ] `navigateToRecord` - Navigate to specific record
+- [ ] `navigateToWindow` - Open/focus specific window
 - [ ] `suggestColumns` - Suggest columns based on table name
 
 #### API Endpoints
-- [ ] `POST /api/apps/[appSlug]/ai/chat` - Main chat endpoint
-- [ ] `POST /api/apps/[appSlug]/ai/context` - Get current context
-- [ ] `GET /api/apps/[appSlug]/ai/history` - Get conversation history
-- [ ] `POST /api/apps/[appSlug]/ai/feedback` - User feedback on suggestions
-- [ ] `DELETE /api/apps/[appSlug]/ai/history` - Clear history
+- [ ] `POST /api/workspaces/[slug]/ai/chat` - Main chat endpoint
+- [ ] `POST /api/workspaces/[slug]/ai/context` - Get current context
+- [ ] `GET /api/workspaces/[slug]/ai/history` - Get conversation history
+- [ ] `POST /api/workspaces/[slug]/ai/feedback` - User feedback on suggestions
+- [ ] `DELETE /api/workspaces/[slug]/ai/history` - Clear history
 
 #### Database Schema
 ```sql
 -- ai_conversations
 CREATE TABLE ai_conversations (
   id UUID PRIMARY KEY,
-  app_id UUID REFERENCES apps(id),
+  workspace_id UUID REFERENCES workspaces(id),
   user_id UUID REFERENCES users(id),
   company_id UUID REFERENCES companies(id),
   title TEXT, -- Generated from first message
@@ -126,7 +207,7 @@ CREATE TABLE ai_messages (
   content TEXT NOT NULL,
   tool_calls JSONB, -- Function calls made
   tool_results JSONB, -- Results from functions
-  context JSONB, -- Context at time of message
+  context JSONB, -- Context at time of message (desktop windows, activity)
   created_at TIMESTAMP DEFAULT NOW()
 );
 
@@ -157,11 +238,11 @@ CREATE TABLE ai_feedback (
 ### Frontend Tasks
 
 #### Components
-- [ ] `components/app/AiAssistant.vue` - Main sidebar container
+- [ ] `components/app/AiWindow.vue` - Global AI window (desktop mode)
 - [ ] `components/app/AiChatMessage.vue` - Message bubble component
 - [ ] `components/app/AiSuggestionCard.vue` - Structured suggestion display
 - [ ] `components/app/AiActionPreview.vue` - Action confirmation modal
-- [ ] `components/app/AiContextPills.vue` - Show current context
+- [ ] `components/app/AiContextPills.vue` - Show current context (active window)
 - [ ] `components/app/AiQuickActions.vue` - Quick action buttons
 
 #### Composables
@@ -170,48 +251,54 @@ CREATE TABLE ai_feedback (
   - Send message function
   - Execute action function
   - Conversation history
-  - Context management
+  - Desktop context tracking
+  - WebSocket integration
   - Loading states
 
 #### UI Features
-- [ ] Collapsible sidebar (slide in/out animation)
+- [ ] Global AI window in desktop mode (resizable, draggable)
 - [ ] Message history with scroll
 - [ ] Typing indicator
 - [ ] Streaming response display
 - [ ] Quick action buttons
-- [ ] Context pills (show what AI knows)
+- [ ] Context pills (show active window, open windows)
 - [ ] Action preview/confirmation
 - [ ] Error handling & retry
 - [ ] Message feedback (thumbs up/down)
+- [ ] Window targeting ("work on Company table")
 
 #### Layout Integration
-- [ ] Add AI assistant toggle button in app header
-- [ ] Add AI sidebar to app layout
-- [ ] Handle responsive design
+- [ ] Add AI window to desktop mode
+- [ ] Add AI shortcut button in desktop toolbar
+- [ ] Handle window management
 - [ ] Add keyboard shortcuts (e.g., Cmd/Ctrl + K)
 
-### Auto-Trigger Events
-- [ ] On table created → "What columns should I add?"
+### Auto-Trigger Events (with Live Updates)
+- [ ] On table created → "What columns should I add?" + live update all windows
 - [ ] On empty table → "Want me to suggest a structure?"
-- [ ] On first app visit → "Hi! I can help you build..."
+- [ ] On first workspace visit → "Hi! I can help you build..."
+- [ ] On real-time change detected → "I see someone added X, should I..."
 - [ ] On error → "Need help fixing this?"
 
 ### Success Criteria
 
-- [ ] User can open AI assistant sidebar
+- [ ] User can open AI window in desktop mode
 - [ ] User can chat with AI using natural language
-- [ ] AI can create tables with columns
-- [ ] AI can add/remove/update columns
+- [ ] AI knows which window is active
+- [ ] AI can see all open windows
+- [ ] AI can create tables with columns → changes appear instantly
+- [ ] AI can add/remove/update columns → live update in all windows
 - [ ] AI can query data and show results
-- [ ] AI can navigate to records
+- [ ] AI can navigate to windows/records
 - [ ] All actions require user confirmation
 - [ ] Streaming responses work smoothly
-- [ ] Context awareness works (knows current app/table)
+- [ ] Context awareness works (knows current window, workspace)
 - [ ] Conversation history persists
+- [ ] WebSocket integration provides live context
 
 ---
 
-## Phase 2.5.2: Advanced Actions & Intelligence
+## Phase 4.5.2: Advanced Actions & Intelligence
 
 **Duration**: 2 weeks  
 **Status**: 📋 Planned
@@ -225,7 +312,8 @@ CREATE TABLE ai_feedback (
 - [ ] Create bulk operations
 - [ ] Add formula suggestions
 - [ ] Implement multi-step workflows
-- [ ] Add smart suggestions based on patterns
+- [ ] Add smart suggestions based on live patterns
+- [ ] Cross-window operations
 
 ### Advanced AI Functions
 
@@ -243,7 +331,8 @@ CREATE TABLE ai_feedback (
 - [ ] `createDashboard` - Create dashboard with widgets
 - [ ] `createWidget` - Add widget to dashboard
 - [ ] `updateTableSchema` - Modify multiple columns at once
-- [ ] `reorganizeMenu` - Restructure app menu
+- [ ] `reorganizeMenu` - Restructure workspace menu
+- [ ] `openMultipleWindows` - Open several related windows
 
 #### Analysis & Intelligence
 - [ ] `analyzeData` - Generate data insights
@@ -252,6 +341,7 @@ CREATE TABLE ai_feedback (
 - [ ] `validateData` - Check data quality
 - [ ] `suggestFormula` - Suggest column formulas
 - [ ] `optimizeStructure` - Suggest schema improvements
+- [ ] `analyzeActivity` - Analyze real-time activity patterns
 
 #### Automation
 - [ ] `createWorkflow` - Set up basic automation
@@ -261,32 +351,34 @@ CREATE TABLE ai_feedback (
 ### Features
 
 - [ ] Multi-step conversations (AI remembers context)
-- [ ] Proactive suggestions based on user actions
+- [ ] Proactive suggestions based on live user actions
 - [ ] Data visualization in chat (charts, tables)
 - [ ] Code generation (formulas, scripts)
 - [ ] Template library integration
-- [ ] Undo/redo for AI actions
+- [ ] Undo/redo for AI actions (leveraging live updates)
 - [ ] Batch operation preview
+- [ ] Cross-window operations ("Compare Company and Contact tables")
 
 ### Success Criteria
 
 - [ ] AI can create complex structures (tables + relationships)
 - [ ] AI can analyze data and provide insights
 - [ ] AI can create dashboards with widgets
-- [ ] AI can suggest optimizations
+- [ ] AI can suggest optimizations based on live activity
 - [ ] Multi-turn conversations work naturally
 - [ ] AI provides helpful examples and explanations
+- [ ] AI can work across multiple windows
 
 ---
 
-## Phase 2.5.3: Proactive AI & Automation
+## Phase 4.5.3: Proactive AI & Automation
 
 **Duration**: 2 weeks  
 **Status**: 📋 Planned
 
 ### Goals
 
-- [ ] Learn from user behavior
+- [ ] Learn from user behavior (via activity feed)
 - [ ] Provide proactive suggestions
 - [ ] Automate repetitive tasks
 - [ ] Smart defaults based on patterns
@@ -297,19 +389,20 @@ CREATE TABLE ai_feedback (
 
 ### Intelligence Features
 
-#### Learning System
-- [ ] Track user patterns and preferences
+#### Learning System (Powered by Live Activity)
+- [ ] Track user patterns from WebSocket activity stream
 - [ ] Learn common workflows
-- [ ] Adapt suggestions based on usage
+- [ ] Adapt suggestions based on real-time usage
 - [ ] Personalize responses per user
 - [ ] Company-wide learning (opt-in)
 
 #### Proactive Suggestions
 - [ ] "You usually add these columns next..."
 - [ ] "Based on your data, consider adding..."
-- [ ] "I noticed [issue], want me to fix it?"
+- [ ] "I noticed [issue] (from live activity), want me to fix it?"
 - [ ] "Similar companies use [structure]..."
 - [ ] "Your data quality score is X, here's how to improve..."
+- [ ] "I see you opened 3 related tables, should I create relationships?"
 
 #### Automation
 - [ ] Auto-create views based on filters used
@@ -317,13 +410,14 @@ CREATE TABLE ai_feedback (
 - [ ] Auto-optimize queries
 - [ ] Auto-fix common errors
 - [ ] Auto-generate reports
+- [ ] Auto-sync across windows
 
 #### Advanced Analytics
-- [ ] Usage analytics and recommendations
+- [ ] Usage analytics from activity feed
 - [ ] Data growth predictions
 - [ ] Performance optimization suggestions
 - [ ] Security and permission recommendations
-- [ ] Collaboration pattern analysis
+- [ ] Collaboration pattern analysis (from live activity)
 
 ### Optional Enhancements
 - [ ] Voice input/output
@@ -336,10 +430,11 @@ CREATE TABLE ai_feedback (
 ### Success Criteria
 
 - [ ] AI provides relevant proactive suggestions
-- [ ] AI learns user preferences
+- [ ] AI learns user preferences from live activity
 - [ ] AI can automate repetitive tasks
 - [ ] AI provides accurate analytics
 - [ ] Users feel AI is genuinely helpful
+- [ ] AI suggestions based on real-time context are accurate
 
 ---
 
@@ -374,26 +469,36 @@ export async function chatWithAi(
 }
 ```
 
-### System Prompt Template
+### System Prompt Template (Desktop Mode)
 
 ```typescript
-function buildSystemPrompt(context: AiContext): string {
+function buildSystemPrompt(context: AiDesktopContext): string {
   return `You are an AI assistant for DocPal, helping users build and manage no-code databases.
 
-CURRENT CONTEXT:
-- App: ${context.app.name} (${context.app.description || 'No description'})
+DESKTOP MODE - MULTI-WINDOW CONTEXT:
+- Active Window: ${context.activeWindow.title} (${context.activeWindow.type})
+- Open Windows: ${context.openWindows.length}
+  ${context.openWindows.map(w => `  • ${w.title}`).join('\n')}
+
+CURRENT WORKSPACE:
+- Workspace: ${context.workspace.name}
 - User: ${context.user.name} (${context.user.role})
-- Current Page: ${context.currentPage}
-- Tables in App: ${context.appStructure.tables.length}
-  ${context.appStructure.tables.map(t => `  • ${t.name} (${t.rowCount} rows)`).join('\n')}
+- Tables in Workspace: ${context.workspaceStructure.tables.length}
+  ${context.workspaceStructure.tables.map(t => `  • ${t.name} (${t.rowCount} rows)`).join('\n')}
+
+LIVE ACTIVITY (from WebSocket):
+${context.recentActivity.slice(0, 5).map(a => 
+  `  • ${a.userName} ${a.type} at ${a.timestamp.toLocaleTimeString()}`
+).join('\n')}
 
 CAPABILITIES:
 You have access to functions that can:
-1. Create/modify tables, columns, folders
+1. Create/modify tables, columns, folders (changes propagate in real-time)
 2. Query and analyze data
 3. Create dashboards and views
-4. Navigate the interface
+4. Navigate and manage windows
 5. Set up relationships and workflows
+6. Analyze live activity patterns
 
 BEHAVIOR GUIDELINES:
 1. Be conversational and helpful, not robotic
@@ -402,20 +507,23 @@ BEHAVIOR GUIDELINES:
 4. Suggest best practices (naming, structure, relationships)
 5. Ask clarifying questions if ambiguous
 6. Explain what you're doing
-7. When creating structures, consider relationships to existing tables
+7. Consider relationships to existing tables
+8. Be aware of live activity and suggest based on context
+9. When making changes, inform user they'll see updates in real-time
 
 When users ask to create or modify things, use the appropriate tools.
-Always validate that your suggestions make sense for their use case.`
+Always validate that your suggestions make sense for their use case.
+Leverage real-time context to provide smarter suggestions.`
 }
 ```
 
-### Function Registry Example
+### Function Registry Example (with Live Updates)
 
 ```typescript
 // server/ai/functions.ts
 export const AI_FUNCTIONS = {
   createTable: {
-    description: "Create a new table in the current app",
+    description: "Create a new table in the current workspace",
     parameters: {
       type: "object",
       properties: {
@@ -436,7 +544,8 @@ export const AI_FUNCTIONS = {
               name: { type: "string" },
               type: { 
                 type: "string", 
-                enum: ["text", "number", "date", "select", "boolean", "email", "phone", "url"]
+                enum: ["text", "number", "date", "datetime", "select", "boolean", 
+                       "email", "phone", "url", "relation", "lookup", "formula"]
               },
               required: { type: "boolean", default: false }
             }
@@ -447,12 +556,12 @@ export const AI_FUNCTIONS = {
     },
     handler: async (params, context) => {
       // Validate user permissions
-      if (!canCreateTable(context.user, context.app)) {
+      if (!canCreateTable(context.user, context.workspace)) {
         throw new Error("Permission denied")
       }
       
       // Create table with default system columns
-      const table = await createTableInApp(context.appId, {
+      const table = await createTableInWorkspace(context.workspaceId, {
         name: params.name,
         description: params.description,
         columns: [
@@ -463,6 +572,13 @@ export const AI_FUNCTIONS = {
           // User columns
           ...(params.columns || [])
         ]
+      })
+      
+      // Broadcast via WebSocket - all windows will update automatically
+      await broadcastToWorkspace(context.workspaceId, {
+        type: 'table_created',
+        data: table,
+        userId: context.userId
       })
       
       // Audit log
@@ -481,9 +597,9 @@ export const AI_FUNCTIONS = {
           id: table.id,
           name: table.name,
           slug: table.slug,
-          url: `/apps/${context.appSlug}/tables/${table.slug}`
+          url: `/workspaces/${context.workspaceSlug}/tables/${table.slug}`
         },
-        message: `Created table "${table.name}" with ${params.columns?.length || 0} columns`
+        message: `Created table "${table.name}" with ${params.columns?.length || 0} columns. You'll see it appear in real-time!`
       }
     }
   }
@@ -518,7 +634,7 @@ export const AI_PERMISSIONS = {
   // Admin operations - role check
   changePermissions: 'admin',
   inviteUser: 'admin',
-  deleteApp: 'owner',
+  deleteWorkspace: 'owner',
 }
 
 export async function checkPermission(
@@ -576,18 +692,21 @@ AI_RATE_LIMIT_PER_DAY=500
 - Complex operations: 3-8 seconds
 - Streaming: 20-40 tokens/second
 - Context building: <100ms
+- Live context integration: <50ms
 
 ### Optimization Strategies
-- Cache app structure (invalidate on schema changes)
+- Cache workspace structure (invalidate on WebSocket events)
 - Limit conversation history (last 20 messages)
 - Use streaming for better perceived performance
 - Prefetch common suggestions
 - Batch similar operations
+- Efficient WebSocket event filtering
 
 ### Resource Usage
 - Memory: ~8-16GB (Qwen 2.5 14B)
 - CPU: High during inference
 - GPU: Optional but recommended (10x faster)
+- WebSocket: Minimal overhead (<1MB per connection)
 
 ---
 
@@ -616,9 +735,10 @@ AI_RATE_LIMIT_PER_DAY=500
 ### Unit Tests
 - [ ] AI function registry
 - [ ] Permission system
-- [ ] Context builder
+- [ ] Context builder (including live activity)
 - [ ] Response parser
 - [ ] Action executor
+- [ ] WebSocket event filtering
 
 ### Integration Tests
 - [ ] Ollama connection
@@ -626,27 +746,30 @@ AI_RATE_LIMIT_PER_DAY=500
 - [ ] Conversation persistence
 - [ ] Multi-turn conversations
 - [ ] Error handling
+- [ ] WebSocket integration
 
 ### E2E Tests
 - [ ] Complete user workflows
-- [ ] Table creation via AI
+- [ ] Table creation via AI → live update in multiple windows
 - [ ] Data querying via AI
 - [ ] Dashboard creation via AI
 - [ ] Error recovery
+- [ ] Multi-window desktop mode scenarios
 
 ### AI Quality Tests
 - [ ] Response relevance
 - [ ] Function calling accuracy
-- [ ] Context understanding
+- [ ] Context understanding (including live activity)
 - [ ] Multi-step task completion
 - [ ] Edge case handling
+- [ ] Real-time context awareness
 
 ---
 
 ## Documentation
 
 ### User Documentation
-- [ ] AI Assistant user guide
+- [ ] AI Assistant user guide (desktop mode)
 - [ ] Example conversations
 - [ ] Best practices
 - [ ] Troubleshooting guide
@@ -658,28 +781,32 @@ AI_RATE_LIMIT_PER_DAY=500
 - [ ] Prompt engineering guide
 - [ ] Testing AI features
 - [ ] Performance optimization
+- [ ] WebSocket integration guide
 
 ---
 
 ## Success Metrics
 
-### Phase 2.5.1 (Foundation)
+### Phase 4.5.1 (Foundation)
 - 90% of basic commands work correctly
 - <3s average response time
 - User can create tables and add columns
+- Real-time updates work across windows
 - Zero critical bugs in production
 
-### Phase 2.5.2 (Advanced)
+### Phase 4.5.2 (Advanced)
 - 85% of advanced commands work correctly
 - Users create 30%+ of tables via AI
 - Positive user feedback (>4/5 rating)
 - 50% reduction in support tickets
+- AI suggestions based on live activity are relevant
 
-### Phase 2.5.3 (Proactive)
+### Phase 4.5.3 (Proactive)
 - AI suggestions accepted 40%+ of time
 - Users feel AI is "helpful" (survey)
 - AI catches 60%+ of common errors
 - Measurable productivity gains
+- Proactive suggestions from live context are accurate 70%+ of time
 
 ---
 
@@ -691,6 +818,7 @@ AI_RATE_LIMIT_PER_DAY=500
 3. **User confusion** → Clear UI, good examples, tutorials
 4. **Resource usage** → Rate limiting, efficient context management
 5. **Scope creep** → Strict phase boundaries, MVP first
+6. **WebSocket overhead** → Efficient event filtering, connection pooling
 
 ### Mitigation Strategies
 - Start with template-based suggestions before full AI
@@ -698,6 +826,7 @@ AI_RATE_LIMIT_PER_DAY=500
 - Gather user feedback early and often
 - Keep escape hatches (manual mode always available)
 - Monitor AI performance and adjust prompts
+- Optimize WebSocket event handling
 
 ---
 
@@ -706,7 +835,13 @@ AI_RATE_LIMIT_PER_DAY=500
 **Required:**
 - Ollama running with Qwen 2.5 14B model
 - Phase 2 (Auth & Audit Logging) ✅ Complete
-- **Phase 2.4 (Column Management & Field Types)** ⚠️ **CRITICAL** - AI needs variety of field types to suggest
+- Phase 2.4 (Column Management & Field Types) ✅ Complete
+- **Phase 4 (Real-time Features / Live Updates)** ⚠️ **CRITICAL DEPENDENCY**
+  - WebSocket infrastructure
+  - Activity feed
+  - Real-time data updates
+  - Multi-window synchronization
+- Desktop mode implementation ✅ Complete
 - Database schema in place
 
 **Optional:**
@@ -716,37 +851,41 @@ AI_RATE_LIMIT_PER_DAY=500
 
 ---
 
-## Next Steps (Immediate)
+## Next Steps (After Phase 4 Completion)
 
 1. **Week 1 - Days 1-3:**
    - Set up database schema for AI conversations
    - Create Ollama client wrapper
    - Build function registry with 3 core functions
+   - Integrate WebSocket event listener for context
    - Create basic chat API endpoint
 
 2. **Week 1 - Days 4-5:**
-   - Build AI assistant sidebar UI
+   - Build AI window component for desktop mode
    - Implement message display
    - Add basic chat functionality (mock responses)
    - Test streaming responses
+   - Add active window tracking
 
 3. **Week 2 - Days 1-2:**
    - Integrate real Ollama responses
    - Implement function calling
    - Add confirmation system
    - Create 5 more core functions
+   - Test real-time update integration
 
 4. **Week 2 - Days 3-5:**
    - Polish UI/UX
-   - Add context awareness
+   - Add context awareness (desktop mode)
    - Implement auto-trigger events
    - Testing and bug fixes
+   - Multi-window testing
 
 ---
 
-**Dependencies**: Phase 2 (Auth & Audit Logging) ✅ | Phase 2.4 (Column Management & Field Types) ⚠️ **Required**  
+**Dependencies**: Phase 4 (Real-time Features) ⚠️ **CRITICAL** | Phase 2 (Auth) ✅ | Phase 2.4 (Field Types) ✅ | Desktop Mode ✅  
 **Blocks**: None (optional enhancement)  
-**Next Phase**: Phase 1.5 (Table Enhancements - Views & Bulk Operations) or Phase 3 (Workflows)
+**Next Phase**: Phase 5 (Advanced Features)
 
 ---
 
@@ -757,6 +896,9 @@ AI_RATE_LIMIT_PER_DAY=500
 - Keep manual mode always available
 - Monitor usage and adjust priorities
 - Consider fine-tuning Qwen model on DocPal-specific data later
+- **Desktop mode + Live Updates = Game-changing AI experience**
+- Real-time context makes AI dramatically smarter and more useful
 
-**Last Updated**: December 22, 2025
+**Last Updated**: December 23, 2025
+
 

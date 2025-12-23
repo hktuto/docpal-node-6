@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { useDebounceFn } from '@vueuse/core'
 
 definePageMeta({
   layout: 'desktop',
@@ -63,14 +64,120 @@ const windows = ref<WindowState[]>([])
 const nextZIndex = ref(1000)
 const windowIdCounter = ref(0)
 
+// Dock visibility management
+const isDockVisible = ref(true)
+const isDockForceVisible = ref(false) // When mouse hovers at bottom
+const dockHideTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
+const DOCK_HEIGHT = 100 // Approximate dock height
+const HOVER_THRESHOLD = 50 // Pixels from bottom to trigger show
+
+// Window snapping
+type SnapZone = 'left' | 'right' | 'top' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null
+const snapPreviewZone = ref<SnapZone>(null)
+const SNAP_THRESHOLD = 20 // Pixels from edge to trigger snap
+
+// Check snap zones during drag
+const checkSnapZone = (x: number, y: number): SnapZone => {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const threshold = SNAP_THRESHOLD
+  
+  // Check corners first (more specific)
+  if (x < threshold && y < threshold) return 'top-left'
+  if (x > viewportWidth - threshold && y < threshold) return 'top-right'
+  if (x < threshold && y > viewportHeight - threshold) return 'bottom-left'
+  if (x > viewportWidth - threshold && y > viewportHeight - threshold) return 'bottom-right'
+  
+  // Check edges
+  if (x < threshold) return 'left'
+  if (x > viewportWidth - threshold) return 'right'
+  if (y < threshold) return 'top'
+  
+  return null
+}
+
+// Get snap position for a zone
+const getSnapPosition = (zone: SnapZone) => {
+  if (!zone) return null
+  
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  
+  const positions = {
+    'left': { x: 0, y: 0, width: viewportWidth / 2, height: viewportHeight },
+    'right': { x: viewportWidth / 2, y: 0, width: viewportWidth / 2, height: viewportHeight },
+    'top': { x: 0, y: 0, width: viewportWidth, height: viewportHeight }, // Maximize
+    'top-left': { x: 0, y: 0, width: viewportWidth / 2, height: viewportHeight / 2 },
+    'top-right': { x: viewportWidth / 2, y: 0, width: viewportWidth / 2, height: viewportHeight / 2 },
+    'bottom-left': { x: 0, y: viewportHeight / 2, width: viewportWidth / 2, height: viewportHeight / 2 },
+    'bottom-right': { x: viewportWidth / 2, y: viewportHeight / 2, width: viewportWidth / 2, height: viewportHeight / 2 },
+  }
+  
+  return positions[zone]
+}
+
+// Apply snap to window
+const snapWindow = (id: string, zone: SnapZone) => {
+  const window = windows.value.find(w => w.id === id)
+  if (!window || !zone) return
+  
+  const position = getSnapPosition(zone)
+  if (!position) return
+  
+  // Save current position for un-snap
+  if (!window.savedState) {
+    window.savedState = {
+      x: window.x,
+      y: window.y,
+      width: window.width,
+      height: window.height
+    }
+  }
+  
+  // Apply snap position
+  window.x = position.x
+  window.y = position.y
+  window.width = position.width
+  window.height = position.height
+  window.isMaximized = (zone === 'top') // Top edge = maximize
+  
+  checkDockOverlap()
+  saveWindowsState()
+}
+
+// Check if any window overlaps with dock area
+const checkDockOverlap = () => {
+  if (isDockForceVisible.value) return // Mouse hovering, keep visible
+  
+  const viewportHeight = window.innerHeight
+  const dockTopEdge = viewportHeight - DOCK_HEIGHT
+  
+  // Check if any window is maximized
+  const hasMaximized = windows.value.some(win => !win.isMinimized && win.isMaximized)
+  if (hasMaximized) {
+    isDockVisible.value = false
+    return
+  }
+  
+  // Check if any visible, non-minimized window overlaps with dock area
+  const hasOverlap = windows.value.some(win => {
+    if (win.isMinimized) return false
+    const windowBottom = win.y + win.height
+    return windowBottom > dockTopEdge
+  })
+  
+  isDockVisible.value = !hasOverlap
+}
+
 // Calculate optimal window size based on viewport
 const calculateWindowSize = () => {
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
   
   // Use 75% of viewport size, but with min/max constraints
+  // Reserve space for dock
   const width = Math.min(Math.max(viewportWidth * 0.75, 800), viewportWidth - 100)
-  const height = Math.min(Math.max(viewportHeight * 0.75, 500), viewportHeight - 100)
+  const height = Math.min(Math.max(viewportHeight * 0.75, 500), viewportHeight - DOCK_HEIGHT - 40)
   
   return { width, height }
 }
@@ -119,6 +226,8 @@ const openWindow = (item: MenuItem) => {
   }
   
   windows.value.push(newWindow)
+  checkDockOverlap()
+  saveWindowsState()
 }
 
 // Close a window
@@ -126,6 +235,8 @@ const closeWindow = (id: string) => {
   const index = windows.value.findIndex(w => w.id === id)
   if (index !== -1) {
     windows.value.splice(index, 1)
+    checkDockOverlap()
+    saveWindowsState()
   }
 }
 
@@ -143,7 +254,57 @@ const updateWindowPosition = (id: string, x: number, y: number) => {
   if (window) {
     window.x = x
     window.y = y
+    checkDockOverlap()
+    saveWindowsState()
   }
+}
+
+// Handle drag move for snap preview
+const handleWindowDragMove = (id: string, x: number, y: number) => {
+  // Check if near edge to show snap preview
+  const zone = checkSnapZone(x, y)
+  snapPreviewZone.value = zone
+}
+
+// Handle drag end for snapping
+const handleWindowDragEnd = (id: string, x: number, y: number) => {
+  const zone = snapPreviewZone.value
+  
+  // Clear preview
+  snapPreviewZone.value = null
+  
+  if (zone) {
+    // Snap to zone (this will override the normal position update)
+    snapWindow(id, zone)
+    return true // Indicate snap occurred
+  }
+  
+  return false // No snap
+}
+
+// Handle unsnap - restore window to original size
+const handleWindowUnsnap = (id: string, cursorX: number, cursorY: number) => {
+  const window = windows.value.find(w => w.id === id)
+  if (!window || !window.savedState) return
+  
+  // Restore original size
+  const originalSize = window.savedState
+  window.width = originalSize.width
+  window.height = originalSize.height
+  
+  // Position window so cursor is at the same relative position in the title bar
+  // Assume cursor was in the middle of the title bar when snapped
+  const newX = cursorX - (window.width / 2)
+  const newY = cursorY - 20 // Approximate title bar half height
+  
+  window.x = newX
+  window.y = newY
+  
+  // Clear saved state
+  window.savedState = undefined
+  
+  checkDockOverlap()
+  saveWindowsState()
 }
 
 // Update window size
@@ -152,6 +313,8 @@ const updateWindowSize = (id: string, width: number, height: number) => {
   if (window) {
     window.width = width
     window.height = height
+    checkDockOverlap()
+    saveWindowsState()
   }
 }
 
@@ -161,6 +324,8 @@ const minimizeWindow = (id: string) => {
   if (!window) return
   
   window.isMinimized = true
+  checkDockOverlap()
+  saveWindowsState()
 }
 
 // Restore window from dock
@@ -183,6 +348,9 @@ const restoreWindow = (id: string) => {
   }
   if (win.x < 0) win.x = 20
   if (win.y < 0) win.y = 20
+  
+  checkDockOverlap()
+  saveWindowsState()
 }
 
 // Toggle maximize/restore
@@ -214,6 +382,9 @@ const toggleMaximize = (id: string) => {
     }
     window.isMaximized = true
   }
+  
+  checkDockOverlap()
+  saveWindowsState()
 }
 
 // Update window page title
@@ -229,32 +400,139 @@ const minimizedWindows = computed(() => {
   return windows.value.filter(w => w.isMinimized)
 })
 
+// Save windows state to localStorage (debounced)
+const saveWindowsState = useDebounceFn(() => {
+  if (!process.client) return
+  
+  const state = windows.value.map(win => ({
+    id: win.id,
+    title: win.title,
+    icon: win.icon,
+    url: win.url,
+    x: win.x,
+    y: win.y,
+    width: win.width,
+    height: win.height,
+    isMaximized: win.isMaximized,
+    isMinimized: win.isMinimized,
+    savedState: win.savedState,
+    currentPageTitle: win.currentPageTitle
+  }))
+  
+  localStorage.setItem('desktopWindows', JSON.stringify(state))
+  localStorage.setItem('desktopNextZIndex', String(nextZIndex.value))
+  localStorage.setItem('desktopWindowIdCounter', String(windowIdCounter.value))
+}, 500)
+
+// Load windows state from localStorage
+const loadWindowsState = () => {
+  if (!process.client) return
+  
+  try {
+    const savedWindows = localStorage.getItem('desktopWindows')
+    const savedNextZIndex = localStorage.getItem('desktopNextZIndex')
+    const savedIdCounter = localStorage.getItem('desktopWindowIdCounter')
+    
+    if (savedWindows) {
+      const parsed = JSON.parse(savedWindows)
+      windows.value = parsed.map((win: any, index: number) => ({
+        ...win,
+        zIndex: 1000 + index // Re-assign z-index in order
+      }))
+    }
+    
+    if (savedNextZIndex) {
+      nextZIndex.value = parseInt(savedNextZIndex)
+    }
+    
+    if (savedIdCounter) {
+      windowIdCounter.value = parseInt(savedIdCounter)
+    }
+    
+    // Check overlap after loading
+    nextTick(() => {
+      checkDockOverlap()
+    })
+  } catch (e) {
+    console.error('Failed to load windows state:', e)
+  }
+}
+
+// Mouse movement handler for dock auto-show
+const handleMouseMove = (e: MouseEvent) => {
+  const bottomDistance = window.innerHeight - e.clientY
+  
+  if (bottomDistance <= HOVER_THRESHOLD) {
+    // Mouse near bottom - force show dock
+    isDockForceVisible.value = true
+    isDockVisible.value = true
+    
+    // Clear any pending hide timeout
+    if (dockHideTimeout.value) {
+      clearTimeout(dockHideTimeout.value)
+      dockHideTimeout.value = null
+    }
+  } else if (isDockForceVisible.value) {
+    // Mouse moved away - schedule hide check
+    if (dockHideTimeout.value) {
+      clearTimeout(dockHideTimeout.value)
+    }
+    
+    dockHideTimeout.value = setTimeout(() => {
+      isDockForceVisible.value = false
+      checkDockOverlap() // Re-check if dock should be hidden due to overlap
+    }, 1000)
+  }
+}
+
 // Handle viewport resize - keep windows within bounds
 const handleViewportResize = () => {
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
+  const minVisible = 100 // Keep at least 100px visible
   
   windows.value.forEach(win => {
     if (win.isMaximized || win.isMinimized) return
     
     // Adjust width/height if window is larger than viewport
     if (win.width > viewportWidth - 40) {
-      win.width = viewportWidth - 40
+      win.width = Math.max(300, viewportWidth - 40)
     }
     if (win.height > viewportHeight - 40) {
-      win.height = viewportHeight - 40
+      win.height = Math.max(200, viewportHeight - 40)
     }
     
-    // Adjust position if window is off-screen
-    if (win.x + win.width > viewportWidth) {
-      win.x = Math.max(20, viewportWidth - win.width - 20)
+    // Ensure window is not completely off-screen
+    // Keep at least minVisible pixels visible
+    const maxX = viewportWidth - minVisible
+    const maxY = viewportHeight - minVisible
+    
+    // Adjust X position
+    if (win.x > maxX) {
+      win.x = maxX
     }
-    if (win.y + win.height > viewportHeight) {
-      win.y = Math.max(20, viewportHeight - win.height - 20)
+    if (win.x + win.width < minVisible) {
+      win.x = minVisible - win.width
     }
-    if (win.x < 0) win.x = 20
-    if (win.y < 0) win.y = 20
+    
+    // Adjust Y position
+    if (win.y > maxY) {
+      win.y = maxY
+    }
+    if (win.y + win.height < minVisible) {
+      win.y = minVisible - win.height
+    }
+    
+    // Ensure minimum position
+    if (win.x < -win.width + minVisible) {
+      win.x = -win.width + minVisible
+    }
+    if (win.y < 0) {
+      win.y = 0
+    }
   })
+  
+  checkDockOverlap()
 }
 
 // Debounced resize handler
@@ -264,20 +542,33 @@ const debouncedResize = () => {
   resizeTimeout = setTimeout(handleViewportResize, 150)
 }
 
-// Listen for viewport resize
+// Listen for viewport resize and mouse movement
 onMounted(() => {
   window.addEventListener('resize', debouncedResize)
+  document.addEventListener('mousemove', handleMouseMove)
+  
+  // Load saved windows state
+  loadWindowsState()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', debouncedResize)
+  document.removeEventListener('mousemove', handleMouseMove)
   if (resizeTimeout) clearTimeout(resizeTimeout)
+  if (dockHideTimeout.value) clearTimeout(dockHideTimeout.value)
 })
 
 </script>
 
 <template>
   <div class="desktop-container">
+    <!-- Snap Preview Overlay -->
+    <div 
+      v-if="snapPreviewZone"
+      class="snap-preview"
+      :class="snapPreviewZone"
+    />
+    
     <!-- Windows (render all, hide minimized with CSS to preserve iframe state) -->
     <CommonDesktopWindow
       v-for="window in windows"
@@ -290,10 +581,16 @@ onUnmounted(() => {
       @update-size="updateWindowSize"
       @toggle-maximize="toggleMaximize"
       @update-page-title="updatePageTitle"
+      @drag-move="handleWindowDragMove"
+      @drag-end="handleWindowDragEnd"
+      @unsnap="handleWindowUnsnap"
     />
     
     <!-- Dock Menu -->
-    <div class="floatingMenuDockContainer glass">
+    <div 
+      class="floatingMenuDockContainer glass"
+      :class="{ 'dock-hidden': !isDockVisible }"
+    >
       <!-- App Icons -->
       <div 
         v-for="item in menu" 
@@ -340,6 +637,66 @@ onUnmounted(() => {
   /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
 }
 
+/* Snap Preview Overlay */
+.snap-preview {
+  position: fixed;
+  background: rgba(59, 130, 246, 0.2);
+  border: 3px solid rgba(59, 130, 246, 0.6);
+  pointer-events: none;
+  z-index: 9998;
+  transition: all 0.15s ease;
+  border-radius: 8px;
+}
+
+.snap-preview.left {
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
+}
+
+.snap-preview.right {
+  right: 0;
+  top: 0;
+  width: 50%;
+  height: 100%;
+}
+
+.snap-preview.top {
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.snap-preview.top-left {
+  left: 0;
+  top: 0;
+  width: 50%;
+  height: 50%;
+}
+
+.snap-preview.top-right {
+  right: 0;
+  top: 0;
+  width: 50%;
+  height: 50%;
+}
+
+.snap-preview.bottom-left {
+  left: 0;
+  bottom: 0;
+  width: 50%;
+  height: 50%;
+}
+
+.snap-preview.bottom-right {
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  height: 50%;
+}
+
 .floatingMenuDockContainer {
   display: flex;
   flex-direction: row;
@@ -352,6 +709,15 @@ onUnmounted(() => {
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   z-index: 9999;
   position: relative;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.floatingMenuDockContainer.dock-hidden {
+  transform: translateY(calc(100% + var(--app-space-m)));
+  opacity: 0;
+  pointer-events: none;
 }
 
 .dockItem {
