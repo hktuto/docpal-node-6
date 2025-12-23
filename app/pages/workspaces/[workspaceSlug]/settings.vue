@@ -10,7 +10,7 @@ const { workspace, workspaceSlug, pending, refreshWorkspace, updateWorkspace, de
 
 // Dynamic page title
 useHead({
-  title: computed(() => workspace.value ? `${workspace.value.name} Settings - DocPal` : 'Settings - DocPal')
+  title: computed(() => workspace?.value ? `${workspace.value.name} Settings - DocPal` : 'Settings - DocPal')
 })
 
 // Form state
@@ -24,12 +24,13 @@ const formRef = ref()
 const isSaving = ref(false)
 
 // Watch app data and populate form
-watch(app, (newApp) => {
-  if (newApp) {
+watch(workspace, (newWorkspace) => {
+  console.log('workspace', newWorkspace)
+  if (newWorkspace) {
     form.value = {
-      name: newApp.name || '',
-      description: newApp.description || '',
-      icon: newApp.icon || 'lucide:grid-3x3'
+      name: newWorkspace.name || '',
+      description: newWorkspace.description || '',
+      icon: newWorkspace.icon || 'lucide:grid-3x3'
     }
   }
 }, { immediate: true })
@@ -58,7 +59,7 @@ const saveSettings = async () => {
     await formRef.value.validate()
     isSaving.value = true
 
-    const result = await updateApp({
+    const result = await updateWorkspace({
       name: form.value.name,
       description: form.value.description,
       icon: form.value.icon
@@ -83,11 +84,11 @@ const saveSettings = async () => {
 
 // Delete app
 const handleDelete = async () => {
-  if (!app.value) return
+  if (!workspace.value) return
 
   try {
     await ElMessageBox.confirm(
-      `Are you sure you want to delete "${app.value.name}"? This action cannot be undone and will delete all associated data.`,
+      `Are you sure you want to delete "${workspace.value.name}"? This action cannot be undone and will delete all associated data.`,
       'Delete App',
       {
         confirmButtonText: 'Delete',
@@ -96,7 +97,7 @@ const handleDelete = async () => {
         confirmButtonClass: 'el-button--danger',
         inputPlaceholder: 'Type the app name to confirm',
         inputValidator: (value: string) => {
-          if (value !== app.value?.name) {
+          if (value !== workspace.value?.name) {
             return 'App name does not match'
           }
           return true
@@ -104,7 +105,7 @@ const handleDelete = async () => {
       }
     )
 
-    const success = await deleteApp()
+    const success = await deleteWorkspace()
     
     if (success) {
       ElMessage.success('App deleted successfully')
@@ -127,7 +128,8 @@ const handleDelete = async () => {
       <el-skeleton :rows="5" animated />
     </div>
 
-    <div v-else-if="!app" class="app-settings-page__error">
+    <div v-else-if="!workspace" class="app-settings-page__error">
+      {{ workspaceSlug }} - {{ workspace }}- {{ pending }}
       <el-result
         status="error"
         title="App Not Found"

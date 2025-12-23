@@ -6,6 +6,9 @@ const expandState = ref(false)
 function toggleExpand() {
   expandState.value = !expandState.value
 }
+
+// Setup desktop shortcuts (will send postMessage to parent if in iframe)
+useDesktopShortcuts()
 </script>
 
 <template>

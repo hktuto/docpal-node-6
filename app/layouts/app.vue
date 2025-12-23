@@ -11,27 +11,30 @@ const router = useRouter()
 const workspaceSlug = computed(() => route.params.workspaceSlug as string)
 const expandState = ref(false)
 
+// Setup desktop shortcuts (will send postMessage to parent if in iframe)
+useDesktopShortcuts()
+
 // Fetch app data
-const { data: appResponse, pending, refresh: refreshApp, error } = await useApi<Workspace>(() => `/api/workspaces/${workspaceSlug.value}`, {
-  key: `app-${workspaceSlug.value}`,
+const { data: appResponse, pending, refresh: refreshWorkspace, error } = await useApi<SuccessResponse<Workspace>>(() => `/api/workspaces/${workspaceSlug.value}`, {
+  key: `workspace-${workspaceSlug.value}`,
   watch: [workspaceSlug]
 })
-const app = computed(() => appResponse.value?.data)
+const workspace = computed(() => appResponse.value?.data)
 // ==================== App Context Methods ====================
 
 // Update app
-const updateApp = useDebounceFn(updateAppApi, 500)
+const updateWorkspace = useDebounceFn(updateWorkspaceApi, 500)
 
-async function updateAppApi(data: Partial<Pick<Workspace, 'name' | 'icon' | 'description' | 'menu'>>) {
+async function updateWorkspaceApi(data: Partial<Pick<Workspace, 'name' | 'icon' | 'description' | 'menu'>>) {
   const {$api} = useNuxtApp()
   try {
-    const response = await $api<Workspace>(`/api/workspaces/${workspaceSlug.value}`, {
+    const response = await $api<SuccessResponse<Workspace>>(`/api/workspaces/${workspaceSlug.value}`, {
       method: 'PUT',
       body: data
     })
     const updated = response.data
     
-    await refreshApp()
+    await refreshWorkspace()
     return updated
   } catch (error) {
     console.error('Failed to update app:', error)
@@ -40,7 +43,7 @@ async function updateAppApi(data: Partial<Pick<Workspace, 'name' | 'icon' | 'des
 }
 
 // Delete app
-async function deleteApp(): Promise<boolean> {
+async function deleteWorkspace(): Promise<boolean> {
   const {$api} = useNuxtApp()
   try {
     await $api(`/api/workspaces/${workspaceSlug.value}`, {
@@ -57,24 +60,24 @@ async function deleteApp(): Promise<boolean> {
 async function updateMenu(newMenu: any[]) {
   try {
     console.log('🚀 updateMenu calling updateApp with:', JSON.stringify(newMenu))
-    await updateApp({ menu: newMenu })
+    await updateWorkspace({ menu: newMenu })
   } catch (error) {
     console.error('Failed to update menu:', error)
   }
 }
 
 // Navigation helpers
-function getAppPath(subPath?: string): string {
+function getWorkspacePath(subPath?: string): string {
   const base = `/workspaces/${workspaceSlug.value}`
   return subPath ? `${base}/${subPath}` : base
 }
 
-async function navigateToApp() {
-  await router.push(getAppPath())
+async function navigateToWorkspace() {
+  await router.push(getWorkspacePath())
 }
 
 async function navigateToSettings() {
-  await router.push(getAppPath('settings'))
+  await router.push(getWorkspacePath('settings'))
 }
 
 // Refresh current page
@@ -85,24 +88,24 @@ function refreshCurrentPage() {
 // Provide app context to all child components
 const appContext: WorkspaceContext = {
   // Data
-  app: computed(() => app.value),
+  workspace: workspace as ComputedRef<Workspace | null>,
   workspaceSlug: computed(() => workspaceSlug.value),
-  appId: computed(() => app.value?.id),
-  appName: computed(() => app.value?.name || ''),
+  workspaceId: computed(() => workspace.value?.id),
+  workspaceName: computed(() => workspace.value?.name || ''),
   
   // State
   pending,
   
   // Methods
-  refreshApp,
-  updateApp,
-  deleteApp,
+  refreshWorkspace,
+  updateWorkspace,
+  deleteWorkspace,
   updateMenu,
   
   // Navigation
-  navigateToApp,
+  navigateToWorkspace,
   navigateToSettings,
-  getAppPath,
+  getWorkspacePath,
 }
 
 provide(WorkspaceContextKey, appContext)
@@ -152,7 +155,7 @@ function findMenuItemPath(items: MenuItem[], targetSlug: string, path: MenuItem[
 const breadcrumb = computed(() => {
   const crumbs = [
     { label: 'Workspaces', url: '/workspaces', clickable: true },
-    { label: app.value?.name || 'Loading...', url: `/workspaces/${workspaceSlug.value}`, clickable: true },
+    { label: workspace.value?.name || 'Loading...', url: `/workspaces/${workspaceSlug.value}`, clickable: true },
   ]
   
   // If not on app home, find current item in menu
@@ -161,9 +164,9 @@ const breadcrumb = computed(() => {
     const type = pathParts[0] // e.g., "tables", "folders", "dashboards"
     const slug = pathParts[1] // e.g., "contacts", "my-folder"
     
-    if (slug && app.value?.menu) {
+    if (slug && workspace.value?.menu) {
       // Find the item and its parent path in the menu
-      const menuPath = findMenuItemPath(app.value.menu, slug)
+      const menuPath = findMenuItemPath(workspace.value.menu, slug)
       
       if (menuPath && menuPath.length > 0) {
         // Add each item in the path as a breadcrumb
@@ -195,12 +198,12 @@ const staticNav = [
 <template>
   <div class="app-layout-wrapper">
     <div v-if="error" class="error">
-      App not found
+      Workspace not found
     </div>
     
-    <div v-else-if="app" class="appContainer" :class="{ 'desktop-mode': isDesktopMode }">
+    <div v-else-if="workspace" class="appContainer" :class="{ 'desktop-mode': isDesktopMode }">
       <aside v-if="!isDesktopMode" class="sidebar">
-         <CommonMenu v-model:expandState="expandState" :menu="app.menu || []" />
+         <CommonMenu v-model:expandState="expandState" :menu="workspace.menu || []" />
        </aside>
        <main :class="{ 'no-sidebar': isDesktopMode }">
         <el-splitter class="app-splitter">
@@ -210,11 +213,11 @@ const staticNav = [
               <!-- App Header -->
               <div v-loading="pending" class="app-header">
                 <div class="app-icon">
-                  <Icon v-if="app.icon" :name="app.icon" size="24" />
+                  <Icon v-if="workspace.icon" :name="workspace.icon" size="24" />
                   <Icon v-else name="lucide:box" size="24" />
                 </div>
-                <div v-if="app.name" class="app-info">
-                  <h2 class="app-name">{{ app.name }}</h2>
+                <div v-if="workspace.name" class="app-info">
+                  <h2 class="app-name">{{ workspace.name }}</h2>
                   <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
                 </div>
                 <div class="actionsButtons">
@@ -239,7 +242,7 @@ const staticNav = [
               <!-- Dynamic App Menu -->
               <AppMenu
                 :workspace-slug="workspaceSlug"
-                :menu="app.menu || []"
+                :menu="workspace.menu || []"
                 @create="handleCreateMenuItem"
                 @update="handleMenuUpdate"
               />

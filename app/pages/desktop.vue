@@ -1,5 +1,14 @@
 <script lang="ts" setup>
-import { useDebounceFn } from '@vueuse/core'
+import { useDebounceFn, useMagicKeys, whenever, useMouse } from '@vueuse/core'
+const dockerContainerRef = ref<HTMLElement | null>(null)
+
+const { x:mouseX, y:mouseY } = useMouse({touch: false })
+
+
+
+
+
+
 
 definePageMeta({
   layout: 'desktop',
@@ -26,6 +35,10 @@ interface WindowState {
   isMaximized: boolean
   isMinimized: boolean
   savedState?: { x: number, y: number, width: number, height: number }
+  isAnimating?: boolean // For smooth snap animations
+  isOpening?: boolean // For open animation
+  isClosing?: boolean // For close animation
+  isShaking?: boolean // For shake animation
 }
 
 type MenuItem = {
@@ -64,12 +77,57 @@ const windows = ref<WindowState[]>([])
 const nextZIndex = ref(1000)
 const windowIdCounter = ref(0)
 
+// Compute focused window (highest z-index among non-minimized windows)
+const focusedWindowId = computed(() => {
+  const visibleWindows = windows.value.filter(w => !w.isMinimized)
+  if (visibleWindows.length === 0) return null
+  
+  return visibleWindows.reduce((maxWindow, window) => 
+    window.zIndex > maxWindow.zIndex ? window : maxWindow
+  ).id
+})
+
 // Dock visibility management
 const isDockVisible = ref(true)
+// calculate the offset of the docker container
+const dockerContainerOffset = ref({ x: 0, y: 0 })
+const circleSize = 300 // Circle diameter in pixels
+
+watch(() => [isDockVisible.value, mouseX.value, mouseY.value], () => {
+  if (!dockerContainerRef.value || !isDockVisible.value) return
+  
+  // Get dock container's position and dimensions
+  const dockRect = dockerContainerRef.value.getBoundingClientRect()
+  
+  // Convert global mouse position to position relative to dock container
+  const relativeX = mouseX.value - dockRect.left
+  const relativeY = mouseY.value - dockRect.top
+  
+  // Center the circle on mouse position (subtract half of circle size)
+  const circleX = relativeX - circleSize / 2
+  const circleY = relativeY - circleSize / 2
+  
+  // Apply min/max constraints to keep circle partially visible
+  // Allow circle to go slightly outside but keep at least 30% visible
+  const minVisibleAmount = circleSize * 0.3
+  const minX = -circleSize + minVisibleAmount
+  const maxX = dockRect.width - minVisibleAmount
+  const minY = -circleSize + minVisibleAmount
+  const maxY = dockRect.height - minVisibleAmount
+  
+  // Clamp values within range
+  dockerContainerOffset.value = {
+    x: Math.max(minX, Math.min(maxX, circleX)),
+    y: Math.max(minY, Math.min(maxY, circleY))
+  }
+}, {
+  immediate: true
+})
 const isDockForceVisible = ref(false) // When mouse hovers at bottom
 const dockHideTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 const DOCK_HEIGHT = 100 // Approximate dock height
 const HOVER_THRESHOLD = 50 // Pixels from bottom to trigger show
+const bouncingDockItems = ref(new Set<string>()) // Track bouncing dock items
 
 // Window snapping
 type SnapZone = 'left' | 'right' | 'top' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | null
@@ -94,6 +152,20 @@ const checkSnapZone = (x: number, y: number): SnapZone => {
   if (y < threshold) return 'top'
   
   return null
+}
+
+// Get label for snap zone
+const getSnapLabel = (zone: SnapZone): string => {
+  const labels: Record<NonNullable<SnapZone>, string> = {
+    'left': '← Left Half',
+    'right': 'Right Half →',
+    'top': '↑ Maximize',
+    'top-left': '↖ Top Left',
+    'top-right': 'Top Right ↗',
+    'bottom-left': '↙ Bottom Left',
+    'bottom-right': 'Bottom Right ↘',
+  }
+  return zone ? labels[zone] : ''
 }
 
 // Get snap position for a zone
@@ -134,12 +206,20 @@ const snapWindow = (id: string, zone: SnapZone) => {
     }
   }
   
+  // Enable animation for smooth snap
+  window.isAnimating = true
+  
   // Apply snap position
   window.x = position.x
   window.y = position.y
   window.width = position.width
   window.height = position.height
   window.isMaximized = (zone === 'top') // Top edge = maximize
+  
+  // Disable animation after transition completes
+  setTimeout(() => {
+    window.isAnimating = false
+  }, 300)
   
   checkDockOverlap()
   saveWindowsState()
@@ -205,6 +285,12 @@ const calculateWindowPosition = (width: number, height: number, windowCount: num
 
 // Open a new window
 const openWindow = (item: MenuItem) => {
+  // Trigger dock bounce animation
+  bouncingDockItems.value.add(item.label)
+  setTimeout(() => {
+    bouncingDockItems.value.delete(item.label)
+  }, 600)
+  
   const id = `window-${windowIdCounter.value++}`
   
   // Calculate optimal size and position
@@ -223,21 +309,48 @@ const openWindow = (item: MenuItem) => {
     zIndex: nextZIndex.value++,
     isMaximized: false,
     isMinimized: false,
+    isOpening: true, // Enable open animation
   }
   
   windows.value.push(newWindow)
+  
+  // Disable opening animation after it completes
+  setTimeout(() => {
+    newWindow.isOpening = false
+  }, 300)
+  
   checkDockOverlap()
   saveWindowsState()
 }
 
+// Shake window for invalid action
+const shakeWindow = (id: string) => {
+  const window = windows.value.find(w => w.id === id)
+  if (!window) return
+  
+  window.isShaking = true
+  setTimeout(() => {
+    window.isShaking = false
+  }, 500)
+}
+
 // Close a window
 const closeWindow = (id: string) => {
-  const index = windows.value.findIndex(w => w.id === id)
-  if (index !== -1) {
-    windows.value.splice(index, 1)
-    checkDockOverlap()
-    saveWindowsState()
-  }
+  const window = windows.value.find(w => w.id === id)
+  if (!window) return
+  
+  // Trigger close animation
+  window.isClosing = true
+  
+  // Wait for animation to complete before removing
+  setTimeout(() => {
+    const index = windows.value.findIndex(w => w.id === id)
+    if (index !== -1) {
+      windows.value.splice(index, 1)
+      checkDockOverlap()
+      saveWindowsState()
+    }
+  }, 250) // Slightly shorter than animation duration for snappier feel
 }
 
 // Focus a window (bring to front)
@@ -395,6 +508,78 @@ const updatePageTitle = (id: string, pageTitle: string) => {
   }
 }
 
+// Update window URL when iframe navigates
+const updateWindowUrl = (id: string, url: string) => {
+  const window = windows.value.find(w => w.id === id)
+  if (window) {
+    window.url = url
+    saveWindowsState() // Save immediately when URL changes
+  }
+}
+
+// Handle keyboard shortcut commands from iframe
+const handleShortcutCommand = (id: string, command: string) => {
+  const window = windows.value.find(w => w.id === id)
+  if (!window) return
+  
+  switch (command) {
+    case 'snap-left':
+      snapWindow(id, 'left')
+      break
+    case 'snap-right':
+      snapWindow(id, 'right')
+      break
+    case 'maximize':
+      if (!window.isMaximized) {
+        toggleMaximize(id)
+      }
+      break
+    case 'exit-snap':
+      // Exit snap/fullscreen logic (same as down arrow)
+      if (window.isMaximized) {
+        toggleMaximize(id)
+      } else if (window.savedState) {
+        const saved = window.savedState
+        window.isAnimating = true
+        window.x = saved.x
+        window.y = saved.y
+        window.width = saved.width
+        window.height = saved.height
+        window.savedState = undefined
+        setTimeout(() => {
+          window.isAnimating = false
+        }, 300)
+        checkDockOverlap()
+        saveWindowsState()
+      } else {
+        shakeWindow(id)
+      }
+      break
+    case 'close-window':
+      closeWindow(id)
+      break
+  }
+}
+
+// Handle open new window request (from Ctrl+Click or middle-click)
+const handleOpenNewWindow = (url: string) => {
+  // Find matching menu item or create custom one
+  const menuItem = menu.find(item => item.url === url)
+  
+  if (menuItem) {
+    // Open existing menu item
+    openWindow(menuItem)
+  } else {
+    // Create custom window for any URL
+    const customItem: MenuItem = {
+      label: url.split('/').pop() || 'Page',
+      icon: 'lucide:file',
+      url: url
+    }
+    openWindow(customItem)
+  }
+}
+
 // Get minimized windows for dock indicators
 const minimizedWindows = computed(() => {
   return windows.value.filter(w => w.isMinimized)
@@ -542,6 +727,98 @@ const debouncedResize = () => {
   resizeTimeout = setTimeout(handleViewportResize, 150)
 }
 
+// Get focused window helper
+const getFocusedWindow = () => {
+  const visibleWindows = windows.value.filter(w => !w.isMinimized)
+  if (visibleWindows.length === 0) return null
+  return visibleWindows.sort((a, b) => b.zIndex - a.zIndex)[0]
+}
+
+// Setup keyboard shortcuts with useMagicKeys
+const keys = useMagicKeys({
+  passive: false,
+  onEventFired(e) {
+    // Prevent default for our shortcuts
+    const focusedWindow = getFocusedWindow()
+    if (!focusedWindow) return
+    
+    // Check for our specific key combinations
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.type === 'keydown') {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault()
+      }
+    }
+    if (e.key === 'Escape' || ((e.metaKey || e.ctrlKey) && e.key === 'w')) {
+      e.preventDefault()
+    }
+  },
+})
+
+// Snap left: Cmd/Ctrl + Shift + ←
+whenever(() => keys.Meta_Shift_ArrowLeft?.value || keys.Ctrl_Shift_ArrowLeft?.value, () => {
+  const focusedWindow = getFocusedWindow()
+  if (focusedWindow) snapWindow(focusedWindow.id, 'left')
+})
+
+// Snap right: Cmd/Ctrl + Shift + →
+whenever(() => keys.Meta_Shift_ArrowRight?.value || keys.Ctrl_Shift_ArrowRight?.value, () => {
+  const focusedWindow = getFocusedWindow()
+  if (focusedWindow) snapWindow(focusedWindow.id, 'right')
+})
+
+// Maximize: Cmd/Ctrl + Shift + ↑
+whenever(() => keys.Meta_Shift_ArrowUp?.value || keys.Ctrl_Shift_ArrowUp?.value, () => {
+  const focusedWindow = getFocusedWindow()
+  if (focusedWindow && !focusedWindow.isMaximized) {
+    toggleMaximize(focusedWindow.id)
+  }
+})
+
+// Exit snap/fullscreen: Cmd/Ctrl + Shift + ↓
+whenever(() => keys.Meta_Shift_ArrowDown?.value || keys.Ctrl_Shift_ArrowDown?.value, () => {
+  const focusedWindow = getFocusedWindow()
+  if (!focusedWindow) return
+  
+  // If maximized, restore from maximize
+  if (focusedWindow.isMaximized) {
+    toggleMaximize(focusedWindow.id)
+    return
+  }
+  
+  // If snapped (has saved state), unsnap to original size
+  if (focusedWindow.savedState) {
+    const saved = focusedWindow.savedState
+    
+    // Enable animation for smooth restore
+    focusedWindow.isAnimating = true
+    
+    // Restore original size and position
+    focusedWindow.x = saved.x
+    focusedWindow.y = saved.y
+    focusedWindow.width = saved.width
+    focusedWindow.height = saved.height
+    focusedWindow.savedState = undefined
+    
+    // Disable animation after transition
+    setTimeout(() => {
+      focusedWindow.isAnimating = false
+    }, 300)
+    
+    checkDockOverlap()
+    saveWindowsState()
+    return
+  }
+  
+  // If not maximized or snapped, shake to indicate no action
+  shakeWindow(focusedWindow.id)
+})
+
+// Close: Escape or Cmd/Ctrl + W
+whenever(() => keys.Escape?.value || keys.Meta_W?.value || keys.Ctrl_W?.value, () => {
+  const focusedWindow = getFocusedWindow()
+  if (focusedWindow) closeWindow(focusedWindow.id)
+})
+
 // Listen for viewport resize and mouse movement
 onMounted(() => {
   window.addEventListener('resize', debouncedResize)
@@ -567,13 +844,19 @@ onUnmounted(() => {
       v-if="snapPreviewZone"
       class="snap-preview"
       :class="snapPreviewZone"
-    />
+    >
+      <div class="snap-glow"></div>
+      <div class="snap-label">
+        {{ getSnapLabel(snapPreviewZone) }}
+      </div>
+    </div>
     
     <!-- Windows (render all, hide minimized with CSS to preserve iframe state) -->
     <CommonDesktopWindow
       v-for="window in windows"
       :key="window.id"
       :window="window"
+      :is-focused="window.id === focusedWindowId"
       @close="closeWindow"
       @focus="focusWindow"
       @minimize="minimizeWindow"
@@ -581,14 +864,18 @@ onUnmounted(() => {
       @update-size="updateWindowSize"
       @toggle-maximize="toggleMaximize"
       @update-page-title="updatePageTitle"
+      @update-url="updateWindowUrl"
       @drag-move="handleWindowDragMove"
       @drag-end="handleWindowDragEnd"
       @unsnap="handleWindowUnsnap"
+      @shortcut-command="handleShortcutCommand"
+      @open-new-window="handleOpenNewWindow"
     />
     
     <!-- Dock Menu -->
     <div 
       class="floatingMenuDockContainer glass"
+      ref="dockerContainerRef"
       :class="{ 'dock-hidden': !isDockVisible }"
     >
       <!-- App Icons -->
@@ -596,13 +883,20 @@ onUnmounted(() => {
         v-for="item in menu" 
         :key="item.label" 
         class="dockItem"
+        :class="{ bouncing: bouncingDockItems.has(item.label) }"
         @click="openWindow(item)"
         :title="item.label"
       >
         <Icon :name="item.icon" />
         <span>{{ item.label }}</span>
       </div>
-      
+      <div class="mouseOverCircle" 
+      :style="{ 
+        left: `${dockerContainerOffset.x}px`,
+        top: `${dockerContainerOffset.y}px`,
+        width: `${circleSize}px`,
+        height: `${circleSize}px`
+      }"></div>
       <!-- Separator (if there are minimized windows) -->
       <div v-if="minimizedWindows.length > 0" class="dockSeparator"></div>
       
@@ -617,7 +911,6 @@ onUnmounted(() => {
         <Icon v-if="window.icon" :name="window.icon" />
         <Icon v-else name="lucide:window" />
         <span>{{ window.currentPageTitle || window.title }}</span>
-        <div class="minimizedIndicator"></div>
       </div>
     </div>
   </div>
@@ -640,12 +933,88 @@ onUnmounted(() => {
 /* Snap Preview Overlay */
 .snap-preview {
   position: fixed;
-  background: rgba(59, 130, 246, 0.2);
-  border: 3px solid rgba(59, 130, 246, 0.6);
+  background: rgba(59, 130, 246, 0.15);
+  border: 3px solid rgba(59, 130, 246, 0.5);
+  backdrop-filter: blur(8px);
   pointer-events: none;
   z-index: 9998;
   transition: all 0.15s ease;
-  border-radius: 8px;
+  border-radius: 12px;
+  animation: snap-appear 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 
+    0 0 30px rgba(59, 130, 246, 0.4),
+    inset 0 0 60px rgba(59, 130, 246, 0.15);
+}
+.mouseOverCircle{
+  position: absolute;
+  border-radius: 50%;
+  background-image: radial-gradient(circle closest-side, var(--app-primary-color) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+.snap-glow {
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(59, 130, 246, 0.5) 0%,
+    transparent 30%,
+    transparent 70%,
+    rgba(59, 130, 246, 0.5) 100%
+  );
+  animation: glow-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glow-pulse {
+  0%, 100% { 
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes snap-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.snap-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 36px;
+  font-weight: 700;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(59, 130, 246, 0.8);
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+  animation: label-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes label-bounce {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
 }
 
 .snap-preview.left {
@@ -712,6 +1081,8 @@ onUnmounted(() => {
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
   transform: translateY(0);
   opacity: 1;
+  overflow: hidden;
+  isolation: isolate;
 }
 
 .floatingMenuDockContainer.dock-hidden {
@@ -721,27 +1092,49 @@ onUnmounted(() => {
 }
 
 .dockItem {
+  --icon-size: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
+  gap: 2px;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   min-width: 70px;
+  color: var(--app-text-color);
 }
 
 .dockItem:hover {
-  background: rgba(255, 255, 255, 0.25);
-  transform: translateY(-8px) scale(1.05);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+  /* background: rgba(255, 255, 255, 0.25); */
+  --icon-size: 48px;
+  transform: translateY(-4px) scale(1.03);
+  /* box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3); */
 }
 
 .dockItem:active {
   transform: translateY(-6px) scale(1.02);
+}
+
+.dockItem.bouncing {
+  animation: dock-bounce 1.0s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes dock-bounce {
+  0%, 100% { 
+    transform: translateY(0) scale(1);
+  }
+  20% { 
+    transform: translateY(-20px) scale(1.05);
+  }
+  40% { 
+    transform: translateY(-8px) scale(1.02);
+  }
+  60% { 
+    transform: translateY(-15px) scale(1.04);
+  }
+  80% { 
+    transform: translateY(-5px) scale(1.01);
+  }
 }
 
 .dockItem span {
@@ -753,15 +1146,15 @@ onUnmounted(() => {
 }
 
 .dockItem :deep(svg) {
-  width: 28px;
-  height: 28px;
+  width: var(--icon-size);
+  height: var(--icon-size);
   color: white;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .dockSeparator {
   width: 2px;
-  height: 50px;
+  height: 100%;
   background: rgba(255, 255, 255, 0.3);
   border-radius: 1px;
   margin: 0 8px;
@@ -770,12 +1163,12 @@ onUnmounted(() => {
 
 .dockItem.minimizedWindow {
   position: relative;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.4);
+  /* background: rgba(255, 255, 255, 0.2); */
+  /* border: 2px solid rgba(255, 255, 255, 0.4); */
 }
 
 .dockItem.minimizedWindow:hover {
-  background: rgba(255, 255, 255, 0.35);
+  /* background: rgba(255, 255, 255, 0.35); */
 }
 
 .minimizedIndicator {

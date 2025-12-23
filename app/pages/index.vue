@@ -9,9 +9,6 @@ useHead({
 
 const router = useRouter()
 
-const navigateToApps = () => {
-  router.push('/workspaces')
-}
 </script>
 
 <template>
@@ -83,14 +80,15 @@ const navigateToApps = () => {
         </div>
 
         <div class="coming-soon__actions">
+          <nuxt-link to="/workspaces">
           <el-button 
             type="primary" 
             size="large"
-            @click="navigateToApps"
           >
             <Icon name="lucide:database" class="button-icon" />
             Go to Apps
           </el-button>
+        </nuxt-link>
         </div>
       </div>
     </div>

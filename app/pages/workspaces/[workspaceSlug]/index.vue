@@ -3,11 +3,11 @@ definePageMeta({
   layout: 'app'
 })
 
-const { app } = useWorkspaceContext()
+const { workspace, workspaceSlug } = useWorkspaceContext()
 
 // Dynamic page title
 useHead({
-  title: computed(() => app.value ? `${app.value.name} - DocPal` : 'Workspace - DocPal')
+  title: computed(() => workspace?.value ? `${workspace.value.name} - DocPal` : 'Workspace - DocPal')
 })
 
 // Track if component is mounted (for Teleport)
@@ -16,19 +16,18 @@ onMounted(() => {
   isMounted.value = true
 })
 
-function navigateToSettings() {
-  navigateTo(`/workspaces/${app.value.slug}/settings`)
-}
 </script>
 
 <template>
   <div class="app-overview-page">
     <!-- Teleport: Page Actions -->
     <Teleport v-if="isMounted" to="#app-page-actions">
-      <el-button @click="navigateToSettings">
-        <Icon name="lucide:settings" />
-        Settings
-      </el-button>
+      <nuxt-link :to="`/workspaces/${workspaceSlug}/settings`">
+        <el-button>
+          <Icon name="lucide:settings" />
+          Settings
+        </el-button>
+      </nuxt-link>
     </Teleport>
     
     <!-- Page Content -->

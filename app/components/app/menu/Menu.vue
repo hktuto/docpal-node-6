@@ -23,6 +23,7 @@ const highlightedItems = ref<Set<string>>(new Set())
 const justCreatedItemId = ref<string | null>(null)
 const currentParentFolderId = ref<string | null>(null)
 
+const {navigateTo} = useSmartNavigation()
 // Local copy of menu for drag and drop
 const localMenu = ref<MenuItem[]>([])
 
@@ -145,7 +146,7 @@ function hasActiveChild(item: MenuItem): boolean {
 }
 
 // Navigate to item
-function navigateToItem(item: MenuItem) {
+function navigateToItem(item: MenuItem, event?: MouseEvent) {
   if (!props.workspaceSlug) return
   
   // If it's a folder, also expand it when clicking
@@ -154,7 +155,7 @@ function navigateToItem(item: MenuItem) {
   }
   
   const basePath = `/workspaces/${props.workspaceSlug}`
-  navigateTo(`${basePath}/${item.type}s/${item.slug}`)
+  navigateTo(`${basePath}/${item.type}s/${item.slug}`, event)
 }
 
 // Handle create command
@@ -358,7 +359,7 @@ function handleCreateTable(table: any) {
             :is-expanded="isFolderExpanded"
             :is-highlighted="(id) => highlightedItems.has(id)"
             :is-just-created="(id) => justCreatedItemId === id"
-            @navigate="navigateToItem"
+            @navigate="(item,e) => navigateToItem(item, e)"
             @toggle="toggleFolder"
             @create="handleCreate"
             @drag-end="onDragEnd"

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useClipboard } from '@vueuse/core'
+
 interface WindowState {
   id: string
   title: string
@@ -13,10 +15,15 @@ interface WindowState {
   isMaximized: boolean
   isMinimized: boolean
   savedState?: { x: number, y: number, width: number, height: number }
+  isAnimating?: boolean
+  isOpening?: boolean
+  isClosing?: boolean
+  isShaking?: boolean
 }
 
 interface Props {
   window: WindowState
+  isFocused?: boolean
 }
 
 const props = defineProps<Props>()
@@ -28,9 +35,12 @@ const emit = defineEmits<{
   updateSize: [id: string, width: number, height: number]
   toggleMaximize: [id: string]
   updatePageTitle: [id: string, pageTitle: string]
+  updateUrl: [id: string, url: string]
   dragMove: [id: string, x: number, y: number]
   dragEnd: [id: string, x: number, y: number]
   unsnap: [id: string, cursorX: number, cursorY: number]
+  shortcutCommand: [id: string, command: string]
+  openNewWindow: [url: string]
 }>()
 
 // Dragging state
@@ -40,6 +50,8 @@ const dragStartY = ref(0)
 const dragStartWindowX = ref(0)
 const dragStartWindowY = ref(0)
 const dragOffset = ref({ x: 0, y: 0 })
+const hasUnsnapOccurred = ref(false) // Track if unsnap happened during this drag
+const UNSNAP_THRESHOLD = 5 // Pixels to move before triggering unsnap
 
 // Resizing state
 const isResizing = ref(false)
@@ -59,9 +71,7 @@ const startDrag = (e: MouseEvent) => {
   isDragging.value = true
   dragStartX.value = e.clientX
   dragStartY.value = e.clientY
-  
-  // Check if window is snapped (has saved state but not maximized = snapped to edge/corner)
-  const isSnapped = props.window.savedState && !props.window.isMaximized
+  hasUnsnapOccurred.value = false // Reset unsnap flag
   
   // If window is maximized, restore it first and position under cursor
   if (props.window.isMaximized) {
@@ -79,16 +89,8 @@ const startDrag = (e: MouseEvent) => {
       // Update window position immediately
       emit('updatePosition', props.window.id, newX, newY)
     })
-  } else if (isSnapped) {
-    // Window is snapped (edge/corner) - restore original size
-    emit('unsnap', props.window.id, e.clientX, e.clientY)
-    
-    // Wait for unsnap to complete
-    nextTick(() => {
-      dragStartWindowX.value = props.window.x
-      dragStartWindowY.value = props.window.y
-    })
   } else {
+    // For snapped windows, don't unsnap yet - wait for actual drag movement
     dragStartWindowX.value = props.window.x
     dragStartWindowY.value = props.window.y
   }
@@ -116,6 +118,28 @@ const onDrag = (e: MouseEvent) => {
   const deltaX = e.clientX - dragStartX.value
   const deltaY = e.clientY - dragStartY.value
   
+  // Check if window is snapped and should be unsnapped
+  const isSnapped = props.window.savedState && !props.window.isMaximized
+  if (isSnapped && !hasUnsnapOccurred.value) {
+    // Check if moved beyond threshold
+    const distanceMoved = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+    if (distanceMoved > UNSNAP_THRESHOLD) {
+      // Trigger unsnap
+      hasUnsnapOccurred.value = true
+      emit('unsnap', props.window.id, e.clientX, e.clientY)
+      
+      // Wait for unsnap to complete, then update start positions
+      nextTick(() => {
+        dragStartWindowX.value = props.window.x
+        dragStartWindowY.value = props.window.y
+        dragStartX.value = e.clientX
+        dragStartY.value = e.clientY
+        dragOffset.value = { x: 0, y: 0 }
+      })
+      return // Skip this frame
+    }
+  }
+  
   // Update offset for transform (no reactivity overhead)
   dragOffset.value = { x: deltaX, y: deltaY }
   
@@ -133,20 +157,18 @@ const stopDrag = () => {
     const newX = dragStartWindowX.value + dragOffset.value.x
     const newY = dragStartWindowY.value + dragOffset.value.y
     
-    // Clear dragging state and transform BEFORE emitting events
-    isDragging.value = false
-    dragOffset.value = { x: 0, y: 0 }
+    // IMPORTANT: Update actual position BEFORE clearing transform
+    // This prevents visual jump when snapping
+    emit('updatePosition', props.window.id, newX, newY)
     
-    // Emit drag end event (snap detection happens here and may override position)
-    emit('dragEnd', props.window.id, finalX, finalY)
-    
-    // Update position on next tick (after snap has a chance to override)
+    // Wait for position update, then clear transform and trigger snap
     nextTick(() => {
-      // If window position wasn't changed by snap, apply our drag position
-      if (props.window.x === dragStartWindowX.value && props.window.y === dragStartWindowY.value) {
-        emit('updatePosition', props.window.id, newX, newY)
-      }
-      // If snap changed the position, it's already updated and we don't override
+      // Clear dragging state and transform
+      isDragging.value = false
+      dragOffset.value = { x: 0, y: 0 }
+      
+      // Emit drag end event (snap detection happens here and may override position)
+      emit('dragEnd', props.window.id, finalX, finalY)
     })
   } else {
     isDragging.value = false
@@ -249,6 +271,16 @@ const handleFocus = () => {
   emit('focus', props.window.id)
 }
 
+// Copy URL to clipboard
+const { copy, copied } = useClipboard()
+const handleCopyUrl = () => {
+  // Get the full URL (construct from window location if relative)
+  const url = props.window.url.startsWith('http') 
+    ? props.window.url 
+    : `${window.location.origin}${props.window.url}`
+  copy(url)
+}
+
 // Double-click on title bar to maximize
 const handleTitleBarDoubleClick = () => {
   if (!props.window.isMaximized) {
@@ -260,15 +292,108 @@ const handleTitleBarDoubleClick = () => {
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 let titleCheckInterval: number | null = null
 
+// Use initial URL for iframe src - don't reload when window.url changes
+// window.url is updated for persistence, but iframe navigates internally
+const initialSrc = ref(props.window.url)
+
+// Only update iframe src when window is first created or from external change
+// (e.g., loading from localStorage), not from internal navigation
+watch(() => props.window.url, (newUrl) => {
+  // Only update if iframe hasn't loaded yet or if this is a new window
+  if (!iframeRef.value || initialSrc.value === newUrl) return
+  
+  // Check if this is truly an external change (not from our internal tracking)
+  try {
+    const iframeDocument = iframeRef.value.contentDocument
+    if (iframeDocument) {
+      const currentPath = iframeDocument.location.pathname + iframeDocument.location.search + iframeDocument.location.hash
+      // Only reload if URL is actually different from what iframe is showing
+      if (currentPath !== newUrl) {
+        initialSrc.value = newUrl
+      }
+    }
+  } catch (e) {
+    // Cross-origin or not loaded, safe to update
+    initialSrc.value = newUrl
+  }
+})
+
+// Track if iframe is clicked to update focus
+const setupIframeFocusDetection = () => {
+  if (!iframeRef.value?.contentWindow) return
+  
+  try {
+    // Add click listener to iframe content to detect focus
+    iframeRef.value.contentWindow.addEventListener('mousedown', () => {
+      emit('focus', props.window.id)
+    })
+    
+    // Also detect when iframe gets focus
+    iframeRef.value.contentWindow.addEventListener('focus', () => {
+      emit('focus', props.window.id)
+    })
+  } catch (e) {
+    // Cross-origin iframe - can't access, that's ok
+  }
+}
+
+// Listen for messages from iframe (shortcuts and new window requests)
+const handleIframeMessage = (event: MessageEvent) => {
+  // Verify message is from our iframe
+  if (event.source !== iframeRef.value?.contentWindow) return
+  
+  if (!event.data) return
+  
+  // Handle desktop shortcut commands
+  if (event.data.type === 'desktop-shortcut') {
+    const command = event.data.command
+    emit('shortcutCommand', props.window.id, command)
+  }
+  
+  // Handle open new window requests (Ctrl+Click)
+  if (event.data.type === 'open-new-window') {
+    const url = event.data.url
+    emit('openNewWindow', url)
+  }
+}
+
+// Setup message listener
+onMounted(() => {
+  window.addEventListener('message', handleIframeMessage)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('message', handleIframeMessage)
+})
+
 const checkIframeTitle = () => {
   if (!iframeRef.value) return
   
   try {
     const iframeDocument = iframeRef.value.contentDocument || iframeRef.value.contentWindow?.document
-    if (iframeDocument && iframeDocument.title) {
-      const newTitle = iframeDocument.title
-      if (newTitle && newTitle !== props.window.currentPageTitle) {
-        emit('updatePageTitle', props.window.id, newTitle)
+    if (iframeDocument) {
+      // Update title if changed
+      if (iframeDocument.title) {
+        const newTitle = iframeDocument.title
+        if (newTitle && newTitle !== props.window.currentPageTitle) {
+          emit('updatePageTitle', props.window.id, newTitle)
+        }
+      }
+      
+      // Track URL changes for navigation persistence
+      const currentUrl = iframeDocument.location.href
+      const currentPath = iframeDocument.location.pathname + iframeDocument.location.search + iframeDocument.location.hash
+      
+      // Only update if it's a valid, different path
+      // Ignore: blank pages, about:blank, same URL, or just '/'
+      const isValidPath = currentPath && 
+                          currentPath !== '/' && 
+                          currentPath !== '/blank' && 
+                          !currentUrl.includes('about:blank') &&
+                          currentPath !== props.window.url
+      
+      if (isValidPath) {
+        emit('updateUrl', props.window.id, currentPath)
       }
     }
   } catch (e) {
@@ -279,6 +404,7 @@ const checkIframeTitle = () => {
 
 const handleIframeLoad = () => {
   checkIframeTitle()
+  setupIframeFocusDetection() // Setup click detection for focus
   
   // Start periodic checking for title changes (e.g., SPAs)
   if (titleCheckInterval) {
@@ -314,7 +440,12 @@ onUnmounted(() => {
       'maximized': window.isMaximized,
       'minimized': window.isMinimized,
       'dragging': isDragging,
-      'resizing': isResizing
+      'resizing': isResizing,
+      'focused': isFocused,
+      'animating': window.isAnimating,
+      'opening': window.isOpening,
+      'closing': window.isClosing,
+      'shaking': window.isShaking
     }"
     :style="{
       left: window.isMaximized ? '0' : `${window.x}px`,
@@ -336,6 +467,17 @@ onUnmounted(() => {
         <Icon v-if="window.icon" :name="window.icon" class="window-icon" />
         <span>{{ window.currentPageTitle || window.title }}</span>
       </div>
+      
+      <!-- Copy URL Button -->
+      <button 
+        class="copy-url-btn" 
+        @click.stop="handleCopyUrl"
+        :title="copied ? 'Copied!' : 'Copy URL'"
+      >
+        <Icon v-if="!copied" name="lucide:link" />
+        <Icon v-else name="lucide:check" />
+      </button>
+      
       <div class="window-controls">
         <button class="window-control-btn minimize" @click.stop="handleMinimize">
           <Icon name="lucide:minus" />
@@ -354,7 +496,7 @@ onUnmounted(() => {
     <div class="window-content">
       <iframe 
         ref="iframeRef"
-        :src="window.url" 
+        :src="initialSrc" 
         frameborder="0"
         class="window-iframe"
         @load="handleIframeLoad"
@@ -377,15 +519,36 @@ onUnmounted(() => {
 
 <style scoped>
 .desktop-window {
+  --header-bg: var(--app-accent-color);
   position: fixed;
   display: flex;
   flex-direction: column;
   border-radius: var(--app-border-radius-m);
   overflow: hidden;
-  box-shadow: var(--app-shadow-s);
-  transition: box-shadow 0.2s ease;
+  box-shadow: var(--app-shadow-l);
+  transition: box-shadow 0.2s ease, filter 0.2s ease, opacity 0.2s ease;
   will-change: transform;
-  background: var(--app-accent-color);
+  background: var(--header-bg);
+  outline: 1px solid var(--app-info-color);
+  /* Slightly dim unfocused windows by default */
+  
+  opacity: 0.95;
+}
+
+/* Focused window - full brightness */
+.desktop-window.focused {
+/* keep */
+  opacity: 1;
+  --header-bg: var(--app-accent-color);
+  outline: 1px solid var(--app-accent-color);
+}
+
+.desktop-window.focused .window-titlebar {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.desktop-window:not(.focused) .window-titlebar {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .desktop-window.maximized {
@@ -412,8 +575,55 @@ onUnmounted(() => {
   cursor: inherit; /* Use resize cursor from handle */
 }
 
-.desktop-window:hover {
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+/* Enable smooth animations when snapping */
+.desktop-window.animating {
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              top 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s ease,
+              filter 0.2s ease,
+              opacity 0.2s ease !important;
+}
+
+/* Window open animation - fade + scale in */
+.desktop-window.opening {
+  animation: window-open 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes window-open {
+  from {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Window close animation - fade + scale out */
+.desktop-window.closing {
+  animation: window-close 0.3s ease forwards;
+  pointer-events: none; /* Prevent interaction during close */
+}
+
+@keyframes window-close {
+  to {
+    opacity: 0;
+    transform: scale(0.85) translateY(20px);
+  }
+}
+
+/* Window shake animation - for invalid actions */
+.desktop-window.shaking {
+  animation: window-shake 0.5s ease;
+}
+
+@keyframes window-shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-8px); }
+  20%, 40%, 60%, 80% { transform: translateX(8px); }
 }
 
 .window-titlebar {
@@ -421,7 +631,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: var(--app-space-xs) var(--app-space-s);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--header-bg);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   cursor: move;
@@ -455,6 +665,34 @@ onUnmounted(() => {
 .window-icon {
   width: 16px;
   height: 16px;
+}
+
+.copy-url-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: rgba(255, 255, 255, 0.7);
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.copy-url-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: scale(1.05);
+}
+
+.copy-url-btn :deep(svg) {
+  width: 14px;
+  height: 14px;
 }
 
 .window-controls {

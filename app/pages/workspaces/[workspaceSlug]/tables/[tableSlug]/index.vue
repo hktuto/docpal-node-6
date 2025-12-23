@@ -312,10 +312,12 @@ useHead({
   <div class="table-view-page">
     <!-- Teleport: Page Actions -->
     <Teleport v-if="table && isMounted" to="#app-page-actions">
-      <el-button size="small" @click="navigateToSettings">
-        <Icon name="lucide:settings" />
-        Settings
-      </el-button>
+      <nuxt-link :to="`/workspaces/${workspaceSlug}/tables/${tableSlug}/settings`">
+        <el-button size="small">
+          <Icon name="lucide:settings" />
+          Settings
+        </el-button>
+      </nuxt-link>
       <el-button size="small" type="primary" @click="handleAddRow">
         <Icon name="lucide:plus" />
         Add Row

@@ -13,23 +13,21 @@ const emit = defineEmits<{
 
 const router = useRouter()
 
-const handleClick = () => {
-  router.push(`/workspaces/${props.app.slug}`)
+const {navigateTo} = useSmartNavigation()
+const handleClick = (e: MouseEvent) => {
+  navigateTo(`/workspaces/${props.app.slug}`, e)
 }
 
-const handleCommand = (command: string) => {
-  switch (command) {
-    case 'edit':
-      emit('edit', props.app)
-      break
-    case 'settings':
-      router.push(`/workspaces/${props.app.slug}/settings`)
-      break
-    case 'delete':
-      emit('delete', props.app)
-      break
-  }
+function handleEdit(e: MouseEvent) {
+  emit('edit', props.app)
 }
+function handleDelete(e: MouseEvent) {
+  emit('delete', props.app)
+}
+function handleSettings(e: MouseEvent) {
+  navigateTo(`/workspaces/${props.app.slug}/settings`, e)
+}
+
 
 const formatDate = (date: string | Date) => {
   return new Date(date).toLocaleDateString('en-US', {
@@ -41,7 +39,7 @@ const formatDate = (date: string | Date) => {
 </script>
 
 <template>
-  <div class="app-card" @click="handleClick">
+  <div class="app-card" @click="(e) => handleClick(e)">
     <div class="app-card__icon">
       <Icon 
         :name="app.icon || 'lucide:grid-3x3'" 
@@ -60,21 +58,21 @@ const formatDate = (date: string | Date) => {
       </div>
     </div>
     <div class="app-card__actions" @click.stop>
-      <el-dropdown trigger="click" @command="handleCommand">
+      <el-dropdown trigger="click" >
         <div class="app-card__menu-trigger">
           <Icon name="tabler:dots-vertical" size="20" />
         </div>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="edit">
+            <el-dropdown-item @click="(e) => handleEdit(e)">
               <Icon name="lucide:edit" size="16" class="dropdown-icon" />
               Edit
             </el-dropdown-item>
-            <el-dropdown-item command="settings">
+            <el-dropdown-item @click="(e) => handleSettings(e)">
               <Icon name="lucide:settings" size="16" class="dropdown-icon" />
               Settings
             </el-dropdown-item>
-            <el-dropdown-item divided command="delete" class="danger-item">
+            <el-dropdown-item divided @click="(e) => handleDelete(e)" class="danger-item">
               <Icon name="lucide:trash-2" size="16" class="dropdown-icon" />
               Delete
             </el-dropdown-item>

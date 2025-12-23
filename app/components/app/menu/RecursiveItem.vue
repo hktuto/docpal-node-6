@@ -13,7 +13,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  navigate: [item: MenuItem]
+  navigate: [item: MenuItem, event: MouseEvent]
   toggle: [folderId: string]
   create: [type: 'folder' | 'table' | 'view' | 'dashboard', parentId: string | null]
   dragEnd: []
@@ -49,7 +49,7 @@ function getIcon(type: string): string {
       </div>
       
       <!-- Item Content -->
-      <div class="item-content" @click="emit('navigate', item)">
+      <div class="item-content" @click="(e) => emit('navigate', item, e)">
         <Icon 
           :name="getIcon(item.type)" 
           size="18" 
@@ -102,7 +102,7 @@ function getIcon(type: string): string {
               :is-expanded="isExpanded"
               :is-highlighted="isHighlighted"
               :is-just-created="isJustCreated"
-              @navigate="emit('navigate', $event)"
+              @navigate="(item, e) => emit('navigate', item, e)"
               @toggle="emit('toggle', $event)"
               @create="(type, parentId) => emit('create', type, parentId)"
               @drag-end="emit('dragEnd')"
