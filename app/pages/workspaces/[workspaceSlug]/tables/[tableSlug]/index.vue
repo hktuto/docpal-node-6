@@ -294,6 +294,18 @@ function handleCloseColumnDialog() {
   editingColumn.value = undefined
   columnPosition.value = null
 }
+
+
+// Dynamic page title based on table name
+const pageTitle = computed(() => {
+  const tableName = table.value?.data.name
+  return tableName ? `${tableName} - DocPal` : 'Table - DocPal'
+})
+
+useHead({
+  title: pageTitle
+})
+
 </script>
 
 <template>

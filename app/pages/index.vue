@@ -3,6 +3,10 @@ definePageMeta({
   layout: 'default'
 })
 
+useHead({
+  title: 'Home - DocPal'
+})
+
 const router = useRouter()
 
 const navigateToApps = () => {

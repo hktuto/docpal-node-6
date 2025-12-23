@@ -2,29 +2,33 @@ import { eventHandler, createError, getRouterParam } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
-import { sql } from 'drizzle-orm'
+import { dropForeignKey } from '~~/server/utils/relationHelpers'
 
 /**
- * Delete a column from a data table
+ * Delete a column
  */
 export default eventHandler(async (event) => {
-  const workspace = event.context.workspace
+  const workspaceSlug = getRouterParam(event, 'workspaceSlug')
   const tableSlug = getRouterParam(event, 'tableSlug')
   const columnId = getRouterParam(event, 'columnId')
 
+  if (!workspaceSlug || !tableSlug || !columnId) {
+    throw createError({ statusCode: 400, message: 'Workspace slug, table slug, and column ID are required' })
+  }
+
+  // Get workspace
+  const workspace = await db
+    .select()
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.slug, workspaceSlug))
+    .limit(1)
+    .then(rows => rows[0])
+
   if (!workspace) {
-    throw createError({ statusCode: 500, message: 'Workspace context not found. Middleware error.' })
+    throw createError({ statusCode: 404, message: 'Workspace not found' })
   }
 
-  if (!tableSlug) {
-    throw createError({ statusCode: 400, message: 'Table slug is required' })
-  }
-
-  if (!columnId) {
-    throw createError({ statusCode: 400, message: 'Column ID is required' })
-  }
-
-  // Get table metadata
+  // Get table
   const table = await db
     .select()
     .from(schema.dataTables)
@@ -39,8 +43,8 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Table not found' })
   }
 
-  // Get existing column
-  const existingColumn = await db
+  // Get column
+  const column = await db
     .select()
     .from(schema.dataTableColumns)
     .where(and(
@@ -50,67 +54,39 @@ export default eventHandler(async (event) => {
     .limit(1)
     .then(rows => rows[0])
 
-  if (!existingColumn) {
+  if (!column) {
     throw createError({ statusCode: 404, message: 'Column not found' })
   }
 
-  // Check if column is protected (system columns)
-  const protectedColumns = ['id', 'created_at', 'updated_at', 'created_by']
-  if (protectedColumns.includes(existingColumn.name)) {
-    throw createError({
-      statusCode: 403,
-      message: `Cannot delete system column "${existingColumn.name}"`
-    })
-  }
-
   try {
-    // Drop column from physical table
-    const dropStatement = `ALTER TABLE "${table.tableName}" DROP COLUMN "${existingColumn.name}"`
-    console.log(`🔧 Executing: ${dropStatement}`)
-    await db.execute(sql.raw(dropStatement))
+    // If it's a relation, drop the foreign key first
+    if (column.type === 'relation') {
+      await dropForeignKey(table.tableName, column.name)
+    }
 
-    // Remove from metadata
+    // Delete from physical table (unless it's a computed field)
+    if (column.type !== 'lookup' && column.type !== 'formula') {
+      await db.execute(`
+        ALTER TABLE "${table.tableName}"
+        DROP COLUMN "${column.name}"
+      `)
+    }
+
+    // Delete from metadata
     await db
       .delete(schema.dataTableColumns)
       .where(eq(schema.dataTableColumns.id, columnId))
 
-    // Remove from all views' visibleColumns
-    const views = await db
-      .select()
-      .from(schema.dataTableViews)
-      .where(eq(schema.dataTableViews.dataTableId, table.id))
+    console.log(`✅ Deleted column: ${column.name} from table: ${table.name}`)
 
-    for (const view of views) {
-      const visibleColumns = (view.visibleColumns as string[]) || []
-      const filteredColumns = visibleColumns.filter(id => id !== columnId)
-      
-      if (filteredColumns.length !== visibleColumns.length) {
-        await db
-          .update(schema.dataTableViews)
-          .set({ 
-            visibleColumns: filteredColumns,
-            updatedAt: new Date()
-          })
-          .where(eq(schema.dataTableViews.id, view.id))
-      }
-    }
-
-    console.log(`✅ Deleted column "${existingColumn.name}" from table: ${table.name}`)
-
-    return successResponse(
-      { 
-        columnId,
-        columnName: existingColumn.name 
-      }, 
-      'Column deleted successfully'
-    )
-  } catch (error: any) {
+    return successResponse({
+      message: 'Column deleted successfully'
+    })
+  } catch (error) {
     console.error('❌ Failed to delete column:', error)
-
     throw createError({
       statusCode: 500,
       message: error instanceof Error ? error.message : 'Failed to delete column'
     })
   }
 })
-

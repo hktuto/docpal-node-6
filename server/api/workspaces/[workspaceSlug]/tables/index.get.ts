@@ -1,22 +1,31 @@
-import { eventHandler, createError } from 'h3'
+import { eventHandler, createError, getRouterParam } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
 
 /**
- * List all tables in a workspace (scoped to company)
+ * Get all tables in a workspace
  */
 export default eventHandler(async (event) => {
-  const workspace = event.context.workspace // Already loaded by middleware!
+  const workspaceSlug = getRouterParam(event, 'workspaceSlug')
 
-  if (!workspace) {
-    throw createError({
-      statusCode: 500,
-      message: 'Workspace context not found. Middleware error.',
-    })
+  if (!workspaceSlug) {
+    throw createError({ statusCode: 400, message: 'Workspace slug is required' })
   }
 
-  // Get all tables for this workspace
+  // Get workspace
+  const workspace = await db
+    .select()
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.slug, workspaceSlug))
+    .limit(1)
+    .then(rows => rows[0])
+
+  if (!workspace) {
+    throw createError({ statusCode: 404, message: 'Workspace not found' })
+  }
+
+  // Get all tables in workspace
   const tables = await db
     .select()
     .from(schema.dataTables)
@@ -25,4 +34,3 @@ export default eventHandler(async (event) => {
 
   return successResponse(tables)
 })
-

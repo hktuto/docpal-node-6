@@ -8,6 +8,10 @@
 definePageMeta({
     layout: 'default',
 })
+
+useHead({
+    title: 'Chat - DocPal'
+})
 </script>
 
 <style scoped lang="scss">

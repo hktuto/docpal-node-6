@@ -2,63 +2,34 @@ import { eventHandler, readBody, createError, getRouterParam } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
-import { sql } from 'drizzle-orm'
-import { getPostgresType } from '~~/server/utils/fieldTypes'
-
-/**
- * Check if type conversion is safe
- */
-function isSafeTypeConversion(fromType: string, toType: string): boolean {
-  // Same type is always safe
-  if (fromType === toType) return true
-
-  // Safe conversions
-  const safeConversions: Record<string, string[]> = {
-    'text': ['long_text', 'email', 'phone', 'url'], // text can become longer text or validated text
-    'number': ['currency', 'percent', 'rating'], // number with different display
-    'date': ['datetime'], // date can add time
-    'boolean': ['switch'], // same underlying type
-    'switch': ['boolean'],
-    'email': ['text', 'long_text'],
-    'phone': ['text', 'long_text'],
-    'url': ['text', 'long_text'],
-    'currency': ['number'],
-    'percent': ['number'],
-    'rating': ['number'],
-  }
-
-  return safeConversions[fromType]?.includes(toType) || false
-}
-
-// PostgreSQL type mapping now handled by fieldTypes registry
+import { getFieldType } from '~~/server/utils/fieldTypes'
 
 /**
  * Update an existing column
  */
 export default eventHandler(async (event) => {
-  const workspace = event.context.workspace
+  const workspaceSlug = getRouterParam(event, 'workspaceSlug')
   const tableSlug = getRouterParam(event, 'tableSlug')
   const columnId = getRouterParam(event, 'columnId')
-  const body = await readBody<{
-    label?: string
-    type?: string
-    required?: boolean
-    config?: any
-  }>(event)
+  const body = await readBody(event)
+
+  if (!workspaceSlug || !tableSlug || !columnId) {
+    throw createError({ statusCode: 400, message: 'Workspace slug, table slug, and column ID are required' })
+  }
+
+  // Get workspace
+  const workspace = await db
+    .select()
+    .from(schema.workspaces)
+    .where(eq(schema.workspaces.slug, workspaceSlug))
+    .limit(1)
+    .then(rows => rows[0])
 
   if (!workspace) {
-    throw createError({ statusCode: 500, message: 'Workspace context not found. Middleware error.' })
+    throw createError({ statusCode: 404, message: 'Workspace not found' })
   }
 
-  if (!tableSlug) {
-    throw createError({ statusCode: 400, message: 'Table slug is required' })
-  }
-
-  if (!columnId) {
-    throw createError({ statusCode: 400, message: 'Column ID is required' })
-  }
-
-  // Get table metadata
+  // Get table
   const table = await db
     .select()
     .from(schema.dataTables)
@@ -74,7 +45,7 @@ export default eventHandler(async (event) => {
   }
 
   // Get existing column
-  const existingColumn = await db
+  const column = await db
     .select()
     .from(schema.dataTableColumns)
     .where(and(
@@ -84,124 +55,69 @@ export default eventHandler(async (event) => {
     .limit(1)
     .then(rows => rows[0])
 
-  if (!existingColumn) {
+  if (!column) {
     throw createError({ statusCode: 404, message: 'Column not found' })
   }
 
-  // Check if column is protected (system columns)
-  const protectedColumns = ['id', 'created_at', 'updated_at', 'created_by']
-  if (protectedColumns.includes(existingColumn.name)) {
-    throw createError({
-      statusCode: 403,
-      message: `Cannot modify system column "${existingColumn.name}"`
-    })
-  }
-
   try {
-    const updates: any = {
-      updatedAt: new Date()
+    const { label, type, required, config } = body
+
+    // Validate field type
+    if (type && type !== column.type) {
+      throw createError({ statusCode: 400, message: 'Cannot change column type after creation' })
     }
 
-    let needsAlterTable = false
-    let alterStatements: string[] = []
-
-    // Update label (metadata only)
-    if (body.label !== undefined && body.label !== existingColumn.label) {
-      updates.label = body.label
+    // Get field type definition
+    const fieldType = getFieldType(column.type)
+    if (!fieldType) {
+      throw createError({ statusCode: 400, message: `Invalid field type: ${column.type}` })
     }
 
-    // Update config (metadata only)
-    if (body.config !== undefined) {
-      updates.config = { ...existingColumn.config, ...body.config }
-    }
-
-    // Check type change
-    if (body.type !== undefined && body.type !== existingColumn.type) {
-      // Validate type conversion
-      if (!isSafeTypeConversion(existingColumn.type, body.type)) {
-        throw createError({
-          statusCode: 400,
-          message: `Cannot convert column type from "${existingColumn.type}" to "${body.type}". This conversion may result in data loss.`
-        })
+    // Validate config
+    if (config && fieldType.validate) {
+      const validation = fieldType.validate(null, config)
+      if (!validation.valid) {
+        throw createError({ statusCode: 400, message: validation.error || 'Invalid field configuration' })
       }
-
-      updates.type = body.type
-      needsAlterTable = true
-
-      const newPgType = getPostgresType(body.type, body.config || existingColumn.config)
-      alterStatements.push(
-        `ALTER TABLE "${table.tableName}" ALTER COLUMN "${existingColumn.name}" TYPE ${newPgType} USING "${existingColumn.name}"::${newPgType}`
-      )
     }
 
-    // Check required change
-    if (body.required !== undefined && body.required !== existingColumn.required) {
-      if (body.required && !existingColumn.required) {
-        // Making column required - check for NULL values
-        const hasNulls = await db.execute(
-          sql.raw(`SELECT COUNT(*) as count FROM "${table.tableName}" WHERE "${existingColumn.name}" IS NULL`)
-        )
-        
-        const count = (hasNulls.rows[0] as any)?.count || 0
-        if (parseInt(count) > 0) {
-          throw createError({
-            statusCode: 409,
-            message: `Cannot make column required. ${count} rows have NULL values. Please fill in values first.`
-          })
-        }
-
-        needsAlterTable = true
-        alterStatements.push(
-          `ALTER TABLE "${table.tableName}" ALTER COLUMN "${existingColumn.name}" SET NOT NULL`
-        )
-      } else if (!body.required && existingColumn.required) {
-        // Making column nullable - usually safe
-        needsAlterTable = true
-        alterStatements.push(
-          `ALTER TABLE "${table.tableName}" ALTER COLUMN "${existingColumn.name}" DROP NOT NULL`
-        )
-      }
-
-      updates.required = body.required
-    }
-
-    // Update metadata
-    await db
+    // Update column metadata
+    const [updatedColumn] = await db
       .update(schema.dataTableColumns)
-      .set(updates)
+      .set({
+        label: label || column.label,
+        required: required !== undefined ? required : column.required,
+        config: config || column.config,
+        updatedAt: new Date()
+      })
       .where(eq(schema.dataTableColumns.id, columnId))
+      .returning()
 
-    // Execute ALTER TABLE statements if needed
-    if (needsAlterTable) {
-      for (const statement of alterStatements) {
-        console.log(`🔧 Executing: ${statement}`)
-        await db.execute(sql.raw(statement))
+    // Update physical column if needed
+    if (required !== undefined && required !== column.required) {
+      if (required) {
+        // Add NOT NULL constraint
+        await db.execute(`
+          ALTER TABLE "${table.tableName}"
+          ALTER COLUMN "${column.name}" SET NOT NULL
+        `)
+      } else {
+        // Remove NOT NULL constraint
+        await db.execute(`
+          ALTER TABLE "${table.tableName}"
+          ALTER COLUMN "${column.name}" DROP NOT NULL
+        `)
       }
     }
 
-    // Get updated column
-    const updatedColumn = await db
-      .select()
-      .from(schema.dataTableColumns)
-      .where(eq(schema.dataTableColumns.id, columnId))
-      .limit(1)
-      .then(rows => rows[0])
+    console.log(`✅ Updated column: ${column.name} in table: ${table.name}`)
 
-    console.log(`✅ Updated column "${existingColumn.name}" in table: ${table.name}`)
-
-    return successResponse(updatedColumn, 'Column updated successfully')
-  } catch (error: any) {
+    return successResponse(updatedColumn)
+  } catch (error) {
     console.error('❌ Failed to update column:', error)
-
-    // Specific error handling
-    if (error.statusCode) {
-      throw error // Re-throw our custom errors
-    }
-
     throw createError({
       statusCode: 500,
       message: error instanceof Error ? error.message : 'Failed to update column'
     })
   }
 })
-

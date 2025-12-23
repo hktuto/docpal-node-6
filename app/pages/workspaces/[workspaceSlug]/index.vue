@@ -5,6 +5,11 @@ definePageMeta({
 
 const { app } = useWorkspaceContext()
 
+// Dynamic page title
+useHead({
+  title: computed(() => app.value ? `${app.value.name} - DocPal` : 'Workspace - DocPal')
+})
+
 // Track if component is mounted (for Teleport)
 const isMounted = ref(false)
 onMounted(() => {

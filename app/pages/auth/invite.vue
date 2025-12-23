@@ -77,6 +77,10 @@ definePageMeta({
   layout: 'fullpage',
 })
 
+useHead({
+  title: 'Accept Invitation - DocPal'
+})
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuth()

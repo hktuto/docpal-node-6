@@ -31,6 +31,11 @@ const folder = computed(() => {
   return findFolder(workspace.value.menu)
 })
 
+// Dynamic page title based on folder name
+useHead({
+  title: computed(() => folder.value ? `${folder.value.label} - DocPal` : 'Folder - DocPal')
+})
+
 // Get folder children
 const folderChildren = computed(() => folder.value?.children || [])
 

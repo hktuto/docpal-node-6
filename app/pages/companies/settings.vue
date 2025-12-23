@@ -3,6 +3,10 @@ definePageMeta({
   layout: 'default',
 })
 
+useHead({
+  title: 'Company Settings - DocPal'
+})
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuth()

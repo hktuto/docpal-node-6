@@ -72,10 +72,7 @@ export default eventHandler(async (event) => {
 
     console.log(`✅ Reordered ${body.columnIds.length} columns in view: ${view.name}`)
 
-    return successResponse({ 
-      message: 'Column order updated successfully',
-      columnCount: body.columnIds.length 
-    })
+    return successResponse(body)
   } catch (error) {
     console.error('❌ Failed to reorder columns:', error)
     throw createError({

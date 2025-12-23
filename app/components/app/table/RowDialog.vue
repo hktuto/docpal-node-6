@@ -46,16 +46,43 @@ function initFormData() {
     // Edit mode - populate with existing data
     formData.value = { ...props.row }
   } else {
-    // Add mode - initialize empty form
+    // Add mode - initialize empty form with defaults
     formData.value = {}
     props.table.columns.forEach(col => {
       // Set default values based on column type
-      if (col.type === 'switch') {
-        formData.value[col.name] = col.config?.defaultValue ?? false
-      } else if (col.type === 'number') {
-        formData.value[col.name] = null
-      } else {
-        formData.value[col.name] = ''
+      switch (col.type) {
+        case 'switch':
+        case 'checkbox':
+          formData.value[col.name] = col.config?.defaultValue ?? false
+          break
+        case 'number':
+        case 'currency':
+        case 'rating':
+          formData.value[col.name] = null
+          break
+        case 'multi_select':
+          formData.value[col.name] = []
+          break
+        case 'date':
+        case 'datetime':
+          formData.value[col.name] = null
+          break
+        case 'color':
+          formData.value[col.name] = col.config?.defaultColor || '#409EFF'
+          break
+        case 'lookup':
+        case 'formula':
+          // Computed fields - no input needed
+          formData.value[col.name] = null
+          break
+        case 'geolocation':
+          formData.value[col.name] = null
+          break
+        case 'relation':
+          formData.value[col.name] = null
+          break
+        default:
+          formData.value[col.name] = ''
       }
     })
   }
@@ -143,14 +170,43 @@ async function handleSave() {
     props.table.columns.forEach(col => {
       let value = formData.value[col.name]
       
+      // Skip computed fields
+      if (col.type === 'lookup' || col.type === 'formula') {
+        return
+      }
+      
       // Convert empty strings to null for optional fields
       if (value === '' && !col.required) {
         value = null
       }
       
-      // Convert number strings to actual numbers
-      if (col.type === 'number' && value !== null && value !== '') {
-        value = Number(value)
+      // Type conversions
+      switch (col.type) {
+        case 'number':
+        case 'currency':
+          if (value !== null && value !== '') {
+            value = Number(value)
+          }
+          break
+        case 'rating':
+          if (value !== null) {
+            value = Number(value)
+          }
+          break
+        case 'multi_select':
+          // Ensure it's an array
+          if (!Array.isArray(value)) {
+            value = value ? [value] : []
+          }
+          break
+        case 'date':
+        case 'datetime':
+          // Date objects are handled automatically
+          break
+        case 'checkbox':
+        case 'switch':
+          value = Boolean(value)
+          break
       }
       
       submitData[col.name] = value
@@ -247,10 +303,35 @@ function getInputType(column: DataTableColumn): string {
           v-else-if="column.type === 'long_text'"
           v-model="formData[column.name]"
           type="textarea"
-          :rows="4"
+          :rows="column.config?.rows || 4"
           :placeholder="column.config?.placeholder || `Enter ${column.label}`"
           :maxlength="column.config?.maxLength"
           show-word-limit
+        />
+        
+        <!-- Email Input -->
+        <FieldEmailInput
+          v-else-if="column.type === 'email'"
+          v-model="formData[column.name]"
+          :placeholder="column.config?.placeholder || `Enter ${column.label}`"
+          :allow-multiple="column.config?.allowMultiple"
+        />
+        
+        <!-- Phone Input -->
+        <FieldPhoneInput
+          v-else-if="column.type === 'phone'"
+          v-model="formData[column.name]"
+          :placeholder="column.config?.placeholder || `Enter ${column.label}`"
+          :format="column.config?.format"
+        />
+        
+        <!-- URL Input -->
+        <FieldUrlInput
+          v-else-if="column.type === 'url'"
+          v-model="formData[column.name]"
+          :placeholder="column.config?.placeholder || `Enter ${column.label}`"
+          :open-in-new-tab="column.config?.openInNewTab"
+          :require-https="column.config?.requireHttps"
         />
         
         <!-- Number Input -->
@@ -259,25 +340,136 @@ function getInputType(column: DataTableColumn): string {
           v-model="formData[column.name]"
           :min="column.config?.min"
           :max="column.config?.max"
-          :precision="column.config?.decimals"
+          :precision="column.config?.decimal ? 2 : 0"
           :placeholder="`Enter ${column.label}`"
           style="width: 100%"
+        />
+        
+        <!-- Currency Input -->
+        <el-input-number
+          v-else-if="column.type === 'currency'"
+          v-model="formData[column.name]"
+          :min="column.config?.min || 0"
+          :max="column.config?.max"
+          :precision="2"
+          :placeholder="`Enter ${column.label}`"
+          style="width: 100%"
+        >
+          <template #prefix>
+            <span>{{ column.config?.symbol || '$' }}</span>
+          </template>
+        </el-input-number>
+        
+        <!-- Rating Input -->
+        <el-rate
+          v-else-if="column.type === 'rating'"
+          v-model="formData[column.name]"
+          :max="column.config?.maxRating || 5"
+          :allow-half="column.config?.allowHalf"
+        />
+        
+        <!-- Color Input -->
+        <el-color-picker
+          v-else-if="column.type === 'color'"
+          v-model="formData[column.name]"
+          :show-alpha="column.config?.showAlpha"
+          :color-format="column.config?.colorFormat || 'hex'"
         />
         
         <!-- Date Input -->
         <el-date-picker
           v-else-if="column.type === 'date'"
           v-model="formData[column.name]"
-          :type="column.config?.format === 'datetime' ? 'datetime' : 'date'"
+          type="date"
           :placeholder="`Select ${column.label}`"
           style="width: 100%"
         />
+        
+        <!-- DateTime Input -->
+        <el-date-picker
+          v-else-if="column.type === 'datetime'"
+          v-model="formData[column.name]"
+          type="datetime"
+          :placeholder="`Select ${column.label}`"
+          style="width: 100%"
+        />
+        
+        <!-- Select Input -->
+        <FieldSelectInput
+          v-else-if="column.type === 'select'"
+          v-model="formData[column.name]"
+          :options="column.config?.options || []"
+          :placeholder="column.config?.placeholder || `Select ${column.label}`"
+          :allow-custom="column.config?.allowCustom"
+        />
+        
+        <!-- Multi-Select Input -->
+        <FieldMultiSelectInput
+          v-else-if="column.type === 'multi_select'"
+          v-model="formData[column.name]"
+          :options="column.config?.options || []"
+          :placeholder="column.config?.placeholder || `Select ${column.label}`"
+          :max-selections="column.config?.maxSelections"
+          :allow-custom="column.config?.allowCustom"
+        />
+        
+        <!-- Checkbox Input -->
+        <el-checkbox
+          v-else-if="column.type === 'checkbox'"
+          v-model="formData[column.name]"
+        >
+          {{ column.config?.label || column.label }}
+        </el-checkbox>
         
         <!-- Switch Input -->
         <el-switch
           v-else-if="column.type === 'switch'"
           v-model="formData[column.name]"
+          :active-text="column.config?.trueLabel || 'On'"
+          :inactive-text="column.config?.falseLabel || 'Off'"
         />
+        
+        <!-- Geolocation Input -->
+        <div v-else-if="column.type === 'geolocation'" class="geolocation-input">
+          <el-input
+            v-model="formData[column.name]"
+            placeholder="Enter address or coordinates"
+          />
+          <span class="hint">Format: lat,lng or address</span>
+        </div>
+        
+        <!-- Relation Input -->
+        <FieldRelationPicker
+          v-else-if="column.type === 'relation'"
+          v-model="formData[column.name]"
+          :workspace-slug="workspaceSlug"
+          :table-slug="column.config?.targetTable"
+          :display-field="column.config?.displayField"
+        />
+        
+        <!-- Lookup Field (Read-only) -->
+        <el-input
+          v-else-if="column.type === 'lookup'"
+          v-model="formData[column.name]"
+          :placeholder="`${column.label} (auto-calculated)`"
+          disabled
+        >
+          <template #prefix>
+            <Icon name="lucide:search" size="14" />
+          </template>
+        </el-input>
+        
+        <!-- Formula Field (Read-only) -->
+        <el-input
+          v-else-if="column.type === 'formula'"
+          v-model="formData[column.name]"
+          :placeholder="`${column.label} (auto-calculated)`"
+          disabled
+        >
+          <template #prefix>
+            <Icon name="lucide:calculator" size="14" />
+          </template>
+        </el-input>
         
         <!-- Fallback: Text Input -->
         <el-input
@@ -321,5 +513,16 @@ function getInputType(column: DataTableColumn): string {
   display: flex;
   justify-content: flex-end;
   gap: var(--app-space-s);
+}
+
+.geolocation-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.geolocation-input .hint {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
 }
 </style>

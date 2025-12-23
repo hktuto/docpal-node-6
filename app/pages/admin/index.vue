@@ -4,6 +4,10 @@ definePageMeta({
   middleware: 'admin'
 })
 
+useHead({
+  title: 'Admin Dashboard - DocPal'
+})
+
 // Admin dashboard - system overview
 const { data: stats, pending } = await useApi('/api/admin/stats')
 </script>

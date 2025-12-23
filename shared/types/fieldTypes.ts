@@ -25,6 +25,10 @@ export type ColumnType =
   // Other
   | 'color'
   | 'geolocation'
+  // Relations & Computed
+  | 'relation'
+  | 'lookup'
+  | 'formula'
 
 export interface ColumnTypeOption {
   value: ColumnType
@@ -151,6 +155,29 @@ export const columnTypeOptions: ColumnTypeOption[] = [
     description: 'Address with coordinates and map picker',
     category: 'location',
     icon: 'lucide:map-pin'
+  },
+  
+  // Relations & Computed types
+  {
+    value: 'relation',
+    label: 'Relation',
+    description: 'Link to another table (foreign key)',
+    category: 'relation',
+    icon: 'lucide:link'
+  },
+  {
+    value: 'lookup',
+    label: 'Lookup',
+    description: 'Pull field value from related record',
+    category: 'relation',
+    icon: 'lucide:search'
+  },
+  {
+    value: 'formula',
+    label: 'Formula',
+    description: 'Calculated field based on other fields',
+    category: 'advanced',
+    icon: 'lucide:calculator'
   }
 ]
 

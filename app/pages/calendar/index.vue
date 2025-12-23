@@ -8,6 +8,10 @@
 definePageMeta({
     layout: 'default',
 })
+
+useHead({
+    title: 'Calendar - DocPal'
+})
 </script>
 
 <style scoped lang="scss">

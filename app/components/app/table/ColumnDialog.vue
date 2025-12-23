@@ -332,6 +332,29 @@ function handleClose() {
         v-model="form.config"
       />
       
+      <!-- Relation field -->
+      <FieldConfigRelationFieldConfig
+        v-else-if="form.type === 'relation'"
+        v-model="form.config"
+        :workspace-slug="workspaceSlug"
+      />
+      
+      <!-- Lookup field -->
+      <FieldConfigLookupFieldConfig
+        v-else-if="form.type === 'lookup'"
+        v-model="form.config"
+        :workspace-slug="workspaceSlug"
+        :table-slug="tableSlug"
+      />
+      
+      <!-- Formula field -->
+      <FieldConfigFormulaFieldConfig
+        v-else-if="form.type === 'formula'"
+        v-model="form.config"
+        :workspace-slug="workspaceSlug"
+        :table-slug="tableSlug"
+      />
+      
       <!-- Required Field -->
       <el-divider content-position="left">
         <span style="font-size: 14px; color: var(--el-text-color-secondary)">
@@ -393,6 +416,27 @@ function handleClose() {
     box-shadow: 0 0 4px var(--app-primary-alpha-70); 
     outline: 1px solid var(--app-primary-1);
   }
+}
+
+.coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--el-text-color-secondary);
+}
+
+.coming-soon p {
+  margin: 16px 0 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.coming-soon .hint {
+  font-size: 13px;
+  color: var(--el-text-color-placeholder);
 }
 </style>
 

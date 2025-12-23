@@ -11,7 +11,7 @@ export interface FieldTypeDefinition {
   name: string
   label: string
   description: string
-  category: 'basic' | 'text' | 'number' | 'date' | 'select' | 'location' | 'media' | 'relation' | 'advanced'
+  category: 'basic' | 'text' | 'number' | 'date' | 'select' | 'location' | 'media' | 'relation' | 'computed' | 'advanced'
   
   // PostgreSQL type mapping
   pgType: (config?: any) => string
@@ -26,9 +26,10 @@ export interface FieldTypeDefinition {
   configSchema?: Array<{
     key: string
     label: string
-    type: 'text' | 'number' | 'boolean' | 'select' | 'color'
+    type: 'text' | 'number' | 'boolean' | 'select' | 'color' | 'table_select' | 'field_select' | 'relation_field_select' | 'formula_editor'
     options?: Array<{ label: string; value: any }>
     default?: any
+    required?: boolean
     description?: string
   }>
   
@@ -742,6 +743,172 @@ export const fieldTypeRegistry: Record<string, FieldTypeDefinition> = {
     aiHints: {
       keywords: ['location', 'address', 'geolocation', 'place', 'coordinates', 'latitude', 'longitude', 'map', 'where', 'city', 'country'],
       patterns: [/location/i, /address/i, /place/i, /where/i, /coordinates/i, /lat.*lng/i, /geo/i, /map/i]
+    }
+  },
+  
+  // ============================================
+  // COMPLEX TYPES (Relations, Lookups, Formulas)
+  // ============================================
+  
+  relation: {
+    name: 'relation',
+    label: 'Relation',
+    description: 'Link to another table (foreign key)',
+    category: 'relation',
+    pgType: () => 'UUID',
+    validate: (value, config) => {
+      if (!value) return { valid: true }
+      
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(value)) {
+        return { valid: false, error: 'Invalid UUID format' }
+      }
+      
+      // Note: Actual relation validation (record exists) is done at API layer
+      return { valid: true }
+    },
+    defaultConfig: {
+      targetTable: null,
+      displayField: 'id',
+      cascadeDelete: 'set_null',
+      relationshipType: 'many_to_one'
+    },
+    configSchema: [
+      {
+        key: 'targetTable',
+        label: 'Target Table',
+        type: 'table_select',
+        required: true,
+        description: 'The table this field links to'
+      },
+      {
+        key: 'displayField',
+        label: 'Display Field',
+        type: 'field_select',
+        required: true,
+        default: 'id',
+        description: 'Which field to show from the related record'
+      },
+      {
+        key: 'cascadeDelete',
+        label: 'On Delete',
+        type: 'select',
+        options: [
+          { value: 'set_null', label: 'Set to null' },
+          { value: 'restrict', label: 'Prevent deletion' },
+          { value: 'cascade', label: 'Delete this record too' }
+        ],
+        default: 'set_null',
+        description: 'What happens when the related record is deleted'
+      }
+    ],
+    aiHints: {
+      keywords: ['link', 'reference', 'belongs to', 'foreign key', 'related', 'associated', 'connected'],
+      patterns: [/link/i, /reference/i, /belongs.*to/i, /related/i, /associated/i, /_id$/]
+    }
+  },
+  
+  lookup: {
+    name: 'lookup',
+    label: 'Lookup',
+    description: 'Pull field value from related record',
+    category: 'relation',
+    pgType: () => 'TEXT', // Cached value, type depends on target field
+    validate: (value) => {
+      // Lookups are computed, always valid
+      return { valid: true }
+    },
+    defaultConfig: {
+      relationField: null,
+      targetField: null,
+      autoUpdate: true,
+      cacheValue: true
+    },
+    configSchema: [
+      {
+        key: 'relationField',
+        label: 'Relation Field',
+        type: 'relation_field_select',
+        required: true,
+        description: 'Which relation field to follow'
+      },
+      {
+        key: 'targetField',
+        label: 'Target Field',
+        type: 'field_select',
+        required: true,
+        description: 'Which field to pull from the related record'
+      },
+      {
+        key: 'autoUpdate',
+        label: 'Auto Update',
+        type: 'boolean',
+        default: true,
+        description: 'Automatically update when related record changes'
+      },
+      {
+        key: 'cacheValue',
+        label: 'Cache Value',
+        type: 'boolean',
+        default: true,
+        description: 'Store the value locally for faster access'
+      }
+    ],
+    aiHints: {
+      keywords: ['pull', 'fetch', 'get from', 'show from', 'lookup', 'related value'],
+      patterns: [/pull/i, /fetch/i, /get.*from/i, /show.*from/i, /lookup/i]
+    }
+  },
+  
+  formula: {
+    name: 'formula',
+    label: 'Formula',
+    description: 'Calculated field based on other fields',
+    category: 'computed',
+    pgType: () => 'TEXT', // Store formula as text, compute on read
+    validate: (value) => {
+      // Formulas are computed, always valid
+      return { valid: true }
+    },
+    defaultConfig: {
+      formula: '',
+      returnType: 'number',
+      dependencies: [],
+      cacheResult: true
+    },
+    configSchema: [
+      {
+        key: 'formula',
+        label: 'Formula',
+        type: 'formula_editor',
+        required: true,
+        description: 'The formula to calculate (e.g., {price} * {quantity})'
+      },
+      {
+        key: 'returnType',
+        label: 'Return Type',
+        type: 'select',
+        options: [
+          { value: 'number', label: 'Number' },
+          { value: 'text', label: 'Text' },
+          { value: 'boolean', label: 'Boolean' },
+          { value: 'date', label: 'Date' }
+        ],
+        default: 'number',
+        description: 'The type of value this formula returns'
+      },
+      {
+        key: 'cacheResult',
+        label: 'Cache Result',
+        type: 'boolean',
+        default: true,
+        description: 'Store calculated value for performance'
+      }
+    ],
+    aiHints: {
+      keywords: ['calculate', 'compute', 'total', 'sum', 'formula', 'math', 'expression'],
+      patterns: [/calculate/i, /compute/i, /total/i, /sum/i, /formula/i]
     }
   }
 }

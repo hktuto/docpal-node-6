@@ -5,6 +5,10 @@
   definePageMeta({
     layout: 'default'
   })
+
+  useHead({
+    title: 'My Workspaces - DocPal'
+  })
     
   // State
   const showCreateDialog = ref(false)

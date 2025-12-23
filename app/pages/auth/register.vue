@@ -10,6 +10,10 @@ definePageMeta({
   middleware: ['guest'], // Only allow non-authenticated users
 })
 
+useHead({
+  title: 'Register - DocPal'
+})
+
 // If already logged in, redirect to apps
 const auth = useAuth()
 const router = useRouter()

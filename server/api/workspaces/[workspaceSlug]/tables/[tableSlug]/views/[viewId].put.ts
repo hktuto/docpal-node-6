@@ -76,12 +76,11 @@ export default eventHandler(async (event) => {
     if (body.type !== undefined) updates.type = body.type
     if (body.isDefault !== undefined) updates.isDefault = body.isDefault
     if (body.isPublic !== undefined) updates.isPublic = body.isPublic
-    if (body.visibleColumns !== undefined) updates.visibleColumns = body.visibleColumns
     if (body.columnWidths !== undefined) updates.columnWidths = body.columnWidths
     if (body.filters !== undefined) updates.filters = body.filters
     if (body.sort !== undefined) updates.sort = body.sort
     if (body.viewConfig !== undefined) updates.viewConfig = body.viewConfig
-
+    if (body.visibleColumns !== undefined) updates.visibleColumns = body.visibleColumns
     // Update view
     const [updatedView] = await db
       .update(schema.dataTableViews)
@@ -108,7 +107,7 @@ export default eventHandler(async (event) => {
     return successResponse({
       ...updatedView,
       columns: enrichedColumns
-    }, 'View updated successfully')
+    })
   } catch (error: any) {
     console.error('❌ Failed to update view:', error)
 

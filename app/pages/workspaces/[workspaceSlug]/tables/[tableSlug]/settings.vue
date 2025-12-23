@@ -8,4 +8,8 @@
 definePageMeta({
   layout: 'app'
 })
+
+useHead({
+  title: 'Table Settings - DocPal'
+})
 </script>

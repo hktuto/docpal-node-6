@@ -1,0 +1,58 @@
+# DocPal Node 6 - Development Rules
+
+## API Response Standards
+
+### ✅ DO: Use successResponse correctly
+```typescript
+// ✅ CORRECT - successResponse already wraps in { data: ... }
+return successResponse(yourData)
+
+// Frontend receives: { data: yourData }
+// Frontend uses: response.data
+```
+
+### ❌ DON'T: Double-wrap data
+```typescript
+// ❌ WRONG - Creates nested data
+return successResponse({ data: yourData })
+
+// Frontend receives: { data: { data: yourData } }
+// Frontend has to use: response.data.data (WRONG!)
+```
+
+### Examples
+
+**Creating a column:**
+```typescript
+// ✅ CORRECT
+return successResponse(newColumn)
+
+// ❌ WRONG
+return successResponse({ data: newColumn })
+```
+
+**Listing items:**
+```typescript
+// ✅ CORRECT
+return successResponse(items)
+
+// ❌ WRONG
+return successResponse({ data: items })
+```
+
+**With message:**
+```typescript
+// ✅ CORRECT - Additional metadata is fine
+return successResponse({
+  message: 'Column created successfully',
+  column: newColumn
+})
+```
+
+## General Rules
+
+- Never double-wrap responses in `successResponse()`
+- The function signature is: `successResponse(data: any)`
+- It returns: `{ success: true, data: data }`
+- Frontend always accesses as: `response.data`
+

@@ -8,6 +8,11 @@ const router = useRouter()
 // Access app context from layout
 const { workspace, workspaceSlug, pending, refreshWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaceContext()
 
+// Dynamic page title
+useHead({
+  title: computed(() => workspace.value ? `${workspace.value.name} Settings - DocPal` : 'Settings - DocPal')
+})
+
 // Form state
 const form = ref({
   name: '',

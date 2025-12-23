@@ -32,6 +32,10 @@ definePageMeta({
   layout: 'fullpage',
 })
 
+useHead({
+  title: 'Verify Email - DocPal'
+})
+
 const route = useRoute()
 const router = useRouter()
 const auth = useAuth()
