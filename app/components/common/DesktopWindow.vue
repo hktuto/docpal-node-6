@@ -2,6 +2,7 @@
 interface WindowState {
   id: string
   title: string
+  currentPageTitle?: string
   icon?: string
   url: string
   x: number
@@ -10,6 +11,7 @@ interface WindowState {
   height: number
   zIndex: number
   isMaximized: boolean
+  isMinimized: boolean
 }
 
 interface Props {
@@ -33,6 +35,7 @@ const dragStartX = ref(0)
 const dragStartY = ref(0)
 const dragStartWindowX = ref(0)
 const dragStartWindowY = ref(0)
+const dragOffset = ref({ x: 0, y: 0 })
 
 // Resizing state
 const isResizing = ref(false)
@@ -56,6 +59,7 @@ const startDrag = (e: MouseEvent) => {
   dragStartY.value = e.clientY
   dragStartWindowX.value = props.window.x
   dragStartWindowY.value = props.window.y
+  dragOffset.value = { x: 0, y: 0 }
   
   emit('focus', props.window.id)
   
@@ -71,14 +75,20 @@ const onDrag = (e: MouseEvent) => {
   const deltaX = e.clientX - dragStartX.value
   const deltaY = e.clientY - dragStartY.value
   
-  const newX = dragStartWindowX.value + deltaX
-  const newY = dragStartWindowY.value + deltaY
-  
-  emit('updatePosition', props.window.id, newX, newY)
+  // Update offset for transform (no reactivity overhead)
+  dragOffset.value = { x: deltaX, y: deltaY }
 }
 
 const stopDrag = () => {
+  if (isDragging.value && (dragOffset.value.x !== 0 || dragOffset.value.y !== 0)) {
+    // Apply final position
+    const newX = dragStartWindowX.value + dragOffset.value.x
+    const newY = dragStartWindowY.value + dragOffset.value.y
+    emit('updatePosition', props.window.id, newX, newY)
+  }
+  
   isDragging.value = false
+  dragOffset.value = { x: 0, y: 0 }
   document.removeEventListener('mousemove', onDrag)
   document.removeEventListener('mouseup', stopDrag)
 }
@@ -139,6 +149,7 @@ const onResize = (e: MouseEvent) => {
     }
   }
   
+  // Apply directly (no transitions during resize thanks to CSS)
   emit('updateSize', props.window.id, newWidth, newHeight)
   if (newX !== resizeStartLeft.value || newY !== resizeStartTop.value) {
     emit('updatePosition', props.window.id, newX, newY)
@@ -228,16 +239,19 @@ onUnmounted(() => {
 
 <template>
   <div 
-    class="desktop-window glass"
+    class="desktop-window"
     :class="{ 
       'maximized': window.isMaximized,
-      'minimized': window.isMinimized
+      'minimized': window.isMinimized,
+      'dragging': isDragging,
+      'resizing': isResizing
     }"
     :style="{
       left: window.isMaximized ? '0' : `${window.x}px`,
       top: window.isMaximized ? '0' : `${window.y}px`,
       width: window.isMaximized ? '100vw' : `${window.width}px`,
       height: window.isMaximized ? '100vh' : `${window.height}px`,
+      transform: isDragging ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : 'none',
       zIndex: window.zIndex,
       visibility: window.isMinimized ? 'hidden' : 'visible',
       pointerEvents: window.isMinimized ? 'none' : 'auto',
@@ -294,11 +308,12 @@ onUnmounted(() => {
   position: fixed;
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
+  border-radius: var(--app-border-radius-m);
   overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  transition: box-shadow 0.2s ease, left 0.3s ease, top 0.3s ease, width 0.3s ease, height 0.3s ease;
+  box-shadow: var(--app-shadow-l);
+  transition: box-shadow 0.2s ease;
   will-change: transform;
+  background: var(--app-accent-color);
 }
 
 .desktop-window.maximized {
@@ -314,6 +329,17 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+/* Disable all transitions during drag/resize for smooth GPU-accelerated movement */
+.desktop-window.dragging,
+.desktop-window.resizing {
+  transition: none !important;
+  cursor: move;
+}
+
+.desktop-window.resizing {
+  cursor: inherit; /* Use resize cursor from handle */
+}
+
 .desktop-window:hover {
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
 }
@@ -322,7 +348,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px;
+  padding: var(--app-space-xs) var(--app-space-s);
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);

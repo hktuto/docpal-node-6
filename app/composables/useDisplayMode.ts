@@ -1,11 +1,13 @@
 /**
  * Display Mode Composable
- * Manages the application's display mode (desktop vs normal)
+ * Automatically detects if running inside an iframe (desktop mode)
  */
-export const useIsDesktopMode = () => useState('isDesktopMode', () => false)
 export function useDisplayMode() {
-  // Global state that persists across navigation
-  const isDesktopMode = useIsDesktopMode()
+  // Auto-detect: if page is in iframe, it's desktop mode
+  const isDesktopMode = computed(() => {
+    if (!process.client) return false
+    return window.self !== window.top
+  })
   
   // Detect mobile device
   const isMobile = computed(() => {
@@ -13,27 +15,19 @@ export function useDisplayMode() {
     return window.innerWidth < 768
   })
   
-  // Helper to enable desktop mode
-  const enableDesktopMode = () => {
-    isDesktopMode.value = true
-  }
-  
-  // Helper to disable desktop mode
-  const disableDesktopMode = () => {
-    isDesktopMode.value = false
-  }
-  
-  // Toggle desktop mode
-  const toggleDesktopMode = () => {
-    isDesktopMode.value = !isDesktopMode.value
-  }
+  // Whether to show navigation (hidden in desktop mode)
+  const shouldShowNavigation = computed(() => !isDesktopMode.value)
   
   return {
     isDesktopMode,
     isMobile,
-    enableDesktopMode,
-    disableDesktopMode,
-    toggleDesktopMode
+    shouldShowNavigation
   }
+}
+
+// For backwards compatibility - returns computed that auto-detects iframe
+export const useIsDesktopMode = () => {
+  const { isDesktopMode } = useDisplayMode()
+  return isDesktopMode
 }
 

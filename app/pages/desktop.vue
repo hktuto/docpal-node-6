@@ -8,13 +8,8 @@ useHead({
   title: 'Desktop - DocPal'
 })
 
-const { enableDesktopMode, disableDesktopMode } = useDisplayMode()
-
-// Enable desktop mode when entering this page
-onMounted(() => {
-  enableDesktopMode()
-})
-
+// Desktop mode is now auto-detected in layouts when pages load in iframes
+// No manual state management needed here
 
 interface WindowState {
   id: string

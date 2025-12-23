@@ -1,5 +1,8 @@
 <script lang="ts" setup>
 
+const isDesktopMode = useIsDesktopMode()
+
+isDesktopMode.value = true
 
 </script>
 
@@ -8,7 +11,7 @@
 
   <div class="desktop-layout">
     <slot/>
-    <!-- <LoadingBg /> -->
+    <LoadingBg />
   </div>
 </template>
 

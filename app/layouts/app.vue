@@ -4,7 +4,7 @@ import { WorkspaceContextKey } from '~/composables/useWorkspaceContext'
 import type { MenuItem } from '#shared/types/db'
 import {useDebounceFn} from '@vueuse/core'
 
-const isDesktopMode= useIsDesktopMode
+const isDesktopMode= useIsDesktopMode()
 
 const route = useRoute()
 const router = useRouter()
@@ -194,8 +194,6 @@ const staticNav = [
 
 <template>
   <div class="app-layout-wrapper">
-
-    
     <div v-if="error" class="error">
       App not found
     </div>
