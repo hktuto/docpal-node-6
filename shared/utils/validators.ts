@@ -220,6 +220,115 @@ export function validateDate(value: string, config?: { minDate?: string; maxDate
 }
 
 /**
+ * Rating validation
+ */
+export function validateRating(value: any, config?: { maxStars?: number; allowHalf?: boolean }): ValidationResult {
+  if (value === null || value === undefined || value === '') {
+    return { valid: true }
+  }
+  
+  const num = Number(value)
+  
+  if (isNaN(num)) {
+    return { valid: false, error: 'Must be a valid number' }
+  }
+  
+  const maxStars = config?.maxStars || 5
+  const allowHalf = config?.allowHalf || false
+  
+  if (num < 1 || num > maxStars) {
+    return { valid: false, error: `Rating must be between 1 and ${maxStars}` }
+  }
+  
+  // Check if half stars are allowed
+  if (!allowHalf && !Number.isInteger(num)) {
+    return { valid: false, error: 'Only whole numbers are allowed' }
+  }
+  
+  // Check if value is in 0.5 increments when half stars are allowed
+  if (allowHalf && (num * 2) % 1 !== 0) {
+    return { valid: false, error: 'Only 0.5 increments are allowed' }
+  }
+  
+  return { valid: true }
+}
+
+/**
+ * Color validation
+ */
+export function validateColor(value: string, config?: { format?: 'hex' | 'rgb' | 'hsl' }): ValidationResult {
+  if (!value) return { valid: true }
+  
+  const format = config?.format || 'hex'
+  
+  if (format === 'hex') {
+    // Validate hex color (#RGB, #RRGGBB, #RRGGBBAA)
+    const hexPattern = /^#([A-Fa-f0-9]{3}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/
+    
+    if (!hexPattern.test(value)) {
+      return { valid: false, error: 'Invalid hex color format (use #RGB, #RRGGBB, or #RRGGBBAA)' }
+    }
+  } else if (format === 'rgb') {
+    // Validate RGB/RGBA format
+    const rgbPattern = /^rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*(,\s*[0-1]?\.?\d*)?\s*\)$/
+    
+    if (!rgbPattern.test(value)) {
+      return { valid: false, error: 'Invalid RGB color format (use rgb(r,g,b) or rgba(r,g,b,a))' }
+    }
+  } else if (format === 'hsl') {
+    // Validate HSL/HSLA format
+    const hslPattern = /^hsla?\(\s*\d{1,3}\s*,\s*\d{1,3}%\s*,\s*\d{1,3}%\s*(,\s*[0-1]?\.?\d*)?\s*\)$/
+    
+    if (!hslPattern.test(value)) {
+      return { valid: false, error: 'Invalid HSL color format (use hsl(h,s%,l%) or hsla(h,s%,l%,a))' }
+    }
+  }
+  
+  return { valid: true }
+}
+
+/**
+ * Geolocation validation
+ */
+export function validateGeolocation(value: any, config?: { requireAddress?: boolean }): ValidationResult {
+  if (!value || value === null || value === undefined) {
+    return { valid: true }
+  }
+  
+  // Value should be an object
+  if (typeof value !== 'object') {
+    return { valid: false, error: 'Invalid geolocation format' }
+  }
+  
+  const { lat, lng, address } = value
+  
+  // Validate latitude
+  if (typeof lat !== 'number' || isNaN(lat)) {
+    return { valid: false, error: 'Latitude must be a number' }
+  }
+  
+  if (lat < -90 || lat > 90) {
+    return { valid: false, error: 'Latitude must be between -90 and 90' }
+  }
+  
+  // Validate longitude
+  if (typeof lng !== 'number' || isNaN(lng)) {
+    return { valid: false, error: 'Longitude must be a number' }
+  }
+  
+  if (lng < -180 || lng > 180) {
+    return { valid: false, error: 'Longitude must be between -180 and 180' }
+  }
+  
+  // Check if address is required
+  if (config?.requireAddress && !address) {
+    return { valid: false, error: 'Address is required' }
+  }
+  
+  return { valid: true }
+}
+
+/**
  * Required field validation
  */
 export function validateRequired(value: any): ValidationResult {
@@ -286,7 +395,17 @@ export function validateFieldValue(
       return validateUrl(value, config)
     
     case 'number':
+    case 'currency':
       return validateNumber(value, config)
+    
+    case 'rating':
+      return validateRating(value, config)
+    
+    case 'color':
+      return validateColor(value, config)
+    
+    case 'geolocation':
+      return validateGeolocation(value, config)
     
     case 'text':
     case 'long_text':

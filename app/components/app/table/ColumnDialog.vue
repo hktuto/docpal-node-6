@@ -295,6 +295,26 @@ function handleClose() {
         v-model="form.config"
       />
       
+      <FieldConfigCurrencyFieldConfig
+        v-else-if="form.type === 'currency'"
+        v-model="form.config"
+      />
+      
+      <FieldConfigRatingFieldConfig
+        v-else-if="form.type === 'rating'"
+        v-model="form.config"
+      />
+      
+      <FieldConfigColorFieldConfig
+        v-else-if="form.type === 'color'"
+        v-model="form.config"
+      />
+      
+      <FieldConfigGeolocationFieldConfig
+        v-else-if="form.type === 'geolocation'"
+        v-model="form.config"
+      />
+      
       <FieldConfigDateFieldConfig
         v-else-if="form.type === 'date' || form.type === 'datetime'"
         v-model="form.config"

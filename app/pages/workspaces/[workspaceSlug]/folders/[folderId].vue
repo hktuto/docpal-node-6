@@ -13,7 +13,7 @@ const folderSlug = computed(() => route.params.folderId as string)
 
 // Find the folder in the menu structure by slug
 const folder = computed(() => {
-  if (!workspace.value?.menu) return null
+  if (!workspace  || !workspace.value?.menu) return null
   
   const findFolder = (items: MenuItem[]): MenuItem | null => {
     for (const item of items) {
@@ -218,4 +218,5 @@ function getChildPath(child: MenuItem) {
   }
 }
 </style>
+
 

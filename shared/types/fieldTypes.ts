@@ -9,7 +9,7 @@ export type ColumnType =
   | 'number'
   | 'date'
   | 'datetime'
-  | 'boolean'
+  | 'checkbox'
   | 'switch'
   // Text types
   | 'email'
@@ -24,6 +24,7 @@ export type ColumnType =
   | 'rating'
   // Other
   | 'color'
+  | 'geolocation'
 
 export interface ColumnTypeOption {
   value: ColumnType
@@ -66,10 +67,11 @@ export const columnTypeOptions: ColumnTypeOption[] = [
     category: 'date'
   },
   {
-    value: 'boolean',
-    label: 'Boolean',
-    description: 'True/False toggle',
-    category: 'basic'
+    value: 'checkbox',
+    label: 'Checkbox',
+    description: 'True/False checkbox',
+    category: 'basic',
+    icon: 'lucide:check-square'
   },
   {
     value: 'switch',
@@ -115,6 +117,40 @@ export const columnTypeOptions: ColumnTypeOption[] = [
     description: 'Multiple select dropdown',
     category: 'select',
     icon: 'lucide:tags'
+  },
+  
+  // Number display types
+  {
+    value: 'currency',
+    label: 'Currency',
+    description: 'Monetary value with currency symbol',
+    category: 'number',
+    icon: 'lucide:dollar-sign'
+  },
+  {
+    value: 'rating',
+    label: 'Rating',
+    description: 'Star rating system (1-5 or 1-10)',
+    category: 'number',
+    icon: 'lucide:star'
+  },
+  
+  // Other types
+  {
+    value: 'color',
+    label: 'Color',
+    description: 'Color picker with hex/rgb values',
+    category: 'basic',
+    icon: 'lucide:palette'
+  },
+  
+  // Location types
+  {
+    value: 'geolocation',
+    label: 'Geolocation',
+    description: 'Address with coordinates and map picker',
+    category: 'location',
+    icon: 'lucide:map-pin'
   }
 ]
 

@@ -133,13 +133,42 @@ export default eventHandler(async (event) => {
     // Build ALTER TABLE statement
     let alterStatement = `ALTER TABLE "${table.tableName}" ADD COLUMN "${body.name}" ${pgType}`
     
+    // Helper function to format default value for SQL
+    const formatDefaultValue = (value: any, columnType: string): string => {
+      if (value === null || value === undefined) {
+        return 'NULL'
+      }
+      
+      // For JSONB columns, stringify objects
+      if (pgType.includes('JSONB') || pgType.includes('JSON')) {
+        if (typeof value === 'object') {
+          // Escape single quotes in JSON string
+          return `'${JSON.stringify(value).replace(/'/g, "''")}'::jsonb`
+        }
+        return `'${String(value).replace(/'/g, "''")}'::jsonb`
+      }
+      
+      // For numeric types, don't quote
+      if (pgType.includes('INTEGER') || pgType.includes('DECIMAL') || pgType.includes('NUMERIC')) {
+        return String(value)
+      }
+      
+      // For boolean
+      if (pgType.includes('BOOLEAN')) {
+        return value ? 'TRUE' : 'FALSE'
+      }
+      
+      // For all other types (text, varchar, etc.), quote and escape
+      return `'${String(value).replace(/'/g, "''")}'`
+    }
+    
     if (!nullable) {
       if (defaultValue !== undefined) {
-        alterStatement += ` DEFAULT '${defaultValue}'`
+        alterStatement += ` DEFAULT ${formatDefaultValue(defaultValue, body.type)}`
       }
       alterStatement += ' NOT NULL'
     } else if (defaultValue !== undefined) {
-      alterStatement += ` DEFAULT '${defaultValue}'`
+      alterStatement += ` DEFAULT ${formatDefaultValue(defaultValue, body.type)}`
     }
 
     // Execute ALTER TABLE
