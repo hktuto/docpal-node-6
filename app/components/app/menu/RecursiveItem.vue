@@ -4,7 +4,7 @@ import draggable from 'vuedraggable'
 
 const props = defineProps<{
   item: MenuItem
-  appSlug: string
+  workspaceSlug: string
   isActive: (item: MenuItem) => boolean
   hasActiveChild: (item: MenuItem) => boolean
   isExpanded: (folderId: string) => boolean
@@ -96,7 +96,7 @@ function getIcon(type: string): string {
             <!-- Recursive call to self -->
             <AppMenuRecursiveItem
               :item="childItem"
-              :app-slug="appSlug"
+              :workspace-slug="workspaceSlug"
               :is-active="isActive"
               :has-active-child="hasActiveChild"
               :is-expanded="isExpanded"

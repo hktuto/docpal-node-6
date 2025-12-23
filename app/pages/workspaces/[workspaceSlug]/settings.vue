@@ -6,7 +6,7 @@ definePageMeta({
 const router = useRouter()
 
 // Access app context from layout
-const { app, appSlug, pending, refreshApp, updateApp, deleteApp } = useWorkspaceContext()
+const { workspace, workspaceSlug, pending, refreshWorkspace, updateWorkspace, deleteWorkspace } = useWorkspaceContext()
 
 // Form state
 const form = ref({

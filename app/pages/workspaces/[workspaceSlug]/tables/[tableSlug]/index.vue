@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 const route = useRoute()
-const appSlug = computed(() => route.params.appSlug as string)
+const workspaceSlug = computed(() => route.params.workspaceSlug as string)
 const tableSlug = computed(() => route.params.tableSlug as string)
 
 // Track if component is mounted (for Teleport)
@@ -17,9 +17,9 @@ onMounted(() => {
 
 // Fetch table metadata (with columns) - only schema, not rows
 const { data: table, pending: tablePending, refresh: refreshTable } = await useApi<SuccessResponse<DataTable & { columns: DataTableColumn[] }>>(
-  () => `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}`,
+  () => `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}`,
   {
-    key: `table-${appSlug.value}-${tableSlug.value}`,
+    key: `table-${workspaceSlug.value}-${tableSlug.value}`,
   }
 )
 
@@ -28,9 +28,9 @@ const { data: currentView, pending: viewPending, refresh: refreshView } = await 
   columns: DataTableColumn[]
   allColumns: DataTableColumn[] 
 }>>(
-  () => `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}/views/default`,
+  () => `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/default`,
   {
-    key: `view-${appSlug.value}-${tableSlug.value}-default`,
+    key: `view-${workspaceSlug.value}-${tableSlug.value}-default`,
   }
 )
 
@@ -103,7 +103,7 @@ async function handleDeleteRow(row: any) {
 
     const {$api} = useNuxtApp()
     await $api(
-      `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}/rows/${row.id}`,
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/rows/${row.id}`,
       { method: 'DELETE' }
     )
 
@@ -126,7 +126,7 @@ async function handleRowSaved() {
 
 // Navigate to settings
 function navigateToSettings() {
-  navigateTo(`/workspaces/${appSlug.value}/tables/${tableSlug.value}/settings`)
+  navigateTo(`/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/settings`)
 }
 
 // Column management handlers
@@ -188,7 +188,7 @@ async function handleRemoveColumn(column: any) {
     
     const {$api} = useNuxtApp()
     await $api(
-      `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}/columns/${column.id}`,
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/columns/${column.id}`,
       { method: 'DELETE' as any }
     )
     
@@ -236,7 +236,7 @@ async function handleColumnReorder({ oldColumn, newColumn, dragPos }: any) {
     
     const {$api} = useNuxtApp()
     await $api(
-      `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}/columns/reorder`,
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/columns/reorder`,
       {
         method: 'PUT',
         body: { 
@@ -268,7 +268,7 @@ async function handleColumnSaved(savedColumn: DataTableColumn) {
       
       // Update the view
       await $fetch(
-        `/api/workspaces/${appSlug.value}/tables/${tableSlug.value}/views/${currentView.value.data.id}`,
+        `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${currentView.value.data.id}`,
         {
           // @ts-ignore - Nuxt $fetch PUT method type issue
           method: 'PUT',
@@ -330,7 +330,7 @@ function handleCloseColumnDialog() {
         <DataGrid
           ref="gridRef"
           :columns="gridColumns"
-          :app-slug="appSlug"
+          :workspace-slug="workspaceSlug"
           :table-slug="tableSlug"
           :auto-proxy="true"
           :allow-column-management="true"
@@ -355,7 +355,7 @@ function handleCloseColumnDialog() {
       v-model:visible="showColumnDialog"
       :column="editingColumn"
       :position="columnPosition"
-      :app-slug="appSlug"
+      :workspace-slug="workspaceSlug"
       :table-slug="tableSlug"
       @saved="handleColumnSaved"
       @update:visible="(val) => { if (!val) handleCloseColumnDialog() }"
@@ -365,7 +365,7 @@ function handleCloseColumnDialog() {
     <AppTableRowDialog
       v-if="table && currentView"
       v-model:visible="showRowDialog"
-      :app-slug="appSlug"
+      :workspace-slug="workspaceSlug"
       :table-slug="tableSlug"
       :table="table.data"
       :row="editingRow"

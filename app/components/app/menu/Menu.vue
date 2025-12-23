@@ -5,7 +5,7 @@ import { nanoid } from 'nanoid'
 import { generateUniqueSlug } from '#shared/utils/slug'
 
 const props = defineProps<{
-  appSlug: string
+  workspaceSlug: string
   menu: MenuItem[]
 }>()
 
@@ -120,7 +120,7 @@ function isFolderExpanded(folderId: string): boolean {
 
 // Check if menu item is active
 function isItemActive(item: MenuItem): boolean {
-  const basePath = `/workspaces/${props.appSlug}`
+  const basePath = `/workspaces/${props.workspaceSlug}`
   const itemPath = `${basePath}/${item.type}s/${item.slug}`
   return route.path === itemPath || route.path.startsWith(itemPath + '/')
 }
@@ -146,14 +146,14 @@ function hasActiveChild(item: MenuItem): boolean {
 
 // Navigate to item
 function navigateToItem(item: MenuItem) {
-  if (!props.appSlug) return
+  if (!props.workspaceSlug) return
   
   // If it's a folder, also expand it when clicking
   if (item.type === 'folder') {
     expandedFolders.value.add(item.id)
   }
   
-  const basePath = `/workspaces/${props.appSlug}`
+  const basePath = `/workspaces/${props.workspaceSlug}`
   navigateTo(`${basePath}/${item.type}s/${item.slug}`)
 }
 
@@ -352,7 +352,7 @@ function handleCreateTable(table: any) {
         <template #item="{ element: item }">
           <AppMenuRecursiveItem
             :item="item"
-            :app-slug="appSlug"
+            :workspace-slug="workspaceSlug"
             :is-active="isItemActive"
             :has-active-child="hasActiveChild"
             :is-expanded="isFolderExpanded"
@@ -382,7 +382,7 @@ function handleCreateTable(table: any) {
     <!-- Create Table Dialog -->
     <AppTableCreateDialog
       v-model="showCreateTableDialog"
-      :app-slug="appSlug"
+      :workspace-slug="workspaceSlug"
       @created="handleCreateTable"
     />
   </div>

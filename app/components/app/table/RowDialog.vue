@@ -3,7 +3,7 @@ import type { DataTable, DataTableColumn } from '#shared/types/db'
 
 interface Props {
   visible: boolean
-  appSlug: string
+  workspaceSlug: string
   tableSlug: string
   table: DataTable & { columns: DataTableColumn[] }
   row?: any | null
@@ -160,7 +160,7 @@ async function handleSave() {
     if (isEdit.value) {
       // Update existing row
       await $api(
-        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/rows/${props.row.id}`,
+        `/api/workspaces/${props.workspaceSlug}/tables/${props.tableSlug}/rows/${props.row.id}`,
         {
           method: 'PUT',
           body: submitData
@@ -170,7 +170,7 @@ async function handleSave() {
     } else {
       // Create new row
       await $api(
-        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/rows`,
+        `/api/workspaces/${props.workspaceSlug}/tables/${props.tableSlug}/rows`,
         {
           method: 'POST',
           body: submitData

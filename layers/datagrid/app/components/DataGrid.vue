@@ -37,7 +37,7 @@ interface Props {
   proxyConfig?: VxeGridPropTypes.ProxyConfig
   
   // Auto proxy mode - provide API endpoint details
-  appSlug?: string
+  workspaceSlug?: string
   tableSlug?: string
   autoProxy?: boolean // Enable automatic proxy configuration
   
@@ -192,8 +192,8 @@ const gridOptions = computed<VxeGridProps>(() => {
   }
   
   // Auto proxy mode - build proxy config automatically
-  const finalProxyConfig = props.proxyConfig || (props.autoProxy && props.appSlug && props.tableSlug 
-    ? buildAutoProxyConfig(props.appSlug, props.tableSlug)
+  const finalProxyConfig = props.proxyConfig || (props.autoProxy && props.workspaceSlug && props.tableSlug 
+    ? buildAutoProxyConfig(props.workspaceSlug, props.tableSlug)
     : null)
   
   // Proxy mode - let vxe-table handle everything

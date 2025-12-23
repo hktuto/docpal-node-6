@@ -3,7 +3,7 @@ import type { TableColumnDef, ColumnType } from '#shared/types/db'
 
 const props = defineProps<{
   modelValue: boolean
-  appSlug: string
+  workspaceSlug: string
 }>()
 
 const emit = defineEmits<{
@@ -184,7 +184,7 @@ async function suggestColumnType(index: number) {
         columnLabel: column.label,
         tableDescription: form.value.description,
         currentTableColumns: currentTableColumns,
-        appSlug: props.appSlug
+        workspaceSlug: props.workspaceSlug
       },
       signal: abortController.signal
     })
@@ -266,7 +266,7 @@ async function handleCreate() {
       body.columns = form.value.columns
     }
     
-    const response = await $api(`/api/workspaces/${props.appSlug}/tables`, {
+    const response = await $api(`/api/workspaces/${props.workspaceSlug}/tables`, {
       method: 'POST',
       body
     })

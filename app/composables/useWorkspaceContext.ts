@@ -1,36 +1,6 @@
 import type { InjectionKey, Ref, ComputedRef } from 'vue'
 import type { Workspace } from '#shared/types/db'
 
-/**
- * Workspace Context Interface
- * 
- * Provides centralized access to workspace data and methods for all child components
- * within the workspace layout. This eliminates prop drilling and provides a clean API
- * for interacting with the current workspace.
- * 
- * @example Basic Usage
- * ```vue
- * <script setup>
- * const { workspace, workspaceSlug, updateWorkspace } = useWorkspaceContext()
- * 
- * async function changeName() {
- *   await updateWorkspace({ name: 'New Name' })
- * }
- * </script>
- * ```
- * 
- * @example Navigation
- * ```vue
- * <script setup>
- * const { getWorkspacePath, navigateToSettings } = useWorkspaceContext()
- * </script>
- * 
- * <template>
- *   <NuxtLink :to="getWorkspacePath('tables')">Tables</NuxtLink>
- *   <button @click="navigateToSettings">Settings</button>
- * </template>
- * ```
- */
 export interface WorkspaceContext {
   // Workspace data
   workspace: ComputedRef<Workspace | null>

@@ -6,14 +6,14 @@ definePageMeta({
 })
 
 const route = useRoute()
-const { app } = useWorkspaceContext()
+const { workspace } = useWorkspaceContext()
 
 // Get folder slug from route (parameter name is folderId but it contains the slug)
 const folderSlug = computed(() => route.params.folderId as string)
 
 // Find the folder in the menu structure by slug
 const folder = computed(() => {
-  if (!app.value?.menu) return null
+  if (!workspace.value?.menu) return null
   
   const findFolder = (items: MenuItem[]): MenuItem | null => {
     for (const item of items) {
@@ -28,7 +28,7 @@ const folder = computed(() => {
     return null
   }
   
-  return findFolder(app.value.menu)
+  return findFolder(workspace.value.menu)
 })
 
 // Get folder children
@@ -46,9 +46,9 @@ function getItemIcon(type: string) {
 }
 
 function getChildPath(child: MenuItem) {
-  const appSlug = route.params.appSlug
+  const workspaceSlug = route.params.workspaceSlug
   // Use slug for all navigation
-  return `/workspaces/${appSlug}/${child.type}s/${child.slug}`
+  return `/workspaces/${workspaceSlug}/${child.type}s/${child.slug}`
 }
 </script>
 

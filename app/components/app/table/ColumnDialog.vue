@@ -7,7 +7,7 @@ interface Props {
   visible: boolean
   column?: DataTableColumn // If provided, edit mode; otherwise, add mode
   position?: number | null // Index where column should be inserted
-  appSlug: string
+  workspaceSlug: string
   tableSlug: string
 }
 
@@ -127,7 +127,7 @@ async function fetchAISuggestion() {
       body: {
         columnName: form.value.name,
         columnLabel: form.value.label,
-        appSlug: props.appSlug,
+        workspaceSlug: props.workspaceSlug,
         tableSlug: props.tableSlug
       },
       signal: cancelToken.value.signal
@@ -161,7 +161,7 @@ async function handleSave() {
     if (isEditMode.value) {
       // Update existing column
       const response: any = await $api(
-        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/columns/${props.column?.id}`,
+        `/api/workspaces/${props.workspaceSlug}/tables/${props.tableSlug}/columns/${props.column?.id}`,
         {
           method: 'PUT',
           body: {
@@ -177,7 +177,7 @@ async function handleSave() {
     } else {
       // Create new column
       const response: any = await $api(
-        `/api/workspaces/${props.appSlug}/tables/${props.tableSlug}/columns`,
+        `/api/workspaces/${props.workspaceSlug}/tables/${props.tableSlug}/columns`,
         {
           method: 'POST',
           body: {
