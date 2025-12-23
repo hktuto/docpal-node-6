@@ -160,7 +160,7 @@ docs/
 
 ## Current Focus
 
-**Phase 2.5: Desktop Windowing System** ✅ Foundation Complete, 📋 Enhancements Planned
+**Phase 2.5: Desktop Windowing System** ✅ Foundation Complete, ✅ UX Polish Complete, 📋 Enhancements Planned
 
 Building a complete desktop windowing experience within the browser:
 
@@ -175,6 +175,15 @@ Building a complete desktop windowing experience within the browser:
 - ✅ Visual polish (animations, glow effects, dock bounce)
 - ✅ State persistence (localStorage)
 - ✅ Comprehensive documentation
+
+**Completed (Phase 2.5.1.5 - Dec 23, 2025):**
+- ✅ Dock trigger zone (works even with maximized windows)
+- ✅ Auto-open home window for first-time users
+- ✅ "Open in Desktop Mode" button (Standalone → Desktop)
+- ✅ "Open Standalone" button (Desktop → Standalone)
+- ✅ Smart Ctrl+Click support (new tab behavior)
+- ✅ Query param handling with smart window focusing
+- ✅ Automatic query param cleanup
 
 **Planned (Phase 2.5.2):**
 1. **Mobile & Responsive** - Full mobile support and small window handling
@@ -199,6 +208,7 @@ See [`DEVELOPMENT_PLAN/phase2.6-views-and-permissions.md`](./DEVELOPMENT_PLAN/ph
 
 ---
 
-**Last Updated**: December 23, 2025  
-**Current Phase**: Phase 2.5 - Desktop Windowing (Foundation Complete)  
+**Last Updated**: December 23, 2025 (Evening)  
+**Current Phase**: Phase 2.5 - Desktop Windowing (Foundation & UX Polish Complete)  
+**Latest Additions**: Dock trigger zone, auto-open home, mode switching (Desktop ↔ Standalone)  
 **Next Milestone**: Phase 2.5.2 Enhancements or Phase 2.6 Views & Permissions

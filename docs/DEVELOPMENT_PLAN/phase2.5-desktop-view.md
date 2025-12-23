@@ -1,10 +1,11 @@
 # Phase 2.5: Desktop Windowing System
 
-**Status**: 🚧 **In Progress** (Foundation Complete, Enhancements Planned)  
+**Status**: 🚧 **In Progress** (Foundation Complete, Polish Added, Enhancements Planned)  
 **Estimated Duration**: 3-4 weeks  
 **Started**: Dec 22, 2025  
 **Foundation Completed**: Dec 23, 2025  
-**Current Progress**: Core 100% ✅ | Enhancements 0% 📋
+**Latest Update**: Dec 23, 2025 - Added UX polish and mode switching  
+**Current Progress**: Core 100% ✅ | UX Polish 100% ✅ | Mode Switching 100% ✅ | Enhancements 0% 📋
 
 ---
 
@@ -108,6 +109,251 @@ Build a complete desktop windowing system that provides a native OS-like experie
 - [x] Quick reference guide
 - [x] Keyboard shortcuts reference
 - [x] Troubleshooting guide
+
+#### UX Polish & Quality of Life ✅
+- [x] Dock trigger zone (invisible area at bottom to show dock even when iframe has focus)
+- [x] Dock stays visible when mouse hovers on dock itself
+- [x] Auto-open home window for first-time users (no empty desktop)
+- [x] Dock trigger zone height configurable via CSS
+- [x] Smart hide timing (1s for trigger zone, 0.5s for dock leave)
+
+#### Mode Switching (Desktop ↔ Standalone) ✅
+- [x] "Open in Desktop Mode" button in CommonMenu footer
+- [x] "Open Standalone" button in DesktopWindow header
+- [x] Smart Ctrl+Click support (open in new tab for both directions)
+- [x] Query param handling (`/desktop?open=/path`)
+- [x] Smart window management (focus existing window vs open new)
+- [x] Automatic query param cleanup after handling
+- [x] Conditional visibility (hide desktop button when already in desktop)
+- [x] Helpful tooltips with Ctrl+Click hints
+
+---
+
+## Phase 2.5.1.5: UX Polish & Mode Switching ✅ **COMPLETE** (Dec 23, 2025)
+
+### Overview
+
+After completing the core desktop windowing system, we identified and implemented several UX improvements and a bidirectional mode switching system to enhance the overall user experience.
+
+### Completed Features
+
+#### 1. Dock Trigger Zone Enhancement ✅
+
+**Problem**: When a window is maximized or an iframe has focus, mouse events don't bubble up to the parent, making it impossible to trigger the dock auto-show.
+
+**Solution**: Implemented an invisible 2px trigger zone at the bottom of the screen.
+
+**Implementation**:
+- Invisible div with `z-index: 10000` (above all windows)
+- Positioned at bottom, `height: 2px` (configurable)
+- Uses `mouseenter`/`mouseleave` instead of `mousemove` (more efficient)
+- Dock also listens to its own mouse events to stay visible when hovered
+- Smart timing: 1s delay for trigger zone, 0.5s delay for dock
+
+**Files Modified**:
+- `app/pages/desktop.vue` - Added trigger zone handlers and element
+
+**Benefits**:
+- ✅ Works with maximized windows
+- ✅ Works when iframe has focus
+- ✅ More efficient than continuous mouse tracking
+- ✅ Configurable height via CSS
+
+---
+
+#### 2. Auto-Open Home Window ✅
+
+**Problem**: First-time users see an empty desktop with no guidance on what to do.
+
+**Solution**: Automatically open a "Home" window for first-time users or when no saved windows exist.
+
+**Implementation**:
+- Detects empty `localStorage` or empty windows array
+- Opens home page (`/`) in a centered window (900x600 or viewport-aware)
+- Includes opening animation
+- Immediately saves to `localStorage`
+- Also triggers on error (corrupted localStorage)
+
+**Files Modified**:
+- `app/pages/desktop.vue` - Added `openDefaultHomeWindow()` function
+
+**Benefits**:
+- ✅ Better first-time experience
+- ✅ Immediate content/guidance
+- ✅ Natural starting point
+- ✅ Fallback on errors
+
+---
+
+#### 3. Bidirectional Mode Switching ✅
+
+**Problem**: Users need an easy way to switch between desktop mode and standalone mode in both directions.
+
+**Solution**: Implemented two complementary features with smart Ctrl+Click support.
+
+##### 3a. "Open in Desktop Mode" Button (Standalone → Desktop)
+
+**Location**: CommonMenu footer (sidebar bottom)
+
+**Features**:
+- Shows in standalone mode only (hidden when already in desktop)
+- Icon: `lucide:layout-grid`
+- Label: "Desktop Mode"
+- **Click**: Navigate to `/desktop?open={currentPath}`
+- **Ctrl/Cmd+Click**: Open desktop in new tab
+
+**Implementation**:
+- Added to `footerMenu` array in CommonMenu
+- Uses `hidden` property with `isDesktopMode` check
+- Handler: `openInDesktop(event)` with Ctrl detection
+
+**Files Modified**:
+- `app/components/common/menu/index.vue`
+
+---
+
+##### 3b. "Open Standalone" Button (Desktop → Standalone)
+
+**Location**: DesktopWindow header (next to Copy URL button)
+
+**Features**:
+- Shows in all windows
+- Icon: `lucide:external-link`
+- Tooltip: "Open in Standalone Mode (Ctrl+Click for new tab)"
+- **Click**: Navigate browser to iframe URL (exit desktop)
+- **Ctrl/Cmd+Click**: Open URL in new tab (keep desktop)
+
+**Implementation**:
+- Added button to window header in DesktopWindow
+- Handler: `handleOpenStandalone(event)` with Ctrl detection
+- Uses `window.top.location.href` to exit desktop mode
+
+**Files Modified**:
+- `app/components/common/DesktopWindow.vue`
+
+---
+
+##### 3c. Smart Query Param Handling
+
+**Features**:
+- Desktop page handles `?open=/path` query parameter
+- Checks if window with that URL already exists
+- **If exists**: Focus existing window (no duplicates)
+- **If new**: Open new window
+- **Cleanup**: Removes query param after handling
+
+**Implementation**:
+- Added `handleOpenQueryParam()` function
+- Called in `onMounted` after `loadWindowsState`
+- Uses `router.replace({ query: {} })` to clean URL
+
+**Files Modified**:
+- `app/pages/desktop.vue`
+
+---
+
+### Technical Details
+
+#### Files Modified (3 total)
+1. `app/pages/desktop.vue`
+   - Added dock trigger zone handlers
+   - Added `openDefaultHomeWindow()`
+   - Added `handleOpenQueryParam()`
+   - Added trigger zone element to template
+   - Added trigger zone CSS
+
+2. `app/components/common/menu/index.vue`
+   - Added `openInDesktop()` handler
+   - Added "Desktop Mode" to footer menu
+   - Added `hidden` property support
+   - Added Ctrl+Click detection
+
+3. `app/components/common/DesktopWindow.vue`
+   - Added `handleOpenStandalone()` handler
+   - Added "Open Standalone" button to header
+   - Added Ctrl+Click detection
+
+#### Code Statistics
+- **Lines Added**: ~120
+- **New Functions**: 4
+  - `handleDockTriggerEnter()`
+  - `handleDockTriggerLeave()`
+  - `handleDockMouseEnter()`
+  - `handleDockMouseLeave()`
+  - `openDefaultHomeWindow()`
+  - `handleOpenQueryParam()`
+  - `openInDesktop(event)`
+  - `handleOpenStandalone(event)`
+- **New Components**: 2 buttons (Desktop Mode, Open Standalone)
+
+### User Flows
+
+#### Flow 1: Standalone → Desktop
+```
+User at: /workspaces/my-workspace/tables/customers
+Action: Click "Desktop Mode" in footer menu
+Result: Navigate to /desktop?open=/workspaces/my-workspace/tables/customers
+Desktop: Window opens (or existing window focused)
+Query: Cleaned from URL
+
+Alt Flow (Ctrl+Click):
+Result: Desktop opens in NEW tab
+Current tab: Remains in standalone mode
+```
+
+#### Flow 2: Desktop → Standalone
+```
+User in: Desktop mode, window at /workspaces/abc
+Action: Click "Open Standalone" button (↗️)
+Result: Browser navigates to /workspaces/abc
+Desktop: Exits desktop mode
+
+Alt Flow (Ctrl+Click):
+Result: Opens /workspaces/abc in NEW tab
+Desktop: Remains open and functional
+```
+
+#### Flow 3: First-Time User
+```
+User: Visits /desktop for first time
+Check: No localStorage data
+Action: Auto-open Home window
+Window: Centered, 900x600, smooth animation
+State: Saved to localStorage
+```
+
+#### Flow 4: Smart Window Management
+```
+User: Clicks link to /desktop?open=/tables/123
+Check: Does window with /tables/123 already exist?
+- Yes: Focus that window
+- No: Open new window
+Query: Removed from URL (clean)
+```
+
+### Testing Completed
+
+- ✅ Dock trigger zone works with maximized windows
+- ✅ Dock stays visible when hovering over it
+- ✅ First-time user sees home window automatically
+- ✅ Desktop Mode button shows in standalone mode
+- ✅ Desktop Mode button hidden in desktop mode
+- ✅ Ctrl+Click opens desktop in new tab
+- ✅ Open Standalone exits desktop mode
+- ✅ Ctrl+Click keeps desktop mode open
+- ✅ Query param opens window correctly
+- ✅ Existing windows are focused (no duplicates)
+- ✅ Query param cleaned after handling
+
+### Success Criteria
+
+- [x] Dock accessible even with maximized windows
+- [x] No empty desktop on first load
+- [x] Easy mode switching in both directions
+- [x] Smart Ctrl+Click behavior
+- [x] No duplicate windows
+- [x] Clean URLs (no persistent query params)
+- [x] Intuitive UX (tooltips, icons, placement)
 
 ---
 
@@ -434,9 +680,14 @@ Ideas for future iterations:
 ## Development Timeline
 
 ### Week 1 (Dec 22-23, 2025) ✅ Complete
-- Day 1: Core windowing (drag, resize, maximize, minimize)
-- Day 2: Dock system, window snapping, keyboard shortcuts
-- Day 3: Visual polish, animations, documentation
+- **Day 1 (Dec 22)**: Core windowing (drag, resize, maximize, minimize)
+- **Day 2 (Dec 23 AM)**: Dock system, window snapping, keyboard shortcuts
+- **Day 3 (Dec 23 PM)**: Visual polish, animations, documentation
+- **Day 3 (Dec 23 Evening)**: UX polish & mode switching
+  - Dock trigger zone enhancement
+  - Auto-open home window
+  - Bidirectional mode switching
+  - Smart query param handling
 
 ### Week 2-3 (Planned)
 - Mobile responsive design (3-4 days)
@@ -478,6 +729,10 @@ Ideas for future iterations:
 3. **Smooth Animations**: Careful state management with nextTick
 4. **Drag Performance**: GPU-accelerated transforms with RAF
 5. **Focus Management**: Click detection inside iframes
+6. **Dock Trigger with Maximized Windows**: Invisible trigger zone with high z-index
+7. **Empty First-Time Experience**: Auto-open home window with smart detection
+8. **Mode Switching UX**: Bidirectional buttons with smart Ctrl+Click
+9. **Window Deduplication**: Check existing windows before opening new ones
 
 ### Lessons Learned
 
@@ -486,6 +741,10 @@ Ideas for future iterations:
 3. **nextTick is Critical**: For animation timing and transform clearing
 4. **postMessage is Reliable**: Good solution for cross-iframe communication
 5. **Documentation Matters**: Comprehensive docs make maintenance easier
+6. **UX Polish is Iterative**: Small improvements compound into better experience
+7. **Query Params Need Cleanup**: Always clean up after handling to keep URLs clean
+8. **Conditional Rendering**: Hide features based on context (e.g., hide desktop button in desktop)
+9. **Smart Defaults**: Auto-opening home window improves first-time experience significantly
 
 ---
 

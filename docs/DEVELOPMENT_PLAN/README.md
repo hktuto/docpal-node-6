@@ -104,8 +104,9 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 
 #### 🚧 Phase 2.5: Desktop Windowing System
 **File**: [`phase2.5-desktop-view.md`](./phase2.5-desktop-view.md)  
-**Status**: 🚧 In Progress (Foundation Complete)  
+**Status**: 🚧 In Progress (Foundation & UX Polish Complete)  
 **Started**: Dec 22, 2025  
+**Latest Update**: Dec 23, 2025 (Evening)  
 **Duration**: 3-4 weeks
 
 **Completed** (Phase 2.5.1):
@@ -120,6 +121,13 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 - ✅ Performance optimizations
 - ✅ Comprehensive documentation
 
+**Completed** (Phase 2.5.1.5 - UX Polish):
+- ✅ Dock trigger zone (works with maximized windows)
+- ✅ Auto-open home window for first-time users
+- ✅ Bidirectional mode switching (Desktop ↔ Standalone)
+- ✅ Smart Ctrl+Click support (new tab behavior)
+- ✅ Query param handling with smart window focusing
+
 **Planned** (Phase 2.5.2):
 - [ ] Mobile & responsive support
 - [ ] Small window responsive design
@@ -127,7 +135,7 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 - [ ] Pin custom pages to dock
 - [ ] Multiple desktop groups (workspaces)
 
-**Achievement**: Native OS-like desktop experience in browser
+**Achievement**: Native OS-like desktop experience with seamless mode switching
 
 ---
 
@@ -231,13 +239,14 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 
 ---
 
-## 📊 Current Status (Dec 23, 2025)
+## 📊 Current Status (Dec 23, 2025 - Evening)
 
 ```
 ✅ Phase 1: Core Data Schema
 ✅ Phase 2: Authentication & Company
 🚧 Phase 2.4: Column Management (partial)
-🚧 Phase 2.5: Desktop Windowing (foundation complete)
+✅ Phase 2.5.1: Desktop Windowing (foundation complete)
+✅ Phase 2.5.1.5: UX Polish & Mode Switching (complete)
 ━━━━━━━ YOU ARE HERE ━━━━━━━
 📋 Phase 2.5.2: Desktop Enhancements (next)
 📋 Phase 2.6: Views & Permissions
@@ -323,7 +332,8 @@ The roadmap is flexible. Phases can be:
 
 ---
 
-**Last Updated**: Dec 23, 2025  
-**Current Phase**: 2.5 (Desktop Windowing)  
-**Next Milestone**: Complete desktop enhancements or start views & permissions
+**Last Updated**: Dec 23, 2025 (Evening)  
+**Current Phase**: 2.5 (Desktop Windowing - Foundation & UX Polish Complete)  
+**Latest Additions**: Dock trigger zone, auto-open home, mode switching system  
+**Next Milestone**: Complete desktop enhancements (mobile, history, pin, groups) or start views & permissions
 

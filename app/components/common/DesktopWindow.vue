@@ -281,6 +281,19 @@ const handleCopyUrl = () => {
   copy(url)
 }
 
+// Open current page in standalone mode (exit desktop)
+const handleOpenStandalone = (event: MouseEvent) => {
+  const url = props.window.url
+  
+  // Ctrl/Cmd+Click: Open in new tab
+  if (event.ctrlKey || event.metaKey) {
+    window.open(url, '_blank')
+  } else {
+    // Default: Replace current page (exit desktop mode)
+    window.top!.location.href = url
+  }
+}
+
 // Double-click on title bar to maximize
 const handleTitleBarDoubleClick = () => {
   if (!props.window.isMaximized) {
@@ -474,6 +487,14 @@ onUnmounted(() => {
         >
           <Icon v-if="!copied" name="lucide:link" />
           <Icon v-else name="lucide:check" />
+        </button>
+        <!-- Open Standalone Button -->
+        <button 
+          class="window-control-btn" 
+          @click.stop="handleOpenStandalone"
+          title="Open in Standalone Mode (Ctrl+Click for new tab)"
+        >
+          <Icon name="lucide:external-link" />
         </button>
       </div>
       

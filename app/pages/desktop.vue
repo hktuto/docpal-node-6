@@ -597,6 +597,52 @@ const saveWindowsState = useDebounceFn(() => {
 }, 500)
 
 // Load windows state from localStorage
+// Open default home window for first-time users
+const openDefaultHomeWindow = () => {
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  
+  // Calculate centered position with comfortable size
+  const width = Math.min(900, viewportWidth - 200)
+  const height = Math.min(600, viewportHeight - 200)
+  const x = (viewportWidth - width) / 2
+  const y = Math.max(50, (viewportHeight - height) / 2 - 50) // Slightly above center
+  
+  const defaultWindow: MenuItem = {
+    label: 'Home',
+    icon: 'lucide:home',
+    url: '/'
+  }
+  
+  // Create window with custom position
+  const id = `window-${windowIdCounter.value++}`
+  
+  windows.value.push({
+    id,
+    title: defaultWindow.label,
+    currentPageTitle: undefined,
+    icon: defaultWindow.icon,
+    url: defaultWindow.url,
+    x,
+    y,
+    width,
+    height,
+    zIndex: nextZIndex.value++,
+    isMaximized: false,
+    isMinimized: false,
+    isOpening: true, // Trigger open animation
+  })
+  
+  // Clear opening animation after a short delay
+  setTimeout(() => {
+    const win = windows.value.find(w => w.id === id)
+    if (win) win.isOpening = false
+  }, 300)
+  
+  // Save to localStorage
+  saveWindowsState()
+}
+
 const loadWindowsState = () => {
   if (!process.client) return
   
@@ -607,10 +653,19 @@ const loadWindowsState = () => {
     
     if (savedWindows) {
       const parsed = JSON.parse(savedWindows)
-      windows.value = parsed.map((win: any, index: number) => ({
-        ...win,
-        zIndex: 1000 + index // Re-assign z-index in order
-      }))
+      if (parsed.length > 0) {
+        // Load saved windows
+        windows.value = parsed.map((win: any, index: number) => ({
+          ...win,
+          zIndex: 1000 + index // Re-assign z-index in order
+        }))
+      } else {
+        // No saved windows - open default home window
+        openDefaultHomeWindow()
+      }
+    } else {
+      // No localStorage data at all - first time user
+      openDefaultHomeWindow()
     }
     
     if (savedNextZIndex) {
@@ -627,34 +682,58 @@ const loadWindowsState = () => {
     })
   } catch (e) {
     console.error('Failed to load windows state:', e)
+    // On error, also open default window for better UX
+    openDefaultHomeWindow()
   }
 }
 
-// Mouse movement handler for dock auto-show
-const handleMouseMove = (e: MouseEvent) => {
-  const bottomDistance = window.innerHeight - e.clientY
+// Dock trigger zone handlers (better than mousemove - works even when iframe has focus)
+const handleDockTriggerEnter = () => {
+  // Mouse entered the trigger zone at bottom - force show dock
+  isDockForceVisible.value = true
+  isDockVisible.value = true
   
-  if (bottomDistance <= HOVER_THRESHOLD) {
-    // Mouse near bottom - force show dock
-    isDockForceVisible.value = true
-    isDockVisible.value = true
-    
-    // Clear any pending hide timeout
-    if (dockHideTimeout.value) {
-      clearTimeout(dockHideTimeout.value)
-      dockHideTimeout.value = null
-    }
-  } else if (isDockForceVisible.value) {
-    // Mouse moved away - schedule hide check
-    if (dockHideTimeout.value) {
-      clearTimeout(dockHideTimeout.value)
-    }
-    
-    dockHideTimeout.value = setTimeout(() => {
-      isDockForceVisible.value = false
-      checkDockOverlap() // Re-check if dock should be hidden due to overlap
-    }, 1000)
+  // Clear any pending hide timeout
+  if (dockHideTimeout.value) {
+    clearTimeout(dockHideTimeout.value)
+    dockHideTimeout.value = null
   }
+}
+
+const handleDockTriggerLeave = () => {
+  // Mouse left the trigger zone - schedule hide check
+  if (dockHideTimeout.value) {
+    clearTimeout(dockHideTimeout.value)
+  }
+  
+  dockHideTimeout.value = setTimeout(() => {
+    isDockForceVisible.value = false
+    checkDockOverlap() // Re-check if dock should be hidden due to overlap
+  }, 1000)
+}
+
+// Dock container mouse handlers - keep dock visible when mouse is on dock itself
+const handleDockMouseEnter = () => {
+  // Mouse is on the dock - keep it visible and cancel any pending hide
+  isDockForceVisible.value = true
+  isDockVisible.value = true
+  
+  if (dockHideTimeout.value) {
+    clearTimeout(dockHideTimeout.value)
+    dockHideTimeout.value = null
+  }
+}
+
+const handleDockMouseLeave = () => {
+  // Mouse left the dock - schedule hide
+  if (dockHideTimeout.value) {
+    clearTimeout(dockHideTimeout.value)
+  }
+  
+  dockHideTimeout.value = setTimeout(() => {
+    isDockForceVisible.value = false
+    checkDockOverlap()
+  }, 500) // Shorter delay when leaving dock directly
 }
 
 // Handle viewport resize - keep windows within bounds
@@ -806,18 +885,49 @@ whenever(() => keys.Escape?.value || keys.Meta_W?.value || keys.Ctrl_W?.value, (
   if (focusedWindow) closeWindow(focusedWindow.id)
 })
 
-// Listen for viewport resize and mouse movement
+// Handle opening window from query param (e.g., ?open=/workspaces/...)
+const handleOpenQueryParam = () => {
+  const route = useRoute()
+  const router = useRouter()
+  const openPath = route.query.open
+  
+  if (openPath && typeof openPath === 'string') {
+    // Check if a window with this URL already exists
+    const existingWindow = windows.value.find(w => w.url === openPath && !w.isMinimized)
+    
+    if (existingWindow) {
+      // Focus existing window
+      focusWindow(existingWindow.id)
+    } else {
+      // Open new window
+      const defaultWindow: MenuItem = {
+        label: 'Page',
+        icon: 'lucide:file',
+        url: openPath
+      }
+      openWindow(defaultWindow)
+    }
+    
+    // Clean up query param after handling
+    router.replace({ query: {} })
+  }
+}
+
+// Listen for viewport resize
 onMounted(() => {
   window.addEventListener('resize', debouncedResize)
-  document.addEventListener('mousemove', handleMouseMove)
   
-  // Load saved windows state
+  // Load saved windows state first
   loadWindowsState()
+  
+  // Then handle query param (needs to be after loadWindowsState to check existing windows)
+  nextTick(() => {
+    handleOpenQueryParam()
+  })
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', debouncedResize)
-  document.removeEventListener('mousemove', handleMouseMove)
   if (resizeTimeout) clearTimeout(resizeTimeout)
   if (dockHideTimeout.value) clearTimeout(dockHideTimeout.value)
 })
@@ -856,11 +966,20 @@ onUnmounted(() => {
       @open-new-window="handleOpenNewWindow"
     />
     
+    <!-- Dock Trigger Zone (invisible area to show dock even when iframe has focus) -->
+    <div 
+      class="dock-trigger-zone"
+      @mouseenter="handleDockTriggerEnter"
+      @mouseleave="handleDockTriggerLeave"
+    ></div>
+    
     <!-- Dock Menu -->
     <div 
-      class="floatingMenuDockContainer glass"
+      class="floatingMenuDockContainer"
       ref="dockerContainerRef"
       :class="{ 'dock-hidden': !isDockVisible }"
+      @mouseenter="handleDockMouseEnter"
+      @mouseleave="handleDockMouseLeave"
     >
       <!-- App Icons -->
       <div 
@@ -914,6 +1033,19 @@ onUnmounted(() => {
   /* background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); */
 }
 
+/* Dock Trigger Zone - invisible area at bottom to trigger dock visibility */
+.dock-trigger-zone {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 5px; /* Very thin - just enough to detect mouse entry */
+  z-index: 10000; /* Above everything including windows */
+  background: transparent;
+  pointer-events: auto; /* Capture mouse events even over iframes */
+  cursor: default;
+}
+
 /* Snap Preview Overlay */
 .snap-preview {
   position: fixed;
@@ -931,7 +1063,7 @@ onUnmounted(() => {
 .mouseOverCircle{
   position: absolute;
   border-radius: 50%;
-  background-image: radial-gradient(circle closest-side, var(--app-primary-color) 0%, transparent 100%);
+  background-image: radial-gradient(circle closest-side, rgba(255, 255, 255, 0.5) 0%, transparent 100%);
   pointer-events: none;
   z-index: -1;
 }
@@ -1022,12 +1154,16 @@ onUnmounted(() => {
 }
 
 .floatingMenuDockContainer {
+  
+  border: 1px solid rgba(255, 255, 255, 0.31);
   display: flex;
-  flex-direction: row;
-  gap: var(--app-space-s);
-  padding: 12px 16px;
+  flex-flow: row nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--app-space-m);
+  padding: var(--app-space-s) var(--app-space-m);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(231, 231, 231, 0.3);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
@@ -1047,22 +1183,25 @@ onUnmounted(() => {
 }
 
 .dockItem {
-  --icon-size: 28px;
+  
+  --color: var(--app-text-color-regular);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--app-space-xxs);
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
-  min-width: 70px;
-  color: var(--app-text-color);
+  min-width: 40px;
+  color: var(--color);
+  font-size: var(--app-font-size-s);
 }
 
 .dockItem:hover {
   /* background: rgba(255, 255, 255, 0.25); */
-  --icon-size: 48px;
-  transform: translateY(-4px) scale(1.03);
+  --color: var(--app-text-color-primary);
+  transform: scale(1.1);
+  /* font-size: calc(var(--app-font-size-s) * 1.4); */
   /* box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3); */
 }
 
@@ -1093,19 +1232,18 @@ onUnmounted(() => {
 }
 
 .dockItem span {
-  font-size: 12px;
   font-weight: 500;
-  color: white;
+  color: var(--color);
   text-align: center;
   white-space: nowrap;
 }
 
-.dockItem :deep(svg) {
+/* .dockItem :deep(svg) {
   width: var(--icon-size);
   height: var(--icon-size);
-  color: white;
+  color: var(--color);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
-}
+} */
 
 .dockSeparator {
   width: 2px;
@@ -1120,10 +1258,6 @@ onUnmounted(() => {
   position: relative;
   /* background: rgba(255, 255, 255, 0.2); */
   /* border: 2px solid rgba(255, 255, 255, 0.4); */
-}
-
-.dockItem.minimizedWindow:hover {
-  /* background: rgba(255, 255, 255, 0.35); */
 }
 
 .minimizedIndicator {
