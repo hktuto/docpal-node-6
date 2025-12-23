@@ -3,6 +3,9 @@ import type { WorkspaceContext } from '~/composables/useWorkspaceContext'
 import { WorkspaceContextKey } from '~/composables/useWorkspaceContext'
 import type { MenuItem } from '#shared/types/db'
 import {useDebounceFn} from '@vueuse/core'
+
+const isDesktopMode= useIsDesktopMode
+
 const route = useRoute()
 const router = useRouter()
 const workspaceSlug = computed(() => route.params.workspaceSlug as string)
@@ -197,11 +200,11 @@ const staticNav = [
       App not found
     </div>
     
-    <div v-else-if="app" class="appContainer">
-      <aside class="sidebar">
+    <div v-else-if="app" class="appContainer" :class="{ 'desktop-mode': isDesktopMode }">
+      <aside v-if="!isDesktopMode" class="sidebar">
          <CommonMenu v-model:expandState="expandState" :menu="app.menu || []" />
        </aside>
-       <main>
+       <main :class="{ 'no-sidebar': isDesktopMode }">
         <el-splitter class="app-splitter">
           <el-splitter-panel size="260px" :min="200" :max="500">
             <!-- Left Sidebar: Workspace Menu -->
@@ -305,6 +308,10 @@ main {
   height: 100%;
   overflow: hidden;
   position: relative;
+}
+
+main.no-sidebar {
+  width: 100%;
 }
 
 .app-splitter {

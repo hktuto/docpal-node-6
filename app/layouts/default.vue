@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const isDesktopMode = useIsDesktopMode()
 
 const expandState = ref(false)
 
@@ -8,11 +9,11 @@ function toggleExpand() {
 </script>
 
 <template>
-    <div class="appContainer">
-       <aside class="sidebar">
+    <div class="appContainer" :class="{ 'desktop-mode': isDesktopMode }">
+       <aside v-if="!isDesktopMode" class="sidebar">
          <CommonMenu v-model:expandState="expandState" />
        </aside>
-       <main>
+       <main :class="{ 'no-sidebar': isDesktopMode }">
             <slot />
        </main>
     </div>    
@@ -37,5 +38,10 @@ main {
   padding: 20px;
   height: 100%;
   overflow: auto;
+}
+
+main.no-sidebar {
+  width: 100%;
+  padding: 0;
 }
 </style>

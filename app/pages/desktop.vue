@@ -8,6 +8,14 @@ useHead({
   title: 'Desktop - DocPal'
 })
 
+const { enableDesktopMode, disableDesktopMode } = useDisplayMode()
+
+// Enable desktop mode when entering this page
+onMounted(() => {
+  enableDesktopMode()
+})
+
+
 interface WindowState {
   id: string
   title: string

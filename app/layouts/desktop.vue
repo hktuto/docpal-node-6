@@ -8,7 +8,7 @@
 
   <div class="desktop-layout">
     <slot/>
-    <LoadingBg />
+    <!-- <LoadingBg /> -->
   </div>
 </template>
 
