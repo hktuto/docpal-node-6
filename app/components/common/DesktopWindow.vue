@@ -466,17 +466,18 @@ onUnmounted(() => {
       <div class="window-title">
         <Icon v-if="window.icon" :name="window.icon" class="window-icon" />
         <span>{{ window.currentPageTitle || window.title }}</span>
+        <!-- Copy URL Button -->
+        <button 
+          class="window-control-btn" 
+          @click.stop="handleCopyUrl"
+          :title="copied ? 'Copied!' : 'Copy URL'"
+        >
+          <Icon v-if="!copied" name="lucide:link" />
+          <Icon v-else name="lucide:check" />
+        </button>
       </div>
       
-      <!-- Copy URL Button -->
-      <button 
-        class="copy-url-btn" 
-        @click.stop="handleCopyUrl"
-        :title="copied ? 'Copied!' : 'Copy URL'"
-      >
-        <Icon v-if="!copied" name="lucide:link" />
-        <Icon v-else name="lucide:check" />
-      </button>
+      
       
       <div class="window-controls">
         <button class="window-control-btn minimize" @click.stop="handleMinimize">

@@ -154,19 +154,6 @@ const checkSnapZone = (x: number, y: number): SnapZone => {
   return null
 }
 
-// Get label for snap zone
-const getSnapLabel = (zone: SnapZone): string => {
-  const labels: Record<NonNullable<SnapZone>, string> = {
-    'left': '← Left Half',
-    'right': 'Right Half →',
-    'top': '↑ Maximize',
-    'top-left': '↖ Top Left',
-    'top-right': 'Top Right ↗',
-    'bottom-left': '↙ Bottom Left',
-    'bottom-right': 'Bottom Right ↘',
-  }
-  return zone ? labels[zone] : ''
-}
 
 // Get snap position for a zone
 const getSnapPosition = (zone: SnapZone) => {
@@ -845,10 +832,7 @@ onUnmounted(() => {
       class="snap-preview"
       :class="snapPreviewZone"
     >
-      <div class="snap-glow"></div>
-      <div class="snap-label">
-        {{ getSnapLabel(snapPreviewZone) }}
-      </div>
+
     </div>
     
     <!-- Windows (render all, hide minimized with CSS to preserve iframe state) -->
@@ -935,7 +919,6 @@ onUnmounted(() => {
   position: fixed;
   background: rgba(59, 130, 246, 0.15);
   border: 3px solid rgba(59, 130, 246, 0.5);
-  backdrop-filter: blur(8px);
   pointer-events: none;
   z-index: 9998;
   transition: all 0.15s ease;
@@ -952,20 +935,7 @@ onUnmounted(() => {
   pointer-events: none;
   z-index: -1;
 }
-.snap-glow {
-  position: absolute;
-  inset: -3px;
-  border-radius: inherit;
-  background: linear-gradient(
-    135deg,
-    rgba(59, 130, 246, 0.5) 0%,
-    transparent 30%,
-    transparent 70%,
-    rgba(59, 130, 246, 0.5) 100%
-  );
-  animation: glow-pulse 2s ease-in-out infinite;
-  pointer-events: none;
-}
+
 
 @keyframes glow-pulse {
   0%, 100% { 
@@ -989,22 +959,7 @@ onUnmounted(() => {
   }
 }
 
-.snap-label {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 36px;
-  font-weight: 700;
-  text-shadow: 
-    0 2px 4px rgba(0, 0, 0, 0.3),
-    0 0 20px rgba(59, 130, 246, 0.8);
-  pointer-events: none;
-  white-space: nowrap;
-  letter-spacing: 0.5px;
-  animation: label-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
+
 
 @keyframes label-bounce {
   from {
