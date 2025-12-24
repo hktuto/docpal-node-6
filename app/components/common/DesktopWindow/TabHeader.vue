@@ -11,14 +11,19 @@ interface Props {
   tabs: TabState[]
   activeTabId: string
   canClose?: boolean // Can close tabs (false if only one tab left)
+  copied?: boolean
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<{
   'switch-tab': [tabId: string]
   'close-tab': [tabId: string]
-  'new-tab': []
+  'new-tab': [],
+  'copy-url': []
+  'open-standalone': [event: MouseEvent]
 }>()
+
+
 
 const displayTitle = (tab: TabState) => {
   return tab.currentPageTitle || tab.title
@@ -27,13 +32,17 @@ const displayTitle = (tab: TabState) => {
 
 <template>
   <div class="tab-header">
+    <div class="header-left">
+      <slot name="header-left" />
+    </div>
     <div class="tabs-container">
-      <button
+      <div
         v-for="tab in tabs"
         :key="tab.id"
         class="tab-item"
         :class="{ active: tab.id === activeTabId }"
-        @click="emit('switch-tab', tab.id)"
+        @click.stop="emit('switch-tab', tab.id)"
+        @mousedown.stop
       >
         <Icon v-if="tab.icon" :name="tab.icon" class="tab-icon" />
         <span class="tab-title">{{ displayTitle(tab) }}</span>
@@ -45,27 +54,48 @@ const displayTitle = (tab: TabState) => {
         >
           <Icon name="lucide:x" />
         </button>
-      </button>
+        <button 
+          v-if="tab.id === activeTabId"
+            class="tab-close" 
+            @click.stop="emit('copy-url')"
+            :title="copied ? 'Copied!' : 'Copy URL'"
+          >
+            <Icon v-if="!copied" name="lucide:link" />
+            <Icon v-else name="lucide:check" />
+          </button>
+          <!-- Open Standalone Button -->
+          <button 
+            v-if="tab.id === activeTabId"
+            class="tab-close" 
+            @click.stop="(e: MouseEvent) => emit('open-standalone', e)"
+            title="Open in Standalone Mode (Ctrl+Click for new tab)"
+          >
+            <Icon name="lucide:external-link" />
+          </button>
+      </div>
     </div>
     <button class="new-tab-button" @click="emit('new-tab')" title="New tab">
       <Icon name="lucide:plus" />
     </button>
     <!-- Slot for window controls (minimize, maximize, close, etc.) -->
     <div class="window-controls-slot">
-      <slot />
+      <slot name="window-controls" />
     </div>
   </div>
 </template>
 
 <style scoped lang="scss">
 .tab-header {
+  --header-bg: var(--app-grey-850);
+  --text-color: var(--app-text-color-primary);
   display: flex;
   align-items: stretch;
-  background: var(--header-bg, var(--app-accent-color));
+  background: var(--header-bg);
   border-bottom: 1px solid var(--app-border-color);
   height: var(--app-header-height, 40px);
   flex-shrink: 0;
   position: relative;
+  padding-inline: var(--app-space-xxs) var(--app-space-xs);
 }
 
 .tabs-container {
@@ -97,9 +127,7 @@ const displayTitle = (tab: TabState) => {
   align-items: center;
   gap: var(--app-space-xs);
   padding: 0 var(--app-space-s);
-  background: rgba(0, 0, 0, 0.2);
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
@@ -108,20 +136,21 @@ const displayTitle = (tab: TabState) => {
   position: relative;
   
   &:hover {
-    background: rgba(0, 0, 0, 0.3);
-    color: rgba(255, 255, 255, 0.9);
   }
   
   &.active {
-    background: rgba(255, 255, 255, 0.15);
-    color: rgba(255, 255, 255, 1);
-    border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+    background: var(--app-primary-2);
+    --text-color: var(--app-paper);
+    border-top-left-radius: var(--app-border-radius-s);
+    border-top-right-radius: var(--app-border-radius-s);
+    // border-bottom: 2px solid var(--app-primary-color);
   }
   
   .tab-icon {
     flex-shrink: 0;
     width: 14px;
     height: 14px;
+    color: var(--text-color);
   }
   
   .tab-title {
@@ -140,7 +169,7 @@ const displayTitle = (tab: TabState) => {
     padding: 0;
     border: none;
     background: transparent;
-    color: rgba(255, 255, 255, 0.6);
+    color: var(--text-color);
     cursor: pointer;
     border-radius: 3px;
     opacity: 0.6;
@@ -164,7 +193,7 @@ const displayTitle = (tab: TabState) => {
   border: none;
   background: transparent;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;

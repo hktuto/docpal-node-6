@@ -161,7 +161,7 @@ watch(() => props.isActive, (isActive) => {
     :class="{ active: isActive }"
   >
     <iframe 
-      v-if="isActive"
+      v-show="isActive"
       ref="iframeRef"
       :src="initialSrc"
       frameborder="0"
@@ -174,6 +174,7 @@ watch(() => props.isActive, (isActive) => {
 <style scoped lang="scss">
 .tab-content {
   flex: 1;
+  height: 100%;;
   position: relative;
   overflow: hidden;
   display: none;

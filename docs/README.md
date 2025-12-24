@@ -185,6 +185,15 @@ Building a complete desktop windowing experience within the browser:
 - ✅ Query param handling with smart window focusing
 - ✅ Automatic query param cleanup
 
+**Completed (Phase 2.5.1.6 - Dec 24, 2025):**
+- ✅ Multi-tab windows (browser-style tabs within windows)
+- ✅ TabHeader component with tab bar and controls
+- ✅ TabContent component with optimized iframe rendering
+- ✅ Tab operations (switch, close, new tab)
+- ✅ Tab title and URL tracking
+- ✅ State persistence for all tabs
+- ✅ Backward compatibility with single-tab windows
+
 **Planned (Phase 2.5.2):**
 1. **Mobile & Responsive** - Full mobile support and small window handling
 2. **Browser History** - Integration with browser back/forward
@@ -208,7 +217,7 @@ See [`DEVELOPMENT_PLAN/phase2.6-views-and-permissions.md`](./DEVELOPMENT_PLAN/ph
 
 ---
 
-**Last Updated**: December 23, 2025 (Evening)  
-**Current Phase**: Phase 2.5 - Desktop Windowing (Foundation & UX Polish Complete)  
-**Latest Additions**: Dock trigger zone, auto-open home, mode switching (Desktop ↔ Standalone)  
+**Last Updated**: December 24, 2025  
+**Current Phase**: Phase 2.5 - Desktop Windowing (Foundation & UX & Multi-tab Complete)  
+**Latest Additions**: Multi-tab windows with browser-style tabs within desktop windows  
 **Next Milestone**: Phase 2.5.2 Enhancements or Phase 2.6 Views & Permissions

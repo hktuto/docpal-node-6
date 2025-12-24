@@ -1,11 +1,11 @@
 # Phase 2.5: Desktop Windowing System
 
-**Status**: 🚧 **In Progress** (Foundation Complete, Polish Added, Enhancements Planned)  
+**Status**: 🚧 **In Progress** (Foundation Complete, Multi-tab Added, Enhancements Planned)  
 **Estimated Duration**: 3-4 weeks  
 **Started**: Dec 22, 2025  
 **Foundation Completed**: Dec 23, 2025  
-**Latest Update**: Dec 23, 2025 - Added UX polish and mode switching  
-**Current Progress**: Core 100% ✅ | UX Polish 100% ✅ | Mode Switching 100% ✅ | Enhancements 0% 📋
+**Latest Update**: Dec 24, 2025 - Added multi-tab windows  
+**Current Progress**: Core 100% ✅ | UX Polish 100% ✅ | Mode Switching 100% ✅ | Multi-tab 100% ✅ | Enhancements 0% 📋
 
 ---
 
@@ -126,6 +126,18 @@ Build a complete desktop windowing system that provides a native OS-like experie
 - [x] Automatic query param cleanup after handling
 - [x] Conditional visibility (hide desktop button when already in desktop)
 - [x] Helpful tooltips with Ctrl+Click hints
+
+#### Multi-tab Windows ✅
+- [x] TabHeader component with tab bar, close buttons, new tab button
+- [x] TabContent component with iframe rendering and lazy loading
+- [x] Multiple tabs per window
+- [x] Switch between tabs
+- [x] Close tabs (except last one)
+- [x] Create new tabs
+- [x] Tab title and URL tracking
+- [x] State persistence for all tabs
+- [x] Backward compatibility with single-tab windows
+- [x] Performance optimized (only render active tab)
 
 ---
 
@@ -354,6 +366,358 @@ Query: Removed from URL (clean)
 - [x] No duplicate windows
 - [x] Clean URLs (no persistent query params)
 - [x] Intuitive UX (tooltips, icons, placement)
+
+---
+
+## Phase 2.5.1.6: Multi-tab Windows ✅ **COMPLETE** (Dec 24, 2025)
+
+### Overview
+
+Based on user feedback that the desktop mode felt "too desktop-like" and confused web users, we implemented a browser-inspired multi-tab system within desktop windows. Each window can now contain multiple tabs, making the experience more familiar to web users while maintaining the desktop windowing capabilities.
+
+### User Feedback
+
+**Sales & Marketing Team**: *"The desktop mode doesn't look like a web page, users are getting confused."*
+
+**Solution**: Add browser-style tabs within windows, combining familiar tab navigation with desktop window positioning.
+
+---
+
+### Completed Features
+
+#### 1. Multi-tab Window Architecture ✅
+
+**Core Implementation**:
+- Each window can have multiple tabs
+- Tab-based navigation within windows
+- Backward compatible with single-tab windows
+- Auto-migration from single-tab to multi-tab mode
+
+**Data Structure**:
+```typescript
+interface TabState {
+  id: string
+  url: string
+  title: string
+  icon?: string
+  currentPageTitle?: string
+}
+
+interface WindowState {
+  // ... existing window properties
+  tabs?: TabState[]        // Optional for backward compatibility
+  activeTabId?: string     // Currently active tab
+}
+```
+
+---
+
+#### 2. Tab Header Component ✅
+
+**File**: `app/components/common/DesktopWindow/TabHeader.vue` (181 lines)
+
+**Features**:
+- Tab bar with horizontal scrolling
+- Individual tabs with icons and titles
+- Close button per tab (X)
+- New tab button (+)
+- Active tab indication (border highlight)
+- Responsive tab sizing (min 120px, max 240px)
+- Ellipsis for long titles
+- Window controls slot integration
+
+**Visual Design**:
+```
+┌─────────────────────────────────────────────┐
+│ [🏠 Home] [📊 Table] [+]         [─][□][✕] │
+│  active    inactive                         │
+└─────────────────────────────────────────────┘
+```
+
+**Interactions**:
+- Click tab → switch to that tab
+- Click X → close tab
+- Click + → create new tab
+- Hover → highlight tab
+- Active tab → bottom border (primary color)
+
+---
+
+#### 3. Tab Content Component ✅
+
+**File**: `app/components/common/DesktopWindow/TabContent.vue` (195 lines)
+
+**Features**:
+- Individual iframe per tab
+- Lazy loading (only render active tab's iframe)
+- Title tracking from iframe
+- URL tracking for navigation persistence
+- Focus detection for parent window
+- Cross-iframe communication (postMessage)
+- Automatic title updates (1s interval)
+
+**Performance Optimization**:
+- Only active tab iframe is rendered
+- Inactive tabs don't consume resources
+- Title checking stops when tab becomes inactive
+- Seamless tab switching without reload
+
+---
+
+#### 4. Tab Operations ✅
+
+**Implemented Functions** (in `app/pages/desktop.vue`):
+
+**a. Add Tab to Window**
+```typescript
+const addTabToWindow = (windowId: string, item: MenuItem) => {
+  // Initialize tabs if not present (migration)
+  // Create new tab
+  // Add to window
+  // Switch to new tab
+  // Save state
+}
+```
+
+**b. Switch Active Tab**
+```typescript
+const switchTab = (windowId: string, tabId: string) => {
+  // Find window and tab
+  // Update activeTabId
+  // Save state
+}
+```
+
+**c. Close Tab**
+```typescript
+const closeTab = (windowId: string, tabId: string) => {
+  // Don't close if last tab (close window instead)
+  // Remove tab from array
+  // Switch to adjacent tab if closing active tab
+  // Save state
+}
+```
+
+**d. New Tab**
+```typescript
+const newTab = (windowId: string) => {
+  // Create blank tab with home page
+  // Add to window
+  // Switch to new tab
+  // Save state
+}
+```
+
+**e. Update Tab Title/URL**
+```typescript
+const updateTabTitle = (windowId: string, tabId: string, title: string)
+const updateTabUrl = (windowId: string, tabId: string, url: string)
+// Update tab metadata from iframe
+// Save state
+```
+
+---
+
+#### 5. Integration with Existing System ✅
+
+**Backward Compatibility**:
+- Old windows without tabs still work
+- Auto-migration on first tab operation
+- Legacy URL property maintained
+- Seamless upgrade path
+
+**Window Controls Integration**:
+- Minimize still works (minimizes entire window with all tabs)
+- Maximize applies to window (all tabs)
+- Close window closes all tabs
+- Drag/resize affects entire window
+- Focus management per window (not per tab)
+
+**State Persistence**:
+- All tabs saved to localStorage
+- Active tab ID persisted
+- Tab URLs and titles saved
+- Restore all tabs on page reload
+
+---
+
+### Technical Implementation
+
+#### Component Structure
+
+```
+DesktopWindow.vue (1031 lines, was 844)
+├─ TabHeader.vue (181 lines) - NEW
+│  ├─ Tab items
+│  ├─ Close buttons
+│  ├─ New tab button
+│  └─ Window controls slot
+└─ TabContent.vue (195 lines) - NEW
+   ├─ Iframe rendering
+   ├─ Title tracking
+   ├─ URL persistence
+   └─ Focus detection
+```
+
+#### Event Flow
+
+```
+User clicks tab
+  → TabHeader emits 'switch-tab'
+  → DesktopWindow emits to parent
+  → desktop.vue calls switchTab()
+  → Updates activeTabId
+  → TabContent re-renders active tab
+  → Iframe loads (if needed)
+```
+
+#### State Management
+
+```
+Windows Array (localStorage)
+└─ Window
+   ├─ Window properties (x, y, size, etc.)
+   └─ tabs: []
+      ├─ Tab 1 (active)
+      ├─ Tab 2
+      └─ Tab 3
+```
+
+---
+
+### Files Modified
+
+**New Files** (2):
+1. `app/components/common/DesktopWindow/TabHeader.vue` (181 lines)
+2. `app/components/common/DesktopWindow/TabContent.vue` (195 lines)
+
+**Modified Files** (2):
+1. `app/components/common/DesktopWindow.vue` 
+   - Lines: 844 → 1031 (+187 lines)
+   - Added tab support
+   - Integrated TabHeader and TabContent
+   - Added display computed properties
+
+2. `app/pages/desktop.vue`
+   - Lines: 1286 → 1511 (+225 lines)
+   - Added TabState interface
+   - Added tab operation functions (5)
+   - Added tab event handlers
+   - Updated state persistence
+
+**Total Changes**: 
+- **New**: 376 lines (2 files)
+- **Modified**: 412 lines (2 files)
+- **Total**: ~788 lines of new/modified code
+
+---
+
+### User Experience Improvements
+
+#### Before (Single Window/Tab)
+```
+Problem: Opening multiple pages creates many windows
+Result: Cluttered, hard to manage, overlapping chaos
+```
+
+#### After (Multi-tab Windows)
+```
+Solution: Group related pages in tabs within windows
+Result: Organized, familiar, browser-like experience
+Benefits:
+- ✅ Less clutter
+- ✅ Familiar tab paradigm
+- ✅ Easy to switch pages
+- ✅ Group related content
+```
+
+---
+
+### Use Cases
+
+**Use Case 1: Working with Multiple Tables**
+```
+Window: "Sales Data"
+├─ Tab 1: Customers table
+├─ Tab 2: Orders table
+└─ Tab 3: Products table
+
+Benefit: Related data grouped in one window
+```
+
+**Use Case 2: Comparing Data**
+```
+Window 1 (left half):    Window 2 (right half):
+├─ Tab: Q1 Report        ├─ Tab: Q2 Report
+└─ Tab: Q1 Details       └─ Tab: Q2 Details
+
+Benefit: Side-by-side comparison with multiple tabs each
+```
+
+**Use Case 3: Workflow Organization**
+```
+Window 1: "Research"     Window 2: "Writing"
+├─ Tab: Articles         ├─ Tab: Draft
+├─ Tab: References       ├─ Tab: Notes
+└─ Tab: Data             └─ Tab: Outline
+
+Benefit: Separate workflows in different windows
+```
+
+---
+
+### Success Criteria
+
+- [x] Windows can have multiple tabs
+- [x] Tab bar integrates with window header
+- [x] Tabs are closeable (except last tab)
+- [x] New tabs can be created
+- [x] Active tab highlighted
+- [x] Tab titles update from iframe
+- [x] Tab navigation works smoothly
+- [x] State persists across sessions
+- [x] Backward compatible with single-tab windows
+- [x] Performance optimized (only render active tab)
+
+---
+
+### Known Limitations & Future Enhancements
+
+**Current Limitations**:
+- No tab reordering (drag & drop)
+- No tab dragging between windows
+- No tab context menu (right-click)
+- No keyboard shortcuts for tab switching (Cmd+1-9)
+- No tab pinning
+
+**Future Enhancements** (Phase 2.5.3+):
+- [ ] Drag tabs to reorder within window
+- [ ] Drag tab out to create new window
+- [ ] Drag tab into another window to merge
+- [ ] Tab context menu (close, close others, duplicate)
+- [ ] Keyboard shortcuts (Cmd+T, Cmd+W, Cmd+1-9, Cmd+Tab)
+- [ ] Tab pinning (keep tabs open)
+- [ ] Tab groups with colors
+- [ ] Tab previews on hover
+- [ ] Recently closed tabs
+- [ ] Tab search/filter
+
+---
+
+### Testing Completed
+
+- ✅ Create new tab in window
+- ✅ Switch between tabs
+- ✅ Close tabs (not last one)
+- ✅ Close last tab closes window
+- ✅ Tab titles update from iframe
+- ✅ Tab URLs persist on navigation
+- ✅ Multiple windows with multiple tabs each
+- ✅ Minimize/restore preserves tabs
+- ✅ Window controls work with tabs
+- ✅ State persists to localStorage
+- ✅ Reload restores all tabs
+- ✅ Backward compatibility with old windows
 
 ---
 
@@ -641,6 +1005,9 @@ interface DesktopGroups {
 - [x] Performance is excellent (60fps dragging)
 - [x] Visual polish is complete
 - [x] Documentation is comprehensive
+- [x] UX polish (dock trigger, auto-open home)
+- [x] Mode switching (Desktop ↔ Standalone)
+- [x] Multi-tab windows implemented
 
 ### Phase 2.5.2 📋 Planned
 - [ ] Works perfectly on mobile devices
@@ -674,7 +1041,7 @@ Ideas for future iterations:
 
 ## Development Timeline
 
-### Week 1 (Dec 22-23, 2025) ✅ Complete
+### Week 1 (Dec 22-24, 2025) ✅ Complete
 - **Day 1 (Dec 22)**: Core windowing (drag, resize, maximize, minimize)
 - **Day 2 (Dec 23 AM)**: Dock system, window snapping, keyboard shortcuts
 - **Day 3 (Dec 23 PM)**: Visual polish, animations, documentation
@@ -683,6 +1050,12 @@ Ideas for future iterations:
   - Auto-open home window
   - Bidirectional mode switching
   - Smart query param handling
+- **Day 4 (Dec 24)**: Multi-tab windows
+  - TabHeader component (181 lines)
+  - TabContent component (195 lines)
+  - Tab operations (switch, close, new)
+  - Backward compatibility
+  - State persistence
 
 ### Week 2-3 (Planned)
 - Mobile responsive design (3-4 days)
@@ -728,6 +1101,9 @@ Ideas for future iterations:
 7. **Empty First-Time Experience**: Auto-open home window with smart detection
 8. **Mode Switching UX**: Bidirectional buttons with smart Ctrl+Click
 9. **Window Deduplication**: Check existing windows before opening new ones
+10. **User Confusion with Desktop Paradigm**: Multi-tab windows make it more familiar
+11. **Tab Performance**: Only render active tab's iframe for optimal performance
+12. **Backward Compatibility**: Seamless migration from single-tab to multi-tab mode
 
 ### Lessons Learned
 
@@ -740,6 +1116,9 @@ Ideas for future iterations:
 7. **Query Params Need Cleanup**: Always clean up after handling to keep URLs clean
 8. **Conditional Rendering**: Hide features based on context (e.g., hide desktop button in desktop)
 9. **Smart Defaults**: Auto-opening home window improves first-time experience significantly
+10. **Listen to Users**: Sales feedback about "doesn't look like a web page" led to tabs
+11. **Browser Paradigms**: Tabs are familiar to all web users, reduce learning curve
+12. **Component Extraction**: Separating TabHeader and TabContent improves maintainability
 
 ---
 

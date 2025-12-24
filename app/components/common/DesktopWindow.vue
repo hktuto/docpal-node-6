@@ -611,29 +611,18 @@ onUnmounted(() => {
         :tabs="window.tabs!"
         :active-tab-id="window.activeTabId!"
         :can-close="window.tabs!.length > 1"
+        :copied="copied"
         @switch-tab="handleSwitchTab"
         @close-tab="handleCloseTab"
         @new-tab="handleNewTab"
+        @copy-url="handleCopyUrl"
+        @open-standalone="handleOpenStandalone"
       >
         <!-- Slot content: window title actions and controls -->
+        <template #window-controls>
         <div class="window-title-actions">
           <!-- Copy URL Button -->
-          <button 
-            class="window-control-btn" 
-            @click.stop="handleCopyUrl"
-            :title="copied ? 'Copied!' : 'Copy URL'"
-          >
-            <Icon v-if="!copied" name="lucide:link" />
-            <Icon v-else name="lucide:check" />
-          </button>
-          <!-- Open Standalone Button -->
-          <button 
-            class="window-control-btn" 
-            @click.stop="handleOpenStandalone"
-            title="Open in Standalone Mode (Ctrl+Click for new tab)"
-          >
-            <Icon name="lucide:external-link" />
-          </button>
+          
         </div>
         
         <div class="window-controls">
@@ -656,6 +645,7 @@ onUnmounted(() => {
             <Icon name="lucide:x" />
           </button>
         </div>
+      </template>
       </TabHeader>
     </div>
 
@@ -702,7 +692,7 @@ onUnmounted(() => {
 
 <style scoped lang="scss">
 .desktop-window {
-  --header-bg: var(--app-accent-color);
+  --header-bg: var(--app-grey-850);
   position: fixed;
   display: flex;
   flex-direction: column;
@@ -727,21 +717,16 @@ onUnmounted(() => {
 /* Focused window - full brightness */
 .desktop-window.focused {
   opacity: 1;
-  --header-bg: var(--app-accent-color);
+  --header-bg: var(--app-grey-850);
   outline: 1px solid var(--app-accent-color);
 }
 
-.desktop-window.focused .window-titlebar {
-  background: rgba(255, 255, 255, 0.15);
-}
 
-.desktop-window:not(.focused) .window-titlebar {
-  background: rgba(255, 255, 255, 0.08);
-}
 
 .desktop-window.maximized {
   border-radius: 0;
   transition: all 0.3s ease;
+  --app-header-height: 28px;
 }
 
 .desktop-window.minimized {
@@ -842,8 +827,9 @@ onUnmounted(() => {
   
   // Merged with tabs - adjust styling
   &.merged-with-tabs {
-    padding: 0;
-    height: var(--app-header-height, 40px);
+    padding: 5px 0 0 0 ;
+    --header-bg: var(--app-grey-850);
+    height: var(--app-header-height);
     
     :deep(.tab-header) {
       width: 100%;
@@ -910,15 +896,15 @@ onUnmounted(() => {
 }
 
 .window-control-btn {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.1);
-  color: var(--color-text, #fff);
+  color: var(--color-text);
   cursor: pointer;
   transition: all 0.2s ease;
 }

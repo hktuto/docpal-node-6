@@ -104,9 +104,9 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 
 #### 🚧 Phase 2.5: Desktop Windowing System
 **File**: [`phase2.5-desktop-view.md`](./phase2.5-desktop-view.md)  
-**Status**: 🚧 In Progress (Foundation & UX Polish Complete)  
+**Status**: 🚧 In Progress (Foundation & UX & Multi-tab Complete)  
 **Started**: Dec 22, 2025  
-**Latest Update**: Dec 23, 2025 (Evening)  
+**Latest Update**: Dec 24, 2025  
 **Duration**: 3-4 weeks
 
 **Completed** (Phase 2.5.1):
@@ -128,6 +128,13 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 - ✅ Smart Ctrl+Click support (new tab behavior)
 - ✅ Query param handling with smart window focusing
 
+**Completed** (Phase 2.5.1.6 - Multi-tab Windows):
+- ✅ Browser-style tabs within desktop windows
+- ✅ TabHeader & TabContent components
+- ✅ Tab operations (switch, close, new)
+- ✅ Tab title/URL tracking and persistence
+- ✅ Backward compatibility with single-tab mode
+
 **Planned** (Phase 2.5.2):
 - [ ] Mobile & responsive support
 - [ ] Small window responsive design
@@ -135,7 +142,7 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 - [ ] Pin custom pages to dock
 - [ ] Multiple desktop groups (workspaces)
 
-**Achievement**: Native OS-like desktop experience with seamless mode switching
+**Achievement**: Native OS-like desktop with familiar browser-style tabs
 
 ---
 
@@ -239,7 +246,7 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 
 ---
 
-## 📊 Current Status (Dec 23, 2025 - Evening)
+## 📊 Current Status (Dec 24, 2025)
 
 ```
 ✅ Phase 1: Core Data Schema
@@ -247,6 +254,7 @@ This directory contains the complete development roadmap for DocPal Node 6, orga
 🚧 Phase 2.4: Column Management (partial)
 ✅ Phase 2.5.1: Desktop Windowing (foundation complete)
 ✅ Phase 2.5.1.5: UX Polish & Mode Switching (complete)
+✅ Phase 2.5.1.6: Multi-tab Windows (complete)
 ━━━━━━━ YOU ARE HERE ━━━━━━━
 📋 Phase 2.5.2: Desktop Enhancements (next)
 📋 Phase 2.6: Views & Permissions
@@ -332,8 +340,8 @@ The roadmap is flexible. Phases can be:
 
 ---
 
-**Last Updated**: Dec 23, 2025 (Evening)  
-**Current Phase**: 2.5 (Desktop Windowing - Foundation & UX Polish Complete)  
-**Latest Additions**: Dock trigger zone, auto-open home, mode switching system  
+**Last Updated**: Dec 24, 2025  
+**Current Phase**: 2.5 (Desktop Windowing - Foundation, UX, & Multi-tab Complete)  
+**Latest Additions**: Multi-tab windows with browser-style tabs (TabHeader, TabContent)  
 **Next Milestone**: Complete desktop enhancements (mobile, history, pin, groups) or start views & permissions
 
