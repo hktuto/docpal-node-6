@@ -328,9 +328,9 @@ const openWindow = (item: MenuItem, openInTab: boolean = false) => {
   }
   
   // Trigger dock bounce animation
-  bouncingDockItems.value.add(item.label)
+  bouncingDockItems.value.add(item.label as string)
   setTimeout(() => {
-    bouncingDockItems.value.delete(item.label)
+    bouncingDockItems.value.delete(item.label as string)
   }, 600)
   
   const id = `window-${windowIdCounter.value++}`
@@ -812,17 +812,17 @@ const openDefaultHomeWindow = () => {
   const tabId = generateTabId()
   const initialTab: TabState = {
     id: tabId,
-    url: defaultWindow.url,
-    title: defaultWindow.label,
+    url: defaultWindow.url as string,
+    title: defaultWindow.label as string,
     icon: defaultWindow.icon,
   }
   
   windows.value.push({
     id,
-    title: defaultWindow.label,
+    title: defaultWindow.label as string,
     currentPageTitle: undefined,
-    icon: defaultWindow.icon,
-    url: defaultWindow.url, // Keep for backward compatibility
+    icon: defaultWindow.icon as string,
+    url: defaultWindow.url as string, // Keep for backward compatibility
     x,
     y,
     width,
@@ -1193,11 +1193,11 @@ onUnmounted(() => {
         v-for="item in menu" 
         :key="item.label" 
         class="dockItem"
-        :class="{ bouncing: bouncingDockItems.has(item.label) }"
+        :class="{ bouncing: bouncingDockItems.has(item.label as string) }"
         @click="openWindow(item)"
         :title="item.label"
       >
-        <Icon :name="item.icon" />
+        <Icon v-if="item.icon" :name="item.icon" />
         <span>{{ item.label }}</span>
       </div>
       <div class="mouseOverCircle" 
