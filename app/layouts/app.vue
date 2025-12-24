@@ -208,7 +208,7 @@ const breadcrumb = computed(() => {
           const isLast = index === menuPath.length - 1
           crumbs.push({
             label: item.label,
-            url: `/workspaces/${workspaceSlug.value}/${item.type}s/${item.slug}`,
+            url: `/workspaces/${workspaceSlug.value}/${item.type}/${item.slug}`,
             clickable: !isLast // Last item is current page, not clickable
           })
         })

@@ -165,6 +165,8 @@ const saveWindowsState = useDebounceFn(() => {
   localStorage.setItem('desktopTabIdCounter', String(tabIdCounter))
 }, 500)
 
+
+
 // Open or focus a window (opens in new tab if focused window exists)
 const openWindow = (item: MenuItem, openInTab: boolean = false) => {
   // If openInTab is true and we have a focused window, add tab to it
@@ -382,8 +384,19 @@ const focusWindow = (id: string) => {
 }
 
 // Handle menu item click (from CommonMenu) - open in new tab
-const handleMenuClick = (item: MenuItem) => {
-  openWindow(item, true) // true = open in tab of focused window
+const handleMenuClick = (item: MenuItem, event: MouseEvent) => {
+  // check if ctrl or cmd key is pressed, if ctrl || cmd && shift is pressed, open in new window,
+  // if ctrl || cmd && !shift is pressed, open in new tab
+  // if no key is pressed, open in current focused tab
+  if (event.ctrlKey || event.metaKey) {
+    if (event.shiftKey) {
+      openWindow(item, false) // false = open in new window
+    } else {
+      openWindow(item, true) // true = open in tab of focused window
+    }
+  } else {
+    openWindow(item, true) // true = open in tab of focused window
+  }
 }
 
 // Handle open from query param
@@ -475,12 +488,120 @@ const handleOpenNewWindow = (url: string) => {
   openWindow(menuItem, true) // true = open in tab
 }
 
+// Context menu state
+const contextMenuVisible = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuUrl = ref('')
+
+// Handle navigate message from iframe (with modifiers)
+interface NavigateMessage {
+  type: 'navigate'
+  url: string
+  modifiers: {
+    ctrl: boolean
+    meta: boolean
+    shift: boolean
+    alt: boolean
+    keys: string[]
+  }
+}
+
+interface ShowContextMenuMessage {
+  type: 'show-context-menu'
+  url: string
+  x: number
+  y: number
+}
+
+const handleIframeMessage = (event: MessageEvent) => {
+  if (!event.data || !event.data.type) return
+  
+  const message = event.data
+  
+  // Handle navigation with modifiers
+  if (message.type === 'navigate') {
+    const navMessage = message as NavigateMessage
+    const { url, modifiers } = navMessage
+    
+    // Determine action based on modifiers
+    const isCtrlOrMeta = modifiers.ctrl || modifiers.meta
+    
+    if (isCtrlOrMeta && modifiers.shift) {
+      // Ctrl/Cmd + Shift = Open in new window
+      const menuItem = menu.find(m => m.url === url) || {
+        label: 'Page',
+        icon: 'lucide:file',
+        url: url
+      }
+      openWindow(menuItem, false)
+    } else if (isCtrlOrMeta) {
+      // Ctrl/Cmd = Open in new tab (of focused window)
+      const menuItem = menu.find(m => m.url === url) || {
+        label: 'Page',
+        icon: 'lucide:file',
+        url: url
+      }
+      openWindow(menuItem, true)
+    }
+    // Note: No modifiers case removed - iframe handles it with Vue Router (SPA navigation)
+  }
+  
+  // Handle context menu request
+  if (message.type === 'show-context-menu') {
+    const contextMessage = message as ShowContextMenuMessage
+    contextMenuUrl.value = contextMessage.url
+    contextMenuX.value = contextMessage.x
+    contextMenuY.value = contextMessage.y
+    contextMenuVisible.value = true
+  }
+}
+
+// Handle context menu navigation
+const handleContextMenuNavigate = (url: string, target: 'current' | 'tab' | 'window') => {
+  const menuItem = menu.find(m => m.url === url) || {
+    label: 'Page',
+    icon: 'lucide:file',
+    url: url
+  }
+  
+  switch (target) {
+    case 'current':
+      // Navigate current tab - update URL directly
+      // TabContent's intelligent watcher will handle it without reload if iframe is already at this URL
+      const focusedWindow = windows.value.find(w => w.id === focusedWindowId.value)
+      if (focusedWindow && focusedWindow.tabs && focusedWindow.activeTabId) {
+        const activeTab = focusedWindow.tabs.find(t => t.id === focusedWindow.activeTabId)
+        if (activeTab) {
+          activeTab.url = url
+          saveWindowsState()
+        }
+      }
+      break
+    case 'tab':
+      // Open in new tab
+      openWindow(menuItem, true)
+      break
+    case 'window':
+      // Open in new window
+      openWindow(menuItem, false)
+      break
+  }
+}
+
 // Initialize
 onMounted(() => {
+  // Listen for messages from iframes
+  window.addEventListener('message', handleIframeMessage)
+  
   loadWindowsState()
   nextTick(() => {
     handleOpenQueryParam()
   })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('message', handleIframeMessage)
 })
 </script>
 
@@ -492,6 +613,7 @@ onMounted(() => {
         <CommonMenu 
           v-model:expandState="expandState"
           :menu="menu"
+          :force-desktop="true"
           @menuClick="handleMenuClick"
         />
       </aside>
@@ -546,6 +668,16 @@ onMounted(() => {
       </div>
     </div>
   </div>
+  
+  <!-- Context Menu -->
+  <CommonContextMenu
+    :visible="contextMenuVisible"
+    :x="contextMenuX"
+    :y="contextMenuY"
+    :url="contextMenuUrl"
+    @close="contextMenuVisible = false"
+    @navigate="handleContextMenuNavigate"
+  />
 </template>
 
 <style lang="scss" scoped>

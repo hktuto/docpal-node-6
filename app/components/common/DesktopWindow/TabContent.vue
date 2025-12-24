@@ -28,9 +28,32 @@ let titleCheckInterval: number | null = null
 const initialSrc = ref(props.tab.url)
 
 // Update iframe src when tab URL changes externally
+// Only update if the iframe's CURRENT location is different (avoid unnecessary reloads)
 watch(() => props.tab.url, (newUrl) => {
-  if (initialSrc.value !== newUrl) {
-    initialSrc.value = newUrl
+  if (!iframeRef.value?.contentWindow?.location) {
+    // Iframe not ready yet, just update
+    if (initialSrc.value !== newUrl) {
+      initialSrc.value = newUrl
+    }
+    return
+  }
+  
+  try {
+    // Check iframe's actual current location
+    const currentIframePath = iframeRef.value.contentWindow.location.pathname +
+                              iframeRef.value.contentWindow.location.search +
+                              iframeRef.value.contentWindow.location.hash
+    
+    // Only update initialSrc if iframe is NOT already at this URL
+    // This prevents reload when user navigates internally
+    if (currentIframePath !== newUrl && initialSrc.value !== newUrl) {
+      initialSrc.value = newUrl // This will trigger iframe reload
+    }
+  } catch (e) {
+    // Cross-origin restriction, fallback to simple check
+    if (initialSrc.value !== newUrl) {
+      initialSrc.value = newUrl
+    }
   }
 })
 

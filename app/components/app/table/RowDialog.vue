@@ -48,7 +48,7 @@ function initFormData() {
   } else {
     // Add mode - initialize empty form with defaults
     formData.value = {}
-    props.table.columns.forEach(col => {
+    props.table.columns.forEach((col:any) => {
       // Set default values based on column type
       switch (col.type) {
         case 'switch':
@@ -92,7 +92,7 @@ function initFormData() {
 const formRules = computed(() => {
   const rules: Record<string, any[]> = {}
   
-  props.table.columns.forEach(col => {
+  props.table.columns.forEach((col:any) => {
     const colRules: any[] = []
     
     // Required validation
@@ -167,7 +167,7 @@ async function handleSave() {
     
     // Prepare data for submission
     const submitData: Record<string, any> = {}
-    props.table.columns.forEach(col => {
+    props.table.columns.forEach((col:any) => {
       let value = formData.value[col.name]
       
       // Skip computed fields

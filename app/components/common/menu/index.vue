@@ -12,7 +12,16 @@ type MenuItem = {
 const expandState = defineModel<boolean>('expandState', { required: true })
 const mobileOpen = defineModel<boolean>('mobileOpen', { default: false })
 
-const { isMobile } = useDisplayMode()
+const { isMobile: _isMobile } = useDisplayMode()
+
+const props = defineProps<{
+  menu?: any[] // Optional menu prop for custom menu items
+  forceDesktop?: boolean // Force desktop mode (disable responsive mobile behavior)
+}>()
+
+// Use forceDesktop prop to override mobile detection
+const isMobile = computed(() => props.forceDesktop ? false : _isMobile.value)
+
 const menu:MenuItem[] = [
     {
         label: 'Home',
@@ -41,10 +50,6 @@ const menu:MenuItem[] = [
 
 const route = useRoute()
 const { isDesktopMode, isTabMode } = useDisplayMode()
-
-const props = defineProps<{
-  menu?: any[] // Optional menu prop for custom menu items
-}>()
 
 // Open current page in desktop mode
 const openInDesktop = (event?: MouseEvent) => {
@@ -125,7 +130,7 @@ function handleClick(item: any, event?: MouseEvent) {
             label: typeof item.label === 'function' ? item.label() : item.label,
             icon: typeof item.icon === 'function' ? item.icon() : item.icon,
             url: typeof item.url === 'function' ? item.url() : item.url,
-        })
+        }, event)
         return
     }
     
@@ -212,7 +217,7 @@ function isRouteActive(itemUrl?: any): boolean {
                     :label="item.label || ''" 
                     :icon="item.icon || ''"
                     :selected="isRouteActive(item.url)"
-                    @click="handleClick(item)"
+                    @click="(event) => handleClick(item, event)"
                 />
             </div>
             <div class="menuFooter">
@@ -229,7 +234,7 @@ function isRouteActive(itemUrl?: any): boolean {
                         :label="item.label || ''" 
                         :icon="item.icon || ''" 
                         :selected="isRouteActive(item.url)" 
-                        @click="handleClick(item, $event)" 
+                        @click="(event) => handleClick(item, event)" 
                     />
                 </template>
                 <slot name="footer" />

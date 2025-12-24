@@ -122,7 +122,7 @@ function isFolderExpanded(folderId: string): boolean {
 // Check if menu item is active
 function isItemActive(item: MenuItem): boolean {
   const basePath = `/workspaces/${props.workspaceSlug}`
-  const itemPath = `${basePath}/${item.type}s/${item.slug}`
+  const itemPath = `${basePath}/${item.type}/${item.slug}`
   return route.path === itemPath || route.path.startsWith(itemPath + '/')
 }
 
@@ -146,6 +146,7 @@ function hasActiveChild(item: MenuItem): boolean {
 }
 
 // Navigate to item
+const basePath = computed(() => `/workspaces/${props.workspaceSlug}`)
 function navigateToItem(item: MenuItem, event?: MouseEvent) {
   if (!props.workspaceSlug) return
   
@@ -154,8 +155,7 @@ function navigateToItem(item: MenuItem, event?: MouseEvent) {
     expandedFolders.value.add(item.id)
   }
   
-  const basePath = `/workspaces/${props.workspaceSlug}`
-  navigateTo(`${basePath}/${item.type}s/${item.slug}`, event)
+  navigateTo(`${basePath.value}/${item.type}/${item.slug}`, event)
 }
 
 // Handle create command
@@ -359,6 +359,7 @@ function handleCreateTable(table: any) {
             :is-expanded="isFolderExpanded"
             :is-highlighted="(id) => highlightedItems.has(id)"
             :is-just-created="(id) => justCreatedItemId === id"
+            :base-path="basePath"
             @navigate="(item,e) => navigateToItem(item, e)"
             @toggle="toggleFolder"
             @create="handleCreate"

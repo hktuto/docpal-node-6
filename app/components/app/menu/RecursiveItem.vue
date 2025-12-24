@@ -5,11 +5,13 @@ import draggable from 'vuedraggable'
 const props = defineProps<{
   item: MenuItem
   workspaceSlug: string
+  basePath: string
   isActive: (item: MenuItem) => boolean
   hasActiveChild: (item: MenuItem) => boolean
   isExpanded: (folderId: string) => boolean
   isHighlighted: (itemId: string) => boolean
   isJustCreated: (itemId: string) => boolean
+  
 }>()
 
 const emit = defineEmits<{
@@ -49,7 +51,7 @@ function getIcon(type: string): string {
       </div>
       
       <!-- Item Content -->
-      <div class="item-content" @click="(e) => emit('navigate', item, e)">
+      <div class="item-content" :data-nav="basePath + '/' + item.type + '/' + item.slug" @click="(e) => emit('navigate', item, e)">
         <Icon 
           :name="getIcon(item.type)" 
           size="18" 
@@ -102,6 +104,7 @@ function getIcon(type: string): string {
               :is-expanded="isExpanded"
               :is-highlighted="isHighlighted"
               :is-just-created="isJustCreated"
+              :base-path="basePath"
               @navigate="(item, e) => emit('navigate', item, e)"
               @toggle="emit('toggle', $event)"
               @create="(type, parentId) => emit('create', type, parentId)"

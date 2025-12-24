@@ -755,6 +755,91 @@ const handleOpenNewWindow = (url: string, openInTab: boolean = false) => {
   }
 }
 
+// Context menu state
+const contextMenuVisible = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuUrl = ref('')
+
+// Handle navigate message from iframe (with modifiers)
+interface NavigateMessage {
+  type: 'navigate'
+  url: string
+  modifiers: {
+    ctrl: boolean
+    meta: boolean
+    shift: boolean
+    alt: boolean
+    keys: string[]
+  }
+}
+
+interface ShowContextMenuMessage {
+  type: 'show-context-menu'
+  url: string
+  x: number
+  y: number
+}
+
+const handleIframeMessage = (event: MessageEvent) => {
+  if (!event.data || !event.data.type) return
+  
+  const message = event.data
+  
+  // Handle navigation with modifiers
+  if (message.type === 'navigate') {
+    const navMessage = message as NavigateMessage
+    const { url, modifiers } = navMessage
+    
+    // Determine action based on modifiers
+    const isCtrlOrMeta = modifiers.ctrl || modifiers.meta
+    
+    if (isCtrlOrMeta && modifiers.shift) {
+      // Ctrl/Cmd + Shift = Open in new window
+      handleOpenNewWindow(url, false)
+    } else if (isCtrlOrMeta) {
+      // Ctrl/Cmd = Open in new tab (of focused window)
+      handleOpenNewWindow(url, true)
+    }
+    // Note: No modifiers case removed - iframe handles it with Vue Router (SPA navigation)
+  }
+  
+  // Handle context menu request
+  if (message.type === 'show-context-menu') {
+    const contextMessage = message as ShowContextMenuMessage
+    contextMenuUrl.value = contextMessage.url
+    contextMenuX.value = contextMessage.x
+    contextMenuY.value = contextMessage.y
+    contextMenuVisible.value = true
+  }
+}
+
+// Handle context menu navigation
+const handleContextMenuNavigate = (url: string, target: 'current' | 'tab' | 'window') => {
+  switch (target) {
+    case 'current':
+      // Navigate current tab - update URL directly
+      // TabContent's intelligent watcher will handle it without reload if iframe is already at this URL
+      const focusedWindow = windows.value.find(w => w.id === focusedWindowId.value)
+      if (focusedWindow && focusedWindow.tabs && focusedWindow.activeTabId) {
+        const activeTab = focusedWindow.tabs.find(t => t.id === focusedWindow.activeTabId)
+        if (activeTab) {
+          activeTab.url = url
+          saveWindowsState()
+        }
+      }
+      break
+    case 'tab':
+      // Open in new tab
+      handleOpenNewWindow(url, true)
+      break
+    case 'window':
+      // Open in new window
+      handleOpenNewWindow(url, false)
+      break
+  }
+}
+
 // Get minimized windows for dock indicators
 const minimizedWindows = computed(() => {
   return windows.value.filter(w => w.isMinimized)
@@ -1119,6 +1204,9 @@ const handleOpenQueryParam = () => {
 onMounted(() => {
   window.addEventListener('resize', debouncedResize)
   
+  // Listen for messages from iframes
+  window.addEventListener('message', handleIframeMessage)
+  
   // Load saved windows state first
   loadWindowsState()
   
@@ -1126,6 +1214,11 @@ onMounted(() => {
   nextTick(() => {
     handleOpenQueryParam()
   })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', debouncedResize)
+  window.removeEventListener('message', handleIframeMessage)
 })
 
 onUnmounted(() => {
@@ -1238,6 +1331,16 @@ onUnmounted(() => {
       </div>
     </div>
   </div>
+  
+  <!-- Context Menu -->
+  <CommonContextMenu
+    :visible="contextMenuVisible"
+    :x="contextMenuX"
+    :y="contextMenuY"
+    :url="contextMenuUrl"
+    @close="contextMenuVisible = false"
+    @navigate="handleContextMenuNavigate"
+  />
 </template>
 
 <style scoped>

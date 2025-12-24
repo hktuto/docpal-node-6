@@ -7,8 +7,8 @@
     }>()
     const emit = defineEmits(['click'])
 
-    const handleClick = () => {
-        emit('click')
+    const handleClick = (event: MouseEvent) => {
+        emit('click', event)
     }
 
     const displayLabel = computed(() => {

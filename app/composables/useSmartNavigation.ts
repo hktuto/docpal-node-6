@@ -1,8 +1,8 @@
-import type { OpenNewWindowMessage } from './useDesktopShortcuts'
+import { useMagicKeys } from '@vueuse/core'
 
 /**
  * Smart navigation composable that handles Ctrl/Cmd + Click
- * Use this for buttons and programmatic navigation that should support opening in new window
+ * Use this for buttons and programmatic navigation that should support opening in new window/tab
  * 
  * @example
  * ```vue
@@ -17,33 +17,43 @@ import type { OpenNewWindowMessage } from './useDesktopShortcuts'
  */
 export function useSmartNavigation() {
   const router = useRouter()
-  const { isDesktopMode } = useDisplayMode()
+  const { isDesktopMode, isTabMode } = useDisplayMode()
+  const keys = useMagicKeys()
+  
+  // Helper to get current modifiers
+  const getCurrentModifiers = () => ({
+    ctrl: keys.ctrl?.value ?? false,
+    meta: keys.meta?.value ?? false,
+    shift: keys.shift?.value ?? false,
+    alt: keys.alt?.value ?? false,
+    keys: Array.from(keys.current)
+  })
+  
+  // Helper to check if in iframe mode
+  const isInIframeMode = () => {
+    const inIframe = window.self !== window.top
+    const isSpecialMode = isDesktopMode.value || isTabMode.value
+    return inIframe && isSpecialMode
+  }
   
   /**
-   * Navigate to a path, or open in new window if Ctrl/Cmd pressed
+   * Navigate to a path
+   * In iframe mode: sends message to parent with modifiers
+   * In standalone mode: uses router directly
+   * 
    * @param path - The path to navigate to
-   * @param event - Optional mouse event to check for Ctrl/Cmd/Middle-click
+   * @param event - Optional mouse event (not used anymore, kept for compatibility)
    */
   const navigateTo = (path: string, event?: MouseEvent) => {
-    // Check if Ctrl/Cmd pressed, middle-click, or explicitly requested new window
-    const shouldOpenNewWindow = event && (
-      event.ctrlKey || 
-      event.metaKey || 
-      event.button === 1 // Middle-click
-    )
-    
-    // If in desktop mode and modifier pressed, open new window
-    if (isDesktopMode.value && shouldOpenNewWindow) {
-      const message: OpenNewWindowMessage = {
-        type: 'open-new-window',
-        url: path
-      }
-      window.parent.postMessage(message, '*')
-      return
+    // If in iframe mode, send message to parent (plugin will intercept router navigation)
+    // Just use router.push and let the plugin handle it
+    if (isInIframeMode()) {
+      // The navigation-interception plugin will catch this and send postMessage
+      router.push(path)
+    } else {
+      // Normal navigation in standalone mode
+      router.push(path)
     }
-    console.log('navigateTo', path)
-    // Normal navigation
-    router.push(path)
   }
   
   /**
@@ -54,30 +64,35 @@ export function useSmartNavigation() {
     to: string | { path: string; query?: Record<string, any> },
     event?: MouseEvent
   ) => {
-    const path = typeof to === 'string' ? to : to.path
-    const fullPath = typeof to === 'string' ? to : router.resolve(to).fullPath
-    
-    const shouldOpenNewWindow = event && (
-      event.ctrlKey || 
-      event.metaKey || 
-      event.button === 1
-    )
-    
-    if (isDesktopMode.value && shouldOpenNewWindow) {
-      const message: OpenNewWindowMessage = {
-        type: 'open-new-window',
-        url: fullPath
-      }
-      window.parent.postMessage(message, '*')
-      return
-    }
-    
+    // Same logic - let the plugin handle iframe interception
     router.push(to)
+  }
+  
+  /**
+   * Manually send navigation message with custom modifiers
+   * Use this when you need fine control over modifier state
+   */
+  const sendNavigateMessage = (path: string, customModifiers?: {
+    ctrl?: boolean
+    meta?: boolean
+    shift?: boolean
+    alt?: boolean
+  }) => {
+    const modifiers = customModifiers || getCurrentModifiers()
+    
+    window.parent.postMessage({
+      type: 'navigate',
+      url: path,
+      modifiers
+    }, '*')
   }
   
   return {
     navigateTo,
-    navigateToWithOptions
+    navigateToWithOptions,
+    sendNavigateMessage,
+    getCurrentModifiers,
+    isInIframeMode
   }
 }
 

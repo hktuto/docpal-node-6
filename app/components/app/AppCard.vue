@@ -39,7 +39,7 @@ const formatDate = (date: string | Date) => {
 </script>
 
 <template>
-  <div class="app-card" @click="(e) => handleClick(e)">
+  <div class="app-card" :data-nav="'/workspaces/' + app.slug" @click="(e) => handleClick(e)">
     <div class="app-card__icon">
       <Icon 
         :name="app.icon || 'lucide:grid-3x3'" 

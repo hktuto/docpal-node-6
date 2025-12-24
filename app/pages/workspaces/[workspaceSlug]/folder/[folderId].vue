@@ -53,7 +53,7 @@ function getItemIcon(type: string) {
 function getChildPath(child: MenuItem) {
   const workspaceSlug = route.params.workspaceSlug
   // Use slug for all navigation
-  return `/workspaces/${workspaceSlug}/${child.type}s/${child.slug}`
+  return `/workspaces/${workspaceSlug}/${child.type}/${child.slug}`
 }
 </script>
 
