@@ -16,6 +16,14 @@ useHead({
 // Desktop mode is now auto-detected in layouts when pages load in iframes
 // No manual state management needed here
 
+interface TabState {
+  id: string
+  url: string
+  title: string
+  icon?: string
+  currentPageTitle?: string
+}
+
 interface WindowState {
   id: string
   title: string
@@ -34,7 +42,14 @@ interface WindowState {
   isOpening?: boolean // For open animation
   isClosing?: boolean // For close animation
   isShaking?: boolean // For shake animation
+  // Multi-tab support (optional for backward compatibility)
+  tabs?: TabState[]
+  activeTabId?: string
 }
+
+// Tab ID counter (shared across all windows)
+let tabIdCounter = 0
+const generateTabId = () => `tab-${tabIdCounter++}`
 
 type MenuItem = {
     label?: string
@@ -88,6 +103,18 @@ const settingMenu: MenuItem[] = [
 const windows = ref<WindowState[]>([])
 const nextZIndex = ref(1000)
 const windowIdCounter = ref(0)
+
+// Initialize tab counter from localStorage
+if (process.client) {
+  try {
+    const saved = localStorage.getItem('desktopTabIdCounter')
+    if (saved) {
+      tabIdCounter = parseInt(saved, 10)
+    }
+  } catch (e) {
+    // Ignore
+  }
+}
 
 // Compute focused window (highest z-index among non-minimized windows)
 const focusedWindowId = computed(() => {
@@ -289,8 +316,17 @@ const openUrl = (url: string) => {
     url: url
   })
 }
-// Open a new window
-const openWindow = (item: MenuItem) => {
+// Open a new window (with tabs support)
+const openWindow = (item: MenuItem, openInTab: boolean = false) => {
+  // If openInTab is true, try to open in focused window
+  if (openInTab) {
+    const focusedWindow = getFocusedWindow()
+    if (focusedWindow) {
+      addTabToWindow(focusedWindow.id, item)
+      return
+    }
+  }
+  
   // Trigger dock bounce animation
   bouncingDockItems.value.add(item.label)
   setTimeout(() => {
@@ -298,16 +334,25 @@ const openWindow = (item: MenuItem) => {
   }, 600)
   
   const id = `window-${windowIdCounter.value++}`
+  const tabId = generateTabId()
   
   // Calculate optimal size and position
   const { width, height } = calculateWindowSize()
   const { x, y } = calculateWindowPosition(width, height, windows.value.length)
   
+  // Create window with tabs (always use tabs for new windows)
+  const initialTab: TabState = {
+    id: tabId,
+    url: item.url || '',
+    title: item.label || 'New Tab',
+    icon: item.icon,
+  }
+  
   const newWindow: WindowState = {
     id,
-    title: item.label,
+    title: item.label || 'New Window', // Window title (fallback)
     icon: item.icon,
-    url: item.url,
+    url: item.url || '', // Keep for backward compatibility
     x,
     y,
     width,
@@ -316,6 +361,8 @@ const openWindow = (item: MenuItem) => {
     isMaximized: false,
     isMinimized: false,
     isOpening: true, // Enable open animation
+    tabs: [initialTab],
+    activeTabId: tabId,
   }
   
   windows.value.push(newWindow)
@@ -327,6 +374,129 @@ const openWindow = (item: MenuItem) => {
   
   checkDockOverlap()
   saveWindowsState()
+}
+
+// Add tab to existing window
+const addTabToWindow = (windowId: string, item: MenuItem) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window) return
+  
+  // Initialize tabs if not present (migrate from single-tab mode)
+  if (!window.tabs || !window.activeTabId) {
+    const initialTabId = generateTabId()
+    window.tabs = [{
+      id: initialTabId,
+      url: window.url,
+      title: window.title,
+      icon: window.icon,
+      currentPageTitle: window.currentPageTitle,
+    }]
+    window.activeTabId = initialTabId
+  }
+  
+  const tabId = generateTabId()
+  const newTab: TabState = {
+    id: tabId,
+    url: item.url || '',
+    title: item.label || 'New Tab',
+    icon: item.icon,
+  }
+  
+  window.tabs.push(newTab)
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Switch active tab in window
+const switchTab = (windowId: string, tabId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (!tab) return
+  
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Close tab
+const closeTab = (windowId: string, tabId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  // Don't close if it's the last tab - close the window instead
+  if (window.tabs.length === 1) {
+    closeWindow(windowId)
+    return
+  }
+  
+  const tabIndex = window.tabs.findIndex(t => t.id === tabId)
+  if (tabIndex === -1) return
+  
+  window.tabs.splice(tabIndex, 1)
+  
+  // If closing active tab, switch to another
+  if (window.activeTabId === tabId) {
+    const newActiveIndex = Math.min(tabIndex, window.tabs.length - 1)
+    window.activeTabId = window.tabs[newActiveIndex]?.id || window.tabs[0]?.id
+  }
+  
+  saveWindowsState()
+}
+
+// New tab in window
+const newTab = (windowId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window) return
+  
+  // Initialize tabs if not present
+  if (!window.tabs || !window.activeTabId) {
+    const initialTabId = generateTabId()
+    window.tabs = [{
+      id: initialTabId,
+      url: window.url || '/',
+      title: window.title || 'New Tab',
+      icon: window.icon,
+      currentPageTitle: window.currentPageTitle,
+    }]
+    window.activeTabId = initialTabId
+  }
+  
+  const tabId = generateTabId()
+  const newTabState: TabState = {
+    id: tabId,
+    url: '/', // Default to home
+    title: 'New Tab',
+    icon: 'lucide:file',
+  }
+  
+  window.tabs.push(newTabState)
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Update tab title
+const updateTabTitle = (windowId: string, tabId: string, pageTitle: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (tab) {
+    tab.currentPageTitle = pageTitle
+    saveWindowsState()
+  }
+}
+
+// Update tab URL
+const updateTabUrl = (windowId: string, tabId: string, url: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (tab) {
+    tab.url = url
+    saveWindowsState()
+  }
 }
 
 // Shake window for invalid action
@@ -568,21 +738,20 @@ const handleShortcutCommand = (id: string, command: string) => {
 }
 
 // Handle open new window request (from Ctrl+Click or middle-click)
-const handleOpenNewWindow = (url: string) => {
+const handleOpenNewWindow = (url: string, openInTab: boolean = false) => {
   // Find matching menu item or create custom one
   const menuItem = menu.find(item => item.url === url)
   
   if (menuItem) {
-    // Open existing menu item
-    openWindow(menuItem)
+    openWindow(menuItem, openInTab)
   } else {
-    // Create custom window for any URL
+    // Create custom window/tab for any URL
     const customItem: MenuItem = {
       label: url.split('/').pop() || 'Page',
       icon: 'lucide:file',
       url: url
     }
-    openWindow(customItem)
+    openWindow(customItem, openInTab)
   }
 }
 
@@ -599,7 +768,7 @@ const saveWindowsState = useDebounceFn(() => {
     id: win.id,
     title: win.title,
     icon: win.icon,
-    url: win.url,
+    url: win.url, // Keep for backward compatibility
     x: win.x,
     y: win.y,
     width: win.width,
@@ -607,12 +776,16 @@ const saveWindowsState = useDebounceFn(() => {
     isMaximized: win.isMaximized,
     isMinimized: win.isMinimized,
     savedState: win.savedState,
-    currentPageTitle: win.currentPageTitle
+    currentPageTitle: win.currentPageTitle,
+    // Include tabs if present
+    tabs: win.tabs,
+    activeTabId: win.activeTabId,
   }))
   
   localStorage.setItem('desktopWindows', JSON.stringify(state))
   localStorage.setItem('desktopNextZIndex', String(nextZIndex.value))
   localStorage.setItem('desktopWindowIdCounter', String(windowIdCounter.value))
+  localStorage.setItem('desktopTabIdCounter', String(tabIdCounter))
 }, 500)
 
 // Load windows state from localStorage
@@ -636,12 +809,20 @@ const openDefaultHomeWindow = () => {
   // Create window with custom position
   const id = `window-${windowIdCounter.value++}`
   
+  const tabId = generateTabId()
+  const initialTab: TabState = {
+    id: tabId,
+    url: defaultWindow.url,
+    title: defaultWindow.label,
+    icon: defaultWindow.icon,
+  }
+  
   windows.value.push({
     id,
     title: defaultWindow.label,
     currentPageTitle: undefined,
     icon: defaultWindow.icon,
-    url: defaultWindow.url,
+    url: defaultWindow.url, // Keep for backward compatibility
     x,
     y,
     width,
@@ -650,6 +831,8 @@ const openDefaultHomeWindow = () => {
     isMaximized: false,
     isMinimized: false,
     isOpening: true, // Trigger open animation
+    tabs: [initialTab],
+    activeTabId: tabId,
   })
   
   // Clear opening animation after a short delay
@@ -983,6 +1166,11 @@ onUnmounted(() => {
       @unsnap="handleWindowUnsnap"
       @shortcut-command="handleShortcutCommand"
       @open-new-window="handleOpenNewWindow"
+      @switch-tab="switchTab"
+      @close-tab="closeTab"
+      @new-tab="newTab"
+      @update-tab-title="updateTabTitle"
+      @update-tab-url="updateTabUrl"
     />
     
     <!-- Dock Trigger Zone (invisible area to show dock even when iframe has focus) -->

@@ -10,6 +10,14 @@ useHead({
   title: 'Tab Mode - DocPal'
 })
 
+interface TabState {
+  id: string
+  url: string
+  title: string
+  icon?: string
+  currentPageTitle?: string
+}
+
 interface WindowState {
   id: string
   title: string
@@ -28,6 +36,25 @@ interface WindowState {
   isOpening?: boolean
   isClosing?: boolean
   isShaking?: boolean
+  // Multi-tab support (optional for backward compatibility)
+  tabs?: TabState[]
+  activeTabId?: string
+}
+
+// Tab ID counter (shared across all windows)
+let tabIdCounter = 0
+const generateTabId = () => `tab-${tabIdCounter++}`
+
+// Initialize tab counter from localStorage
+if (process.client) {
+  try {
+    const saved = localStorage.getItem('desktopTabIdCounter')
+    if (saved) {
+      tabIdCounter = parseInt(saved, 10)
+    }
+  } catch (e) {
+    // Ignore
+  }
 }
 
 type MenuItem = {
@@ -100,6 +127,12 @@ const loadWindowsState = () => {
     if (savedCounter) {
       windowIdCounter.value = parseInt(savedCounter, 10)
     }
+    
+    // Load tab counter
+    const savedTabCounter = localStorage.getItem('desktopTabIdCounter')
+    if (savedTabCounter) {
+      tabIdCounter = parseInt(savedTabCounter, 10)
+    }
   } catch (e) {
     console.error('Failed to load windows state:', e)
   }
@@ -113,7 +146,7 @@ const saveWindowsState = useDebounceFn(() => {
     id: win.id,
     title: win.title,
     icon: win.icon,
-    url: win.url,
+    url: win.url, // Keep for backward compatibility
     x: win.x,
     y: win.y,
     width: win.width,
@@ -122,36 +155,68 @@ const saveWindowsState = useDebounceFn(() => {
     isMinimized: win.isMinimized,
     savedState: win.savedState,
     currentPageTitle: win.currentPageTitle,
+    // Include tabs if present
+    tabs: win.tabs,
+    activeTabId: win.activeTabId,
   }))
   
   localStorage.setItem('desktopWindows', JSON.stringify(state))
   localStorage.setItem('desktopWindowIdCounter', String(windowIdCounter.value))
+  localStorage.setItem('desktopTabIdCounter', String(tabIdCounter))
 }, 500)
 
-// Open or focus a window
-const openWindow = (item: MenuItem) => {
-  // Check if window already exists
-  const existingWindow = windows.value.find(w => w.url === item.url)
+// Open or focus a window (opens in new tab if focused window exists)
+const openWindow = (item: MenuItem, openInTab: boolean = false) => {
+  // If openInTab is true and we have a focused window, add tab to it
+  if (openInTab && focusedWindowId.value) {
+    const focusedWindow = windows.value.find(w => w.id === focusedWindowId.value)
+    if (focusedWindow) {
+      addTabToWindow(focusedWindow.id, item)
+      return
+    }
+  }
+  
+  // Check if window already exists (by URL - for backward compatibility)
+  const existingWindow = windows.value.find(w => {
+    // Check tabs if present
+    if (w.tabs && w.activeTabId) {
+      const activeTab = w.tabs.find(t => t.id === w.activeTabId)
+      return activeTab?.url === item.url
+    }
+    // Legacy: check window.url
+    return w.url === item.url
+  })
   
   if (existingWindow) {
     // Focus existing window
     focusedWindowId.value = existingWindow.id
   } else {
-    // Create new window
+    // Create new window with tabs
     const id = `window-${windowIdCounter.value++}`
+    const tabId = generateTabId()
+    
+    const initialTab: TabState = {
+      id: tabId,
+      url: item.url,
+      title: item.label,
+      icon: item.icon,
+    }
+    
     const newWindow: WindowState = {
       id,
       title: item.label,
       icon: item.icon,
-      url: item.url,
+      url: item.url, // Keep for backward compatibility
       x: 0,
       y: 0,
       width: DEFAULT_CARD_WIDTH,
-      height: window.innerHeight - 40, // Full height minus some padding
+      height: window.innerHeight,
       zIndex: 0,
       isMaximized: false,
       isMinimized: false,
       isOpening: true,
+      tabs: [initialTab],
+      activeTabId: tabId,
     }
     
     windows.value.push(newWindow)
@@ -165,6 +230,129 @@ const openWindow = (item: MenuItem) => {
   }
   
   saveWindowsState()
+}
+
+// Add tab to existing window
+const addTabToWindow = (windowId: string, item: MenuItem) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window) return
+  
+  // Initialize tabs if not present
+  if (!window.tabs || !window.activeTabId) {
+    const initialTabId = generateTabId()
+    window.tabs = [{
+      id: initialTabId,
+      url: window.url || '/',
+      title: window.title || 'New Tab',
+      icon: window.icon,
+      currentPageTitle: window.currentPageTitle,
+    }]
+    window.activeTabId = initialTabId
+  }
+  
+  const tabId = generateTabId()
+  const newTab: TabState = {
+    id: tabId,
+    url: item.url,
+    title: item.label,
+    icon: item.icon,
+  }
+  
+  window.tabs.push(newTab)
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Switch active tab in window
+const switchTab = (windowId: string, tabId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (!tab) return
+  
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Close tab
+const closeTab = (windowId: string, tabId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  // Don't close if it's the last tab - close the window instead
+  if (window.tabs.length === 1) {
+    closeWindow(windowId)
+    return
+  }
+  
+  const tabIndex = window.tabs.findIndex(t => t.id === tabId)
+  if (tabIndex === -1) return
+  
+  window.tabs.splice(tabIndex, 1)
+  
+  // If closing active tab, switch to another
+  if (window.activeTabId === tabId) {
+    const newActiveIndex = Math.min(tabIndex, window.tabs.length - 1)
+    window.activeTabId = window.tabs[newActiveIndex]?.id || window.tabs[0]?.id
+  }
+  
+  saveWindowsState()
+}
+
+// New tab in window
+const newTab = (windowId: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window) return
+  
+  // Initialize tabs if not present
+  if (!window.tabs || !window.activeTabId) {
+    const initialTabId = generateTabId()
+    window.tabs = [{
+      id: initialTabId,
+      url: window.url || '/',
+      title: window.title || 'New Tab',
+      icon: window.icon,
+      currentPageTitle: window.currentPageTitle,
+    }]
+    window.activeTabId = initialTabId
+  }
+  
+  const tabId = generateTabId()
+  const newTabState: TabState = {
+    id: tabId,
+    url: '/', // Default to home
+    title: 'New Tab',
+    icon: 'lucide:file',
+  }
+  
+  window.tabs.push(newTabState)
+  window.activeTabId = tabId
+  saveWindowsState()
+}
+
+// Update tab title
+const updateTabTitle = (windowId: string, tabId: string, pageTitle: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (tab) {
+    tab.currentPageTitle = pageTitle
+    saveWindowsState()
+  }
+}
+
+// Update tab URL
+const updateTabUrl = (windowId: string, tabId: string, url: string) => {
+  const window = windows.value.find(w => w.id === windowId)
+  if (!window || !window.tabs) return
+  
+  const tab = window.tabs.find(t => t.id === tabId)
+  if (tab) {
+    tab.url = url
+    saveWindowsState()
+  }
 }
 
 // Close a window
@@ -193,9 +381,9 @@ const focusWindow = (id: string) => {
   focusedWindowId.value = id
 }
 
-// Handle menu item click (from CommonMenu)
+// Handle menu item click (from CommonMenu) - open in new tab
 const handleMenuClick = (item: MenuItem) => {
-  openWindow(item)
+  openWindow(item, true) // true = open in tab of focused window
 }
 
 // Handle open from query param
@@ -278,12 +466,13 @@ const handleShortcutCommand = () => {
 }
 
 const handleOpenNewWindow = (url: string) => {
+  // In tab mode, open in new tab of focused window
   const menuItem = menu.find(m => m.url === url) || {
     label: 'Page',
     icon: 'lucide:file',
     url: url
   }
-  openWindow(menuItem)
+  openWindow(menuItem, true) // true = open in tab
 }
 
 // Initialize
@@ -338,6 +527,11 @@ onMounted(() => {
                 @unsnap="handleUnsnap"
                 @shortcut-command="handleShortcutCommand"
                 @open-new-window="handleOpenNewWindow"
+                @switch-tab="switchTab"
+                @close-tab="closeTab"
+                @new-tab="newTab"
+                @update-tab-title="updateTabTitle"
+                @update-tab-url="updateTabUrl"
               />
             </el-splitter-panel>
           </el-splitter>

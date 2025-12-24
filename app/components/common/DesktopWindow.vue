@@ -1,5 +1,15 @@
 <script setup lang="ts">
 import { useClipboard } from '@vueuse/core'
+import TabHeader from './DesktopWindow/TabHeader.vue'
+import TabContent from './DesktopWindow/TabContent.vue'
+
+export interface TabState {
+  id: string
+  url: string
+  title: string
+  icon?: string
+  currentPageTitle?: string
+}
 
 interface WindowState {
   id: string
@@ -19,6 +29,9 @@ interface WindowState {
   isOpening?: boolean
   isClosing?: boolean
   isShaking?: boolean
+  // Multi-tab support (optional for backward compatibility)
+  tabs?: TabState[]
+  activeTabId?: string
 }
 
 interface Props {
@@ -45,7 +58,46 @@ const emit = defineEmits<{
   unsnap: [id: string, cursorX: number, cursorY: number]
   shortcutCommand: [id: string, command: string]
   openNewWindow: [url: string]
+  // Tab operations
+  'switch-tab': [windowId: string, tabId: string]
+  'close-tab': [windowId: string, tabId: string]
+  'new-tab': [windowId: string]
+  'update-tab-title': [windowId: string, tabId: string, title: string]
+  'update-tab-url': [windowId: string, tabId: string, url: string]
 }>()
+
+// Check if window uses tabs
+const hasTabs = computed(() => {
+  return props.window.tabs && props.window.tabs.length > 0 && props.window.activeTabId
+})
+
+// Get active tab
+const activeTab = computed(() => {
+  if (!hasTabs.value) return null
+  return props.window.tabs!.find(t => t.id === props.window.activeTabId!)
+})
+
+// Get display title/icon (from active tab if tabs exist, otherwise from window)
+const displayTitle = computed(() => {
+  if (hasTabs.value && activeTab.value) {
+    return activeTab.value.currentPageTitle || activeTab.value.title
+  }
+  return props.window.currentPageTitle || props.window.title
+})
+
+const displayIcon = computed(() => {
+  if (hasTabs.value && activeTab.value) {
+    return activeTab.value.icon
+  }
+  return props.window.icon
+})
+
+const displayUrl = computed(() => {
+  if (hasTabs.value && activeTab.value) {
+    return activeTab.value.url
+  }
+  return props.window.url
+})
 
 // Dragging state
 const isDragging = ref(false)
@@ -283,15 +335,16 @@ const handleFocus = () => {
 const { copy, copied } = useClipboard()
 const handleCopyUrl = () => {
   // Get the full URL (construct from window location if relative)
-  const url = props.window.url.startsWith('http') 
-    ? props.window.url 
-    : `${window.location.origin}${props.window.url}`
+  const urlToCopy = displayUrl.value
+  const url = urlToCopy.startsWith('http') 
+    ? urlToCopy 
+    : `${window.location.origin}${urlToCopy}`
   copy(url)
 }
 
 // Open current page in standalone mode (exit desktop)
 const handleOpenStandalone = (event: MouseEvent) => {
-  const url = props.window.url
+  const url = displayUrl.value
   
   // Ctrl/Cmd+Click: Open in new tab
   if (event.ctrlKey || event.metaKey) {
@@ -300,6 +353,27 @@ const handleOpenStandalone = (event: MouseEvent) => {
     // Default: Replace current page (exit desktop mode)
     window.top!.location.href = url
   }
+}
+
+// Tab handlers
+const handleSwitchTab = (tabId: string) => {
+  emit('switch-tab', props.window.id, tabId)
+}
+
+const handleCloseTab = (tabId: string) => {
+  emit('close-tab', props.window.id, tabId)
+}
+
+const handleNewTab = () => {
+  emit('new-tab', props.window.id)
+}
+
+const handleTabUpdateTitle = (tabId: string, pageTitle: string) => {
+  emit('update-tab-title', props.window.id, tabId, pageTitle)
+}
+
+const handleTabUpdateUrl = (tabId: string, url: string) => {
+  emit('update-tab-url', props.window.id, tabId, url)
 }
 
 // Double-click on title bar to maximize
@@ -311,47 +385,22 @@ const handleTitleBarDoubleClick = () => {
   }
 }
 
-// Iframe ref and title tracking
+// Legacy iframe support (for backward compatibility - single tab mode)
 const iframeRef = ref<HTMLIFrameElement | null>(null)
 let titleCheckInterval: number | null = null
 
 // Use initial URL for iframe src - don't reload when window.url changes
-// window.url is updated for persistence, but iframe navigates internally
-const initialSrc = ref(props.window.url)
+const initialSrc = computed(() => displayUrl.value)
 
-// Only update iframe src when window is first created or from external change
-// (e.g., loading from localStorage), not from internal navigation
-watch(() => props.window.url, (newUrl) => {
-  // Only update if iframe hasn't loaded yet or if this is a new window
-  if (!iframeRef.value || initialSrc.value === newUrl) return
-  
-  // Check if this is truly an external change (not from our internal tracking)
-  try {
-    const iframeDocument = iframeRef.value.contentDocument
-    if (iframeDocument) {
-      const currentPath = iframeDocument.location.pathname + iframeDocument.location.search + iframeDocument.location.hash
-      // Only reload if URL is actually different from what iframe is showing
-      if (currentPath !== newUrl) {
-        initialSrc.value = newUrl
-      }
-    }
-  } catch (e) {
-    // Cross-origin or not loaded, safe to update
-    initialSrc.value = newUrl
-  }
-})
-
-// Track if iframe is clicked to update focus
+// Track if iframe is clicked to update focus (legacy mode only)
 const setupIframeFocusDetection = () => {
-  if (!iframeRef.value?.contentWindow) return
+  if (!iframeRef.value?.contentWindow || hasTabs.value) return
   
   try {
-    // Add click listener to iframe content to detect focus
     iframeRef.value.contentWindow.addEventListener('mousedown', () => {
       emit('focus', props.window.id)
     })
     
-    // Also detect when iframe gets focus
     iframeRef.value.contentWindow.addEventListener('focus', () => {
       emit('focus', props.window.id)
     })
@@ -360,42 +409,62 @@ const setupIframeFocusDetection = () => {
   }
 }
 
-// Listen for messages from iframe (shortcuts and new window requests)
+// Listen for messages from iframe (legacy mode only)
 const handleIframeMessage = (event: MessageEvent) => {
-  // Verify message is from our iframe
-  if (event.source !== iframeRef.value?.contentWindow) return
+  if (hasTabs.value) return // Tabs handle their own messages
   
+  if (event.source !== iframeRef.value?.contentWindow) return
   if (!event.data) return
   
-  // Handle desktop shortcut commands
   if (event.data.type === 'desktop-shortcut') {
-    const command = event.data.command
-    emit('shortcutCommand', props.window.id, command)
+    emit('shortcutCommand', props.window.id, event.data.command)
   }
   
-  // Handle open new window requests (Ctrl+Click)
   if (event.data.type === 'open-new-window') {
-    const url = event.data.url
-    emit('openNewWindow', url)
+    emit('openNewWindow', event.data.url)
   }
 }
 
-// Setup message listener
+// Setup message listener (legacy mode)
 onMounted(() => {
-  window.addEventListener('message', handleIframeMessage)
+  if (!hasTabs.value) {
+    window.addEventListener('message', handleIframeMessage)
+  }
+  
+  // Listen for tab content events
+  window.addEventListener('desktop-window-shortcut', handleTabShortcut as EventListener)
+  window.addEventListener('desktop-window-open-new', handleTabOpenNew as EventListener)
 })
 
 onUnmounted(() => {
   window.removeEventListener('message', handleIframeMessage)
+  window.removeEventListener('desktop-window-shortcut', handleTabShortcut as EventListener)
+  window.removeEventListener('desktop-window-open-new', handleTabOpenNew as EventListener)
+  
+  if (titleCheckInterval) {
+    clearInterval(titleCheckInterval)
+  }
 })
 
+const handleTabShortcut = (event: CustomEvent) => {
+  if (event.detail.tabId && hasTabs.value) {
+    emit('shortcutCommand', props.window.id, event.detail.command)
+  }
+}
+
+const handleTabOpenNew = (event: CustomEvent) => {
+  if (event.detail.url) {
+    emit('openNewWindow', event.detail.url)
+  }
+}
+
+// Legacy title checking (single tab mode only)
 const checkIframeTitle = () => {
-  if (!iframeRef.value) return
+  if (hasTabs.value || !iframeRef.value) return
   
   try {
     const iframeDocument = iframeRef.value.contentDocument || iframeRef.value.contentWindow?.document
     if (iframeDocument) {
-      // Update title if changed
       if (iframeDocument.title) {
         const newTitle = iframeDocument.title
         if (newTitle && newTitle !== props.window.currentPageTitle) {
@@ -403,12 +472,9 @@ const checkIframeTitle = () => {
         }
       }
       
-      // Track URL changes for navigation persistence
       const currentUrl = iframeDocument.location.href
       const currentPath = iframeDocument.location.pathname + iframeDocument.location.search + iframeDocument.location.hash
       
-      // Only update if it's a valid, different path
-      // Ignore: blank pages, about:blank, same URL, or just '/'
       const isValidPath = currentPath && 
                           currentPath !== '/' && 
                           currentPath !== '/blank' && 
@@ -420,16 +486,16 @@ const checkIframeTitle = () => {
       }
     }
   } catch (e) {
-    // Cross-origin restriction - silently ignore
-    // This happens when iframe loads content from different domain
+    // Cross-origin restriction
   }
 }
 
 const handleIframeLoad = () => {
-  checkIframeTitle()
-  setupIframeFocusDetection() // Setup click detection for focus
+  if (hasTabs.value) return // Tabs handle their own loading
   
-  // Start periodic checking for title changes (e.g., SPAs)
+  checkIframeTitle()
+  setupIframeFocusDetection()
+  
   if (titleCheckInterval) {
     clearInterval(titleCheckInterval)
   }
@@ -483,13 +549,16 @@ onUnmounted(() => {
     }"
     @mousedown="handleFocus"
   >
-    <!-- Title Bar -->
-    <div :class="{'window-titlebar':true, isMaximized:window.isMaximized && !cardMode}" 
+    <!-- Title Bar (legacy mode - no tabs) -->
+    <div 
+      v-if="!hasTabs"
+      :class="{'window-titlebar':true, isMaximized:window.isMaximized && !cardMode}" 
       @mousedown="startDrag" 
-      @dblclick="handleTitleBarDoubleClick">
+      @dblclick="handleTitleBarDoubleClick"
+    >
       <div class="window-title">
-        <Icon v-if="window.icon" :name="window.icon" class="window-icon" />
-        <span>{{ window.currentPageTitle || window.title }}</span>
+        <Icon v-if="displayIcon" :name="displayIcon" class="window-icon" />
+        <span>{{ displayTitle }}</span>
         <!-- Copy URL Button -->
         <button 
           class="window-control-btn" 
@@ -508,8 +577,6 @@ onUnmounted(() => {
           <Icon name="lucide:external-link" />
         </button>
       </div>
-      
-      
       
       <div class="window-controls">
         <button 
@@ -533,15 +600,90 @@ onUnmounted(() => {
       </div>
     </div>
 
+    <!-- Tab Header (with tabs - merged title bar) -->
+    <div
+      v-if="hasTabs"
+      class="window-titlebar merged-with-tabs"
+      @mousedown="startDrag" 
+      @dblclick="handleTitleBarDoubleClick"
+    >
+      <TabHeader
+        :tabs="window.tabs!"
+        :active-tab-id="window.activeTabId!"
+        :can-close="window.tabs!.length > 1"
+        @switch-tab="handleSwitchTab"
+        @close-tab="handleCloseTab"
+        @new-tab="handleNewTab"
+      >
+        <!-- Slot content: window title actions and controls -->
+        <div class="window-title-actions">
+          <!-- Copy URL Button -->
+          <button 
+            class="window-control-btn" 
+            @click.stop="handleCopyUrl"
+            :title="copied ? 'Copied!' : 'Copy URL'"
+          >
+            <Icon v-if="!copied" name="lucide:link" />
+            <Icon v-else name="lucide:check" />
+          </button>
+          <!-- Open Standalone Button -->
+          <button 
+            class="window-control-btn" 
+            @click.stop="handleOpenStandalone"
+            title="Open in Standalone Mode (Ctrl+Click for new tab)"
+          >
+            <Icon name="lucide:external-link" />
+          </button>
+        </div>
+        
+        <div class="window-controls">
+          <button 
+            v-if="!props.disableMinimize"
+            class="window-control-btn minimize" 
+            @click.stop="handleMinimize"
+          >
+            <Icon name="lucide:minus" />
+          </button>
+          <button 
+            v-if="!cardMode"
+            class="window-control-btn maximize" 
+            @click.stop="handleMaximize"
+          >
+            <Icon v-if="!window.isMaximized" name="lucide:square" />
+            <Icon v-else name="lucide:copy" />
+          </button>
+          <button class="window-control-btn close" @click.stop="handleClose">
+            <Icon name="lucide:x" />
+          </button>
+        </div>
+      </TabHeader>
+    </div>
+
     <!-- Content Area -->
     <div class="window-content">
-      <iframe 
-        ref="iframeRef"
-        :src="initialSrc" 
-        frameborder="0"
-        class="window-iframe"
-        @load="handleIframeLoad"
-      ></iframe>
+      <!-- Multi-tab mode -->
+      <template v-if="hasTabs">
+        <TabContent
+          v-for="tab in window.tabs"
+          :key="tab.id"
+          :tab="tab"
+          :is-active="tab.id === window.activeTabId"
+          @update-page-title="handleTabUpdateTitle"
+          @update-url="handleTabUpdateUrl"
+          @focus="emit('focus', window.id)"
+        />
+      </template>
+      
+      <!-- Legacy single-tab mode (backward compatibility) -->
+      <template v-else>
+        <iframe 
+          ref="iframeRef"
+          :src="initialSrc" 
+          frameborder="0"
+          class="window-iframe"
+          @load="handleIframeLoad"
+        ></iframe>
+      </template>
     </div>
 
     <!-- Resize Handles (only show when not maximized and not in card mode) -->
@@ -558,7 +700,7 @@ onUnmounted(() => {
   </div>
 </template>
 
-<style scoped>
+<style scoped lang="scss">
 .desktop-window {
   --header-bg: var(--app-accent-color);
   position: fixed;
@@ -584,7 +726,6 @@ onUnmounted(() => {
 
 /* Focused window - full brightness */
 .desktop-window.focused {
-/* keep */
   opacity: 1;
   --header-bg: var(--app-accent-color);
   outline: 1px solid var(--app-accent-color);
@@ -698,6 +839,27 @@ onUnmounted(() => {
 
     }
   }
+  
+  // Merged with tabs - adjust styling
+  &.merged-with-tabs {
+    padding: 0;
+    height: var(--app-header-height, 40px);
+    
+    :deep(.tab-header) {
+      width: 100%;
+      height: 100%;
+    }
+    
+    :deep(.window-title-actions) {
+      display: flex;
+      align-items: center;
+      gap: var(--app-space-xs);
+    }
+    
+    :deep(.window-controls) {
+      display: flex;
+      align-items: center;
+    }  }
 }
 
 .window-title {
