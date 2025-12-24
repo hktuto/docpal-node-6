@@ -1,14 +1,9 @@
 <script lang="ts" setup>
 import { useDebounceFn, useMagicKeys, whenever, useMouse } from '@vueuse/core'
+import UserMenu from '~/components/common/menu/UserMenu.vue'
 const dockerContainerRef = ref<HTMLElement | null>(null)
 
 const { x:mouseX, y:mouseY } = useMouse({touch: false })
-
-
-
-
-
-
 
 definePageMeta({
   layout: 'desktop',
@@ -42,34 +37,51 @@ interface WindowState {
 }
 
 type MenuItem = {
-    label: string
-    icon: string
-    url: string
+    label?: string
+    icon?: string
+    url?: string
+    component?: Component
+    action?: () => void
+    hidden?: () => boolean
 }
 
 const menu: MenuItem[] = [
   {
-        label: 'Home',
-        icon: 'lucide:house',
-        url: '/',
-    },
-    {
-        label: 'Workspaces',
-        icon: 'lucide:database',
-        url: '/workspaces',
-    },{
-        label: "Chat",
-        icon: 'lucide:message-circle',
-        url: '/chat',
-    },{
-        label: "Calendar",
-        icon: 'lucide:calendar',
-        url: '/calendar',
-    },{
-        label: "Files",
-        icon: 'lucide:folder',
-        url: '/files',
+      label: 'Home',
+      icon: 'lucide:house',
+      url: '/',
+  },
+  {
+      label: 'Workspaces',
+      icon: 'lucide:database',
+      url: '/workspaces',
+  },{
+      label: "Chat",
+      icon: 'lucide:message-circle',
+      url: '/chat',
+  },{
+      label: "Calendar",
+      icon: 'lucide:calendar',
+      url: '/calendar',
+  },{
+      label: "Files",
+      icon: 'lucide:folder',
+      url: '/files',
+  }
+]
+
+const settingMenu: MenuItem[] = [
+  
+  {
+    label:"Tab Mode",
+    icon:"lucide:layout-list",
+    action:() => {
+      navigateTo("/tabs")
     }
+  },
+  {
+    component: UserMenu,
+  },
 ]
 
 // Window management
@@ -269,7 +281,14 @@ const calculateWindowPosition = (width: number, height: number, windowCount: num
   
   return { x, y }
 }
-
+// open a new url in a new window
+const openUrl = (url: string) => {
+  openWindow({
+    label: url.split('/').pop() || 'Page',
+    icon: 'lucide:file',
+    url: url
+  })
+}
 // Open a new window
 const openWindow = (item: MenuItem) => {
   // Trigger dock bounce animation
@@ -1000,6 +1019,20 @@ onUnmounted(() => {
         width: `${circleSize}px`,
         height: `${circleSize}px`
       }"></div>
+      <div class="dockSeparator"> </div>
+      <template v-for="(item,index) in settingMenu" :key="index">
+        <component v-if="item.component" :is="item.component" :expandState="false" @openUrl="openUrl"/>
+        <div 
+          v-else-if="!item.hidden || !item.hidden()"
+          class="dockItem"
+          :class="{ bouncing: bouncingDockItems.has(item.label || '') }"
+          @click="item.action ? item.action() : openWindow(item)"
+          :title="item.label"
+        >
+          <Icon v-if="item.icon" :name="item.icon" />
+          <span v-if="item.label">{{ item.label }}</span>
+        </div>
+      </template>
       <!-- Separator (if there are minimized windows) -->
       <div v-if="minimizedWindows.length > 0" class="dockSeparator"></div>
       
@@ -1174,7 +1207,11 @@ onUnmounted(() => {
   opacity: 1;
   overflow: hidden;
   isolation: isolate;
+
 }
+.user-menu{
+    width: auto;
+  }
 
 .floatingMenuDockContainer.dock-hidden {
   transform: translateY(calc(100% + var(--app-space-m)));

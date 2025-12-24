@@ -24,9 +24,13 @@ interface WindowState {
 interface Props {
   window: WindowState
   isFocused?: boolean
+  disableMinimize?: boolean // Disable minimize button
+  cardMode?: boolean // Card mode: disable drag/resize, show as card
 }
 
 const props = defineProps<Props>()
+
+const cardMode = computed(() => props.cardMode ?? false)
 const emit = defineEmits<{
   close: [id: string]
   focus: [id: string]
@@ -68,6 +72,9 @@ const savedState = ref<{ x: number, y: number, width: number, height: number } |
 
 // Start dragging
 const startDrag = (e: MouseEvent) => {
+  // Don't allow dragging in card mode
+  if (props.cardMode) return
+  
   isDragging.value = true
   dragStartX.value = e.clientX
   dragStartY.value = e.clientY
@@ -181,7 +188,8 @@ const stopDrag = () => {
 
 // Start resizing
 const startResize = (handle: string, e: MouseEvent) => {
-  if (props.window.isMaximized) return
+  // Don't allow resizing in card mode or when maximized
+  if (props.cardMode || props.window.isMaximized) return
   
   isResizing.value = true
   resizeHandle.value = handle
@@ -296,6 +304,8 @@ const handleOpenStandalone = (event: MouseEvent) => {
 
 // Double-click on title bar to maximize
 const handleTitleBarDoubleClick = () => {
+  // Don't allow maximize in card mode
+  if (props.cardMode) return
   if (!props.window.isMaximized) {
     emit('toggleMaximize', props.window.id)
   }
@@ -450,7 +460,7 @@ onUnmounted(() => {
   <div 
     class="desktop-window"
     :class="{ 
-      'maximized': window.isMaximized,
+      'maximized': window.isMaximized && !cardMode,
       'minimized': window.isMinimized,
       'dragging': isDragging,
       'resizing': isResizing,
@@ -458,22 +468,23 @@ onUnmounted(() => {
       'animating': window.isAnimating,
       'opening': window.isOpening,
       'closing': window.isClosing,
-      'shaking': window.isShaking
+      'shaking': window.isShaking,
+      'card-mode': cardMode
     }"
     :style="{
-      left: window.isMaximized ? '0' : `${window.x}px`,
-      top: window.isMaximized ? '0' : `${window.y}px`,
-      width: window.isMaximized ? '100vw' : `${window.width}px`,
-      height: window.isMaximized ? '100vh' : `${window.height}px`,
-      transform: isDragging ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : 'none',
-      zIndex: window.zIndex,
+      left: cardMode ? 'auto' : (window.isMaximized ? '0' : `${window.x}px`),
+      top: cardMode ? 'auto' : (window.isMaximized ? '0' : `${window.y}px`),
+      width: cardMode ? '100%' : (window.isMaximized ? '100vw' : `${window.width}px`),
+      height: cardMode ? '100%' : (window.isMaximized ? '100vh' : `${window.height}px`),
+      transform: isDragging && !cardMode ? `translate(${dragOffset.x}px, ${dragOffset.y}px)` : 'none',
+      zIndex: cardMode ? 'auto' : window.zIndex,
       visibility: window.isMinimized ? 'hidden' : 'visible',
       pointerEvents: window.isMinimized ? 'none' : 'auto',
     }"
     @mousedown="handleFocus"
   >
     <!-- Title Bar -->
-    <div :class="{'window-titlebar':true, isMaximized:window.isMaximized}" 
+    <div :class="{'window-titlebar':true, isMaximized:window.isMaximized && !cardMode}" 
       @mousedown="startDrag" 
       @dblclick="handleTitleBarDoubleClick">
       <div class="window-title">
@@ -501,10 +512,18 @@ onUnmounted(() => {
       
       
       <div class="window-controls">
-        <button class="window-control-btn minimize" @click.stop="handleMinimize">
+        <button 
+          v-if="!props.disableMinimize"
+          class="window-control-btn minimize" 
+          @click.stop="handleMinimize"
+        >
           <Icon name="lucide:minus" />
         </button>
-        <button class="window-control-btn maximize" @click.stop="handleMaximize">
+        <button 
+          v-if="!cardMode"
+          class="window-control-btn maximize" 
+          @click.stop="handleMaximize"
+        >
           <Icon v-if="!window.isMaximized" name="lucide:square" />
           <Icon v-else name="lucide:copy" />
         </button>
@@ -525,8 +544,8 @@ onUnmounted(() => {
       ></iframe>
     </div>
 
-    <!-- Resize Handles (only show when not maximized) -->
-    <template v-if="!window.isMaximized">
+    <!-- Resize Handles (only show when not maximized and not in card mode) -->
+    <template v-if="!window.isMaximized && !cardMode">
       <div class="resize-handle n" @mousedown="startResize('n', $event)"></div>
       <div class="resize-handle s" @mousedown="startResize('s', $event)"></div>
       <div class="resize-handle e" @mousedown="startResize('e', $event)"></div>
@@ -555,6 +574,12 @@ onUnmounted(() => {
   /* Slightly dim unfocused windows by default */
   
   opacity: 0.95;
+}
+
+.desktop-window.card-mode {
+  position: relative;
+  flex-shrink: 0;
+  height: 100%;
 }
 
 /* Focused window - full brightness */

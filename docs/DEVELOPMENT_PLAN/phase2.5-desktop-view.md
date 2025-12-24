@@ -370,12 +370,7 @@ Solidify the desktop windowing foundation with mobile support, responsive design
 **Goal**: Ensure desktop view gracefully handles mobile devices and small screens
 
 #### Tasks
-- [ ] Detect mobile devices and screen size
-- [ ] Create mobile-optimized layout for desktop page
-  - [ ] Full-screen window mode (no floating windows)
-  - [ ] Swipe gestures to switch windows
-  - [ ] Bottom navigation instead of dock
-  - [ ] Mobile-friendly window controls
+
 - [ ] Handle default layout mobile view
   - [ ] Standard mobile navigation
   - [ ] No desktop mode on mobile by default

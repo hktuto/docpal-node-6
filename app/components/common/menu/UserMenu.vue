@@ -165,10 +165,21 @@ const fetchCompanies = async () => {
   }
 }
 
+const route = useRoute()
+const emit = defineEmits(['openUrl'])
+function openUrl(url: string) {
+  
+ if(route.path === '/desktop') {
+   emit('openUrl', url)
+   return
+  }
+  router.push(url)
+}
+
 const handleCommand = async (command: string) => {
   console.log('handleCommand', command)
   if (command === 'profile') {
-    router.push('/profile')
+    openUrl('/profile')
     return
   }
 
@@ -178,12 +189,12 @@ const handleCommand = async (command: string) => {
   }
 
   if (command === 'company-settings') {
-    router.push('/companies/settings')
+    openUrl('/companies/settings')
     return
   }
 
   if (command === 'settings') {
-    router.push('/settings')
+    openUrl('/settings')
     return
   }
 
@@ -200,6 +211,7 @@ const handleCommand = async (command: string) => {
     if (result.success) {
       ElMessage.success('Company switched successfully')
       // Refresh the page to load new company context
+      // TODO : may need to reset locationStorage when switch company
       window.location.reload()
     } else {
       ElMessage.error(result.error || 'Failed to switch company')

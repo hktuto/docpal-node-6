@@ -4,15 +4,49 @@ import { WorkspaceContextKey } from '~/composables/useWorkspaceContext'
 import type { MenuItem } from '#shared/types/db'
 import {useDebounceFn} from '@vueuse/core'
 
-const isDesktopMode= useIsDesktopMode()
+const { isDesktopMode, isMobile } = useDisplayMode()
 
 const route = useRoute()
 const router = useRouter()
 const workspaceSlug = computed(() => route.params.workspaceSlug as string)
 const expandState = ref(false)
+const mobileMenuOpen = ref(false)
+const mobileWorkspaceMenuOpen = ref(false)
+
+function toggleMobileMenu() {
+  mobileMenuOpen.value = !mobileMenuOpen.value
+  // Close workspace menu if opening main menu
+  if (mobileMenuOpen.value) {
+    mobileWorkspaceMenuOpen.value = false
+  }
+}
+
+function closeMobileMenu() {
+  mobileMenuOpen.value = false
+}
+
+function toggleMobileWorkspaceMenu() {
+  mobileWorkspaceMenuOpen.value = !mobileWorkspaceMenuOpen.value
+  // Close main menu if opening workspace menu
+  if (mobileWorkspaceMenuOpen.value) {
+    mobileMenuOpen.value = false
+  }
+}
+
+function closeMobileWorkspaceMenu() {
+  mobileWorkspaceMenuOpen.value = false
+}
 
 // Setup desktop shortcuts (will send postMessage to parent if in iframe)
 useDesktopShortcuts()
+
+// Close mobile menus when route changes
+watch(() => route.path, () => {
+  if (isMobile.value) {
+    closeMobileMenu()
+    closeMobileWorkspaceMenu()
+  }
+})
 
 // Fetch app data
 const { data: appResponse, pending, refresh: refreshWorkspace, error } = await useApi<SuccessResponse<Workspace>>(() => `/api/workspaces/${workspaceSlug.value}`, {
@@ -201,14 +235,93 @@ const staticNav = [
       Workspace not found
     </div>
     
-    <div v-else-if="workspace" class="appContainer" :class="{ 'desktop-mode': isDesktopMode }">
-      <aside v-if="!isDesktopMode" class="sidebar">
-         <CommonMenu v-model:expandState="expandState" :menu="workspace.menu || []" />
+    <div v-else-if="workspace" class="appContainer" :class="{ 'desktop-mode': isDesktopMode, 'mobile': isMobile }">
+      <!-- Mobile: Hamburger button -->
+      
+      
+      <!-- Desktop: Sidebar -->
+      <aside v-if="!isDesktopMode && !isMobile" class="sidebar">
+         <CommonMenu v-model:expandState="expandState" />
        </aside>
-       <main :class="{ 'no-sidebar': isDesktopMode }">
-        <el-splitter class="app-splitter">
-          <el-splitter-panel size="260px" :min="200" :max="500">
-            <!-- Left Sidebar: Workspace Menu -->
+       
+       <!-- Mobile: Drawer menu -->
+       <CommonMenu 
+         v-if="!isDesktopMode && isMobile"
+         v-model:expandState="expandState"
+         v-model:mobileOpen="mobileMenuOpen"
+         @close="closeMobileMenu"
+       />
+       <main :class="{ 'no-sidebar': isDesktopMode || (isMobile && !mobileMenuOpen && !mobileWorkspaceMenuOpen) }">
+        <!-- Mobile: Workspace Sidebar Drawer -->
+        <Teleport to="body">
+          <Transition name="fade">
+            <div 
+              v-if="isMobile && mobileWorkspaceMenuOpen" 
+              class="mobile-workspace-overlay" 
+              @click="closeMobileWorkspaceMenu"
+            />
+          </Transition>
+        </Teleport>
+        
+        <Transition name="slide">
+          <aside 
+            v-if="isMobile && mobileWorkspaceMenuOpen"
+            class="app-sidebar mobile-sidebar"
+          >
+            <!-- Mobile: Close button -->
+            <div class="mobile-workspace-close">
+              <div class="app-header-mobile">
+                <div class="app-icon">
+                  <Icon v-if="workspace.icon" :name="workspace.icon" size="24" />
+                  <Icon v-else name="lucide:box" size="24" />
+                </div>
+                <div v-if="workspace.name" class="app-info">
+                  <h2 class="app-name">{{ workspace.name }}</h2>
+                </div>
+              </div>
+              <button class="mobile-close-btn" @click="closeMobileWorkspaceMenu">
+                <Icon name="lucide:x" />
+              </button>
+            </div>
+            
+            <!-- Mobile: Action buttons row -->
+            <div class="mobile-workspace-actions">
+              <button 
+                class="mobile-action-button"
+                @click="refreshCurrentPage"
+                title="Refresh Page"
+              >
+                <Icon name="lucide:refresh-cw" />
+                <span>Refresh</span>
+              </button>
+              <button 
+                class="mobile-action-button"
+                @click="navigateToSettings"
+                title="App Settings"
+              >
+                <Icon name="lucide:settings" />
+                <span>Settings</span>
+              </button>
+            </div>
+            
+            <!-- Dynamic App Menu -->
+            <AppMenu
+              :workspace-slug="workspaceSlug"
+              :menu="workspace.menu || []"
+              @create="handleCreateMenuItem"
+              @update="handleMenuUpdate"
+            />
+          </aside>
+        </Transition>
+        
+        <el-splitter class="app-splitter" :class="{ 'mobile': isMobile }">
+          <el-splitter-panel 
+            v-if="!isMobile"
+            size="260px" 
+            :min="200" 
+            :max="500"
+          >
+            <!-- Desktop: Workspace Sidebar -->
             <aside class="app-sidebar">
               <!-- App Header -->
               <div v-loading="pending" class="app-header">
@@ -221,7 +334,6 @@ const staticNav = [
                   <!-- <p v-if="app.description" class="app-description">{{ app.description }}</p> -->
                 </div>
                 <div class="actionsButtons">
-
                   <button 
                     class="app-header-button"
                     @click="refreshCurrentPage"
@@ -254,6 +366,26 @@ const staticNav = [
             <div class="app-content">
               <!-- Page Header -->
               <header class="content-header">
+                <!-- Mobile: Workspace menu button -->
+                 <div class="mobileMenuToggle">
+                  <button 
+                    v-if="isMobile && !isDesktopMode" 
+                    class="mobile-menu-toggle"
+                    @click="toggleMobileMenu"
+                    aria-label="Toggle menu"
+                  >
+                    <Icon name="lucide:menu" />
+                  </button>
+                  <button 
+                    v-if="isMobile"
+                    class="mobile-workspace-toggle"
+                    @click="toggleMobileWorkspaceMenu"
+                    aria-label="Toggle workspace menu"
+                  >
+                    <Icon v-if="workspace.icon" :name="workspace.icon" size="20" />
+                    <Icon v-else name="lucide:menu" size="20" />
+                  </button>
+                </div>
                 <!-- Breadcrumb -->
                 <div class="breadcrumb">
                   <template v-for="(crumb, index) in breadcrumb" :key="crumb.url">
@@ -297,6 +429,13 @@ const staticNav = [
   position: relative;
 }
 
+.mobileMenuToggle{
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: var(--app-space-s);
+}
 .sidebar {
   
   background: var(--app-bg-color);
@@ -313,6 +452,235 @@ main {
 
 main.no-sidebar {
   width: 100%;
+}
+
+/* Mobile hamburger button */
+.mobile-menu-toggle {
+  
+  background: var(--app-bg-color);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-border-radius-m);
+  padding: var(--app-space-s);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-color-primary);
+  box-shadow: var(--app-shadow-s);
+  transition: all 0.2s;
+  
+  &:hover {
+    background: var(--app-fill-color-light);
+    border-color: var(--app-primary-color);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* Mobile: Hide splitter, show full-width content */
+.appContainer.mobile .app-splitter {
+  :deep(.el-splitter__wrapper) {
+    flex-direction: column;
+  }
+  
+  :deep(.el-splitter-panel) {
+    width: 100% !important;
+  }
+  
+  :deep(.el-splitter__bar) {
+    display: none;
+  }
+}
+
+/* Mobile: Workspace sidebar as drawer */
+.app-sidebar.mobile-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  z-index: 10002;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.15);
+  background: var(--app-bg-color-page);
+  overflow-y: auto;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-workspace-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10001;
+  backdrop-filter: blur(2px);
+}
+
+.mobile-workspace-close {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--app-space-s) calc(var(--app-space-s) * 2);
+  border-bottom: 1px solid var(--app-border-color);
+  flex-shrink: 0;
+  height: var(--app-header-height);
+}
+
+.app-header-mobile {
+  display: flex;
+  align-items: center;
+  gap: var(--app-space-m);
+  flex: 1;
+  min-width: 0;
+  
+  .app-icon {
+    color: var(--app-primary-color);
+    flex-shrink: 0;
+  }
+  
+  .app-info {
+    flex: 1;
+    min-width: 0;
+    
+    .app-name {
+      margin: 0;
+      font-size: var(--app-font-size-l);
+      font-weight: 600;
+      color: var(--app-text-color-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
+.mobile-close-btn {
+  background: transparent;
+  border: none;
+  padding: var(--app-space-xs);
+  cursor: pointer;
+  color: var(--app-text-color-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--app-border-radius-s);
+  transition: all 0.2s;
+  flex-shrink: 0;
+  
+  &:hover {
+    background: var(--app-fill-color-light);
+    color: var(--app-text-color-primary);
+  }
+}
+
+.mobile-workspace-actions {
+  display: flex;
+  gap: var(--app-space-s);
+  padding: var(--app-space-s) calc(var(--app-space-s) * 2);
+  border-bottom: 1px solid var(--app-border-color);
+  flex-shrink: 0;
+}
+
+.mobile-action-button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--app-space-xs);
+  padding: var(--app-space-s);
+  background: var(--app-bg-color);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-border-radius-m);
+  color: var(--app-text-color-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: var(--app-font-size-s);
+  
+  &:hover {
+    background: var(--app-fill-color-light);
+    border-color: var(--app-primary-color);
+    color: var(--app-primary-color);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  span {
+    font-weight: 500;
+  }
+}
+
+.mobile-workspace-toggle {
+  background: var(--app-bg-color);
+  border: 1px solid var(--app-border-color);
+  border-radius: var(--app-border-radius-m);
+  padding: var(--app-space-xs);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--app-text-color-primary);
+  transition: all 0.2s;
+  flex-shrink: 0;
+  margin-right: var(--app-space-s);
+  
+  &:hover {
+    background: var(--app-fill-color-light);
+    border-color: var(--app-primary-color);
+    color: var(--app-primary-color);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+
+/* Desktop: Hide mobile-specific styles */
+@media (min-width: 768px) {
+  .mobile-menu-toggle {
+    display: none;
+  }
+  
+  .appContainer.mobile .app-content {
+    padding-top: 0;
+  }
+  
+  .app-sidebar.mobile-sidebar {
+    position: static;
+    box-shadow: none;
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+  }
+  
+  .mobile-workspace-overlay,
+  .mobile-workspace-close,
+  .mobile-workspace-actions,
+  .mobile-workspace-toggle {
+    display: none;
+  }
+  
+  .appContainer.mobile .app-splitter {
+    :deep(.el-splitter__wrapper) {
+      flex-direction: row;
+    }
+    
+    :deep(.el-splitter-panel) {
+      width: auto !important;
+    }
+    
+    :deep(.el-splitter__bar) {
+      display: block;
+    }
+  }
 }
 
 .app-splitter {
@@ -471,7 +839,14 @@ main.no-sidebar {
     }
   }
 }
+.mobile{
+  .app-content{
 
+    .content-header{
+      padding: var(--app-space-s) var(--app-space-s);
+    }
+  }
+}
 /* Right Content Area */
 .app-content {
   height: 100%;
@@ -484,23 +859,32 @@ main.no-sidebar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: var(--app-space-l);
+    gap: var(--app-space-m);
     padding: var(--app-space-m) var(--app-space-l);
     border-bottom: 1px solid var(--app-border-color);
     background: var(--app-bg-color);
     flex-shrink: 0;
     height: var(--app-header-height);
+    overflow: hidden;
+    .breadcrumb {
+      flex: 1;
+      min-width: 0;
+    }
     .breadcrumb {
       flex: 1;
       min-width: 0;
       display: flex;
+      flex-flow: row nowrap;
+      justify-content: flex-start;
+      align-content: center;
       align-items: center;
-      gap: var(--app-space-s);
+      gap: var(--app-space-xs);
       font-size: var(--app-font-size-s);
-      
+      overflow: hidden;
       .breadcrumb-item {
         color: var(--app-text-color-secondary);
         white-space: nowrap;
+        text-overflow: ellipsis;
       }
       
       .breadcrumb-link {
