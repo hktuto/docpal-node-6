@@ -77,6 +77,7 @@ const displayTitle = (tab: TabState) => {
     <button class="new-tab-button" @click="emit('new-tab')" title="New tab">
       <Icon name="lucide:plus" />
     </button>
+    <div class="space"></div>
     <!-- Slot for window controls (minimize, maximize, close, etc.) -->
     <div class="window-controls-slot">
       <slot name="window-controls" />
@@ -89,7 +90,9 @@ const displayTitle = (tab: TabState) => {
   --header-bg: var(--app-grey-850);
   --text-color: var(--app-text-color-primary);
   display: flex;
-  align-items: stretch;
+  flex-flow: row nowrap;
+  justify-content: flex-start;
+  align-items: center;
   background: var(--header-bg);
   border-bottom: 1px solid var(--app-border-color);
   height: var(--app-header-height, 40px);
@@ -99,11 +102,10 @@ const displayTitle = (tab: TabState) => {
 }
 
 .tabs-container {
-  flex: 1;
   display: flex;
   overflow-x: auto;
   overflow-y: hidden;
-  
+  height: 100%;
   // Hide scrollbar but keep functionality
   scrollbar-width: thin;
   scrollbar-color: var(--app-border-color) transparent;
@@ -121,7 +123,9 @@ const displayTitle = (tab: TabState) => {
     border-radius: 2px;
   }
 }
-
+.space{
+  flex: 1 0 auto;
+}
 .tab-item {
   display: flex;
   align-items: center;

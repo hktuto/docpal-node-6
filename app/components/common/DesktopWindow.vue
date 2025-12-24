@@ -718,7 +718,7 @@ onUnmounted(() => {
 .desktop-window.focused {
   opacity: 1;
   --header-bg: var(--app-grey-850);
-  outline: 1px solid var(--app-accent-color);
+  outline: 1px solid var(--app-primary-2);
 }
 
 
