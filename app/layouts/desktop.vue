@@ -11,7 +11,7 @@ isDesktopMode.value = true
 
   <div class="desktop-layout">
     <slot/>
-    <LoadingBg />
+    <!-- <LoadingBg /> -->
   </div>
 </template>
 
@@ -22,5 +22,6 @@ isDesktopMode.value = true
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  background: var(--app-bg);
 }
 </style>
