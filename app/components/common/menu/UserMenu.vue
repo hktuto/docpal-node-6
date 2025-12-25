@@ -89,11 +89,6 @@
             <span>Company Settings</span>
           </el-dropdown-item>
 
-          <el-dropdown-item divided command="settings">
-            <Icon name="lucide:settings" />
-            <span>Settings</span>
-          </el-dropdown-item>
-
           <el-dropdown-item divided command="logout">
             <Icon name="lucide:log-out" />
             <span>Logout</span>

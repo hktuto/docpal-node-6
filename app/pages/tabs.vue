@@ -684,6 +684,7 @@ onUnmounted(() => {
 .tab-mode-page {
   height: 100dvh;
   overflow: hidden;
+  background: var(--app-grey-950);
 }
 
 .tab-mode-container {

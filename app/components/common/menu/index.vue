@@ -97,11 +97,7 @@ const footerMenu: MenuItem[] = [
         action: openInDesktop,
         hidden: () => isMobile.value, // Hide when mobile
     },
-    {
-        label: 'Settings',
-        icon: 'lucide:settings',
-        url: '/settings',
-    },
+
     {
         component: UserMenu,
     },

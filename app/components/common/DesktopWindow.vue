@@ -618,12 +618,19 @@ onUnmounted(() => {
         @copy-url="handleCopyUrl"
         @open-standalone="handleOpenStandalone"
       >
+      <template #header-left>
+        <div class="window-title-actions">
+          <button class="window-control-btn back-button" >
+            <Icon name="lucide:arrow-left" />
+          </button>
+          <button class="window-control-btn forward-button" >
+            <Icon name="lucide:arrow-right" />
+          </button>
+        </div>
+      </template>
         <!-- Slot content: window title actions and controls -->
         <template #window-controls>
-        <div class="window-title-actions">
-          <!-- Copy URL Button -->
-          
-        </div>
+        
         
         <div class="window-controls">
           <button 
@@ -914,20 +921,44 @@ onUnmounted(() => {
   transform: scale(1.05);
 }
 
-.window-control-btn.close:hover {
-  background: #ff4757;
-  color: white;
+
+.window-control-btn{
+  &.back-button{
+    &[disabled]{
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    &:not([disabled]):hover {
+      background: var(--app-info-color);
+      color: white;
+    }
+  }
+  &.forward-button{
+    &:hover {
+      background: var(--app-info-color);
+      color: white;
+    }
+  }
+  &.close{
+    &:hover {
+      background: var(--app-danger-color);
+      color: white;
+    }
+  }
+  &.maximize{
+    &:hover {
+      background: var(--app-success-color);
+      color: white;
+    }
+  }
+  &.minimize{
+    &:hover {
+      background: var(--app-warning-color);
+      color: white;
+    }
+  }
 }
 
-.window-control-btn.maximize:hover {
-  background: #2ed573;
-  color: white;
-}
-
-.window-control-btn.minimize:hover {
-  background: #ffa502;
-  color: white;
-}
 
 .window-content {
   flex: 1;
