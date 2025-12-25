@@ -4,6 +4,9 @@ dependencies:
   '@electric-sql/pglite':
     specifier: ^0.3.14
     version: 0.3.14
+  '@electric-sql/pglite-sync':
+    specifier: ^0.4.0
+    version: 0.4.0(@electric-sql/pglite@0.3.14)
   '@nuxt/icon':
     specifier: 2.1.1
     version: 2.1.1(vite@7.3.0)(vue@3.5.25)
@@ -420,6 +423,34 @@ packages:
 
   /@dxup/unimport@0.1.2:
     resolution: {integrity: sha512-/B8YJGPzaYq1NbsQmwgP8EZqg40NpTw4ZB3suuI0TplbxKHeK94jeaawLmVhCv+YwUnOpiWEz9U6SeThku/8JQ==}
+    dev: false
+
+  /@electric-sql/client@1.3.1:
+    resolution: {integrity: sha512-Tr7jY60acKfxuODOzGcJYzEXtTJyiE8l237hMpCPHjflr+qSGYVZ0NkOnFgAE2xIPFgP1zn05nQb3+mkUu8qUQ==}
+    dependencies:
+      '@microsoft/fetch-event-source': 2.0.1
+    optionalDependencies:
+      '@rollup/rollup-darwin-arm64': 4.54.0
+    dev: false
+
+  /@electric-sql/experimental@1.0.14(@electric-sql/client@1.3.1):
+    resolution: {integrity: sha512-Wpv9UC7r4JYnQO4GbtQve7SVIX/VcBwAP12Xx11ObK2TBI+NJHtDRimUEKKQorq9Kr6yTAJ3BYOKCINxFsbDIg==}
+    peerDependencies:
+      '@electric-sql/client': 1.0.14
+    dependencies:
+      '@electric-sql/client': 1.3.1
+    optionalDependencies:
+      '@rollup/rollup-darwin-arm64': 4.54.0
+    dev: false
+
+  /@electric-sql/pglite-sync@0.4.0(@electric-sql/pglite@0.3.14):
+    resolution: {integrity: sha512-0JUBXs7jK2monIrtvfSO7LmiKCyYfi+hQ+7EvVVNei0R7yeyRiSaywkk6yYtJZpTTRFKoByjpHwIc3fbXfgZSA==}
+    peerDependencies:
+      '@electric-sql/pglite': 0.3.14
+    dependencies:
+      '@electric-sql/client': 1.3.1
+      '@electric-sql/experimental': 1.0.14(@electric-sql/client@1.3.1)
+      '@electric-sql/pglite': 0.3.14
     dev: false
 
   /@electric-sql/pglite@0.3.14:
@@ -1289,6 +1320,10 @@ packages:
     transitivePeerDependencies:
       - encoding
       - supports-color
+    dev: false
+
+  /@microsoft/fetch-event-source@2.0.1:
+    resolution: {integrity: sha512-W6CLUJ2eBMw3Rec70qrsEW0jOm/3twwJv21mrmj2yORiaVmVYGS4sSS5yUwvQc1ZlDLYGPnClVWmUUMagKNsfA==}
     dev: false
 
   /@napi-rs/wasm-runtime@1.1.0:

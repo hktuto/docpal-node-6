@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
+    "@electric-sql/pglite-sync": "^0.4.0",
     "@nuxt/icon": "2.1.1",
     "@nuxthub/core": "^0.10.3",
     "@tiptap/pm": "^3.14.0",

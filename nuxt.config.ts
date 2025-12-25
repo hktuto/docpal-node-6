@@ -14,4 +14,18 @@ export default defineNuxtConfig({
     dir: '.data'
   },
   css: ['@/assets/style/main.scss'],
+  
+  // Vite configuration for PGlite WASM support
+  vite: {
+    optimizeDeps: {
+      // Exclude PGlite from optimization to preserve WASM loading
+      exclude: ['@electric-sql/pglite'],
+    },
+    worker: {
+      // Worker format for SharedWorker support
+      format: 'es',
+    },
+    // Ensure WASM files are handled correctly
+    assetsInclude: ['**/*.wasm'],
+  },
 })

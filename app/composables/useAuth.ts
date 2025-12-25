@@ -1,4 +1,5 @@
-import { successResponse } from '~~/server/utils/response';
+import { initDocpalDB } from './useDocpalDB'
+
 export interface AuthUser {
   id: string
   email: string
@@ -35,29 +36,35 @@ export const useAuth = () => {
   const {$api} = useNuxtApp()
   /**
    * Fetch current user from server
+   * Uses getData() for automatic caching via SharedWorker
    */
-  const fetchUser = async (options?: { skip401Redirect?: boolean }) => {
+  const fetchUser = async (options?: { skip401Redirect?: boolean, skipCache?: boolean }) => {
     try {
       loading.value = true
       error.value = null
-
-      const response = await $api<any>('/api/auth/me', {
-        ...options
-      } as any)
-      console.log('fetchUser', response)
       
-      if (response.data) {
+      const { getData } = useDocpalDB()
+      const result = await getData<{ user: AuthUser, company: AuthCompany }>(
+        '/api/auth/me',
+        { forceRefresh: options?.skipCache }
+      )
+      
+      console.log('[Auth] getData:', result.source, result.fresh)
+      
+      if (result.data) {
         user.value = {
-          ...response.data.user,
-          emailVerifiedAt: response.data.user.emailVerifiedAt ? new Date(response.data.user.emailVerifiedAt) : null,
+          ...result.data.user,
+          emailVerifiedAt: result.data.user.emailVerifiedAt 
+            ? new Date(result.data.user.emailVerifiedAt) 
+            : null,
         }
-        company.value = response.data.company
+        company.value = result.data.company
       } else {
         user.value = null
         company.value = null
       }
     } catch (e) {
-      console.error('Failed to fetch user:', e)
+      console.error('[Auth] fetchUser failed:', e)
       user.value = null
       company.value = null
     } finally {
@@ -84,7 +91,11 @@ export const useAuth = () => {
       user.value = response.data.user
       
       // Fetch full user data including company
-      await fetchUser()
+      await fetchUser({ skipCache: true }) // Skip cache on fresh login
+      
+      // Initialize worker and sync essential data (non-blocking)
+      initDocpalDB()
+      syncEssentialDataInBackground()
 
       return { success: true }
     } catch (e: any) {
@@ -92,6 +103,20 @@ export const useAuth = () => {
       return { success: false, error: error.value }
     } finally {
       loading.value = false
+    }
+  }
+  
+  /**
+   * Sync essential data to worker in background
+   */
+  const syncEssentialDataInBackground = () => {
+    try {
+      const { syncEssentialData } = useDocpalDB()
+      syncEssentialData().catch(e => {
+        console.warn('[Auth] Background sync failed:', e)
+      })
+    } catch (e) {
+      console.warn('[Auth] Worker not available for sync:', e)
     }
   }
 
@@ -136,7 +161,11 @@ export const useAuth = () => {
       user.value = response.data.user
 
       // Fetch full user data including company
-      await fetchUser()
+      await fetchUser({ skipCache: true }) // Skip cache on fresh login
+      
+      // Initialize worker and sync essential data (non-blocking)
+      initDocpalDB()
+      syncEssentialDataInBackground()
 
       return { success: true }
     } catch (e: any) {
