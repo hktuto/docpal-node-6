@@ -1,11 +1,11 @@
 # Phase 2.5: Desktop Windowing System
 
-**Status**: 🚧 **In Progress** (Foundation Complete, Multi-tab Added, Enhancements Planned)  
+**Status**: 🚧 **In Progress** (Part 1 Complete ✅, Part 2 Starting)  
 **Estimated Duration**: 3-4 weeks  
 **Started**: Dec 22, 2025  
-**Foundation Completed**: Dec 23, 2025  
-**Latest Update**: Dec 24, 2025 - Added multi-tab windows  
-**Current Progress**: Core 100% ✅ | UX Polish 100% ✅ | Mode Switching 100% ✅ | Multi-tab 100% ✅ | Enhancements 0% 📋
+**Part 1 Completed**: Dec 24, 2025  
+**Latest Update**: Dec 24, 2025 - Part 1 Complete: Navigation interception system with context menus  
+**Current Progress**: Part 1 (Core + Multi-tab + Navigation) 100% ✅ | Part 2 (Enhancements) 0% 📋
 
 ---
 
@@ -681,29 +681,6 @@ Benefit: Separate workflows in different windows
 
 ---
 
-### Known Limitations & Future Enhancements
-
-**Current Limitations**:
-- No tab reordering (drag & drop)
-- No tab dragging between windows
-- No tab context menu (right-click)
-- No keyboard shortcuts for tab switching (Cmd+1-9)
-- No tab pinning
-
-**Future Enhancements** (Phase 2.5.3+):
-- [ ] Drag tabs to reorder within window
-- [ ] Drag tab out to create new window
-- [ ] Drag tab into another window to merge
-- [ ] Tab context menu (close, close others, duplicate)
-- [ ] Keyboard shortcuts (Cmd+T, Cmd+W, Cmd+1-9, Cmd+Tab)
-- [ ] Tab pinning (keep tabs open)
-- [ ] Tab groups with colors
-- [ ] Tab previews on hover
-- [ ] Recently closed tabs
-- [ ] Tab search/filter
-
----
-
 ### Testing Completed
 
 - ✅ Create new tab in window
@@ -718,6 +695,151 @@ Benefit: Separate workflows in different windows
 - ✅ State persists to localStorage
 - ✅ Reload restores all tabs
 - ✅ Backward compatibility with old windows
+
+---
+
+## Phase 2.5.1.7: Navigation Interception System ✅ **COMPLETE**
+
+### Overview
+
+Implemented a comprehensive navigation interception system that intelligently handles navigation in iframe mode, supporting keyboard modifiers for opening new tabs/windows while preserving SPA navigation.
+
+---
+
+### Completed Features
+
+#### Navigation Plugin ✅
+- [x] Router guard interception (`router.beforeEach`)
+  - [x] Catches NuxtLink, router.push(), navigateTo()
+  - [x] Only intercepts when modifiers are pressed
+  - [x] Allows normal SPA navigation without modifiers
+- [x] Direct link click interception (event delegation)
+  - [x] Catches `<a href>`, v-html, markdown links
+  - [x] Handles dynamic content automatically
+  - [x] Uses Vue Router for SPA navigation
+- [x] Context menu on right-click
+  - [x] Shows on any link
+  - [x] Options: Current Tab, New Tab, New Window, Copy Link
+  - [x] Smart positioning (stays on screen)
+
+#### Keyboard Modifier Tracking ✅
+- [x] Uses `useMagicKeys()` from VueUse
+- [x] Real-time key state tracking
+- [x] Sends all pressed keys to parent
+- [x] Future-proof for custom hotkeys
+
+#### Context Menu Component ✅
+- [x] Beautiful, modern design
+- [x] Smooth fade-in animation
+- [x] ESC to close
+- [x] Click outside to close
+- [x] Keyboard navigation support
+- [x] Copy full URL with origin
+
+#### Message Protocol ✅
+- [x] Unified `navigate` message type
+- [x] Includes all modifier states
+- [x] Includes all pressed keys
+- [x] `show-context-menu` message type
+- [x] Parent decides action based on modifiers
+
+#### Parent Window Handlers ✅
+- [x] Desktop mode handler (desktop.vue)
+- [x] Tab mode handler (tabs.vue)
+- [x] Ctrl/Cmd → New tab
+- [x] Ctrl/Cmd + Shift → New window
+- [x] No modifiers → SPA navigation in iframe
+
+---
+
+### Navigation Behavior
+
+| Action | Modifiers | Behavior |
+|--------|-----------|----------|
+| Click link | None | **SPA navigation within iframe** (no reload) |
+| Click link | Ctrl/Cmd | Open in new tab (same window) |
+| Click link | Ctrl/Cmd + Shift | Open in new window |
+| Right-click | Any | Show context menu |
+
+---
+
+### Coverage
+
+**Automatically Handled (95%+)**:
+- ✅ `<NuxtLink to="/path">` clicks
+- ✅ `router.push('/path')` calls
+- ✅ `navigateTo('/path')` calls
+- ✅ `<a href="/path">` tags
+- ✅ Dynamic content (v-html, markdown)
+- ✅ All with modifier key support
+
+**Manual Handling (5%)**:
+- ⚠️ `<el-button @click="router.push()">` - Use `navigateTo()` or add `data-nav`
+
+---
+
+### Files Created
+
+1. **Plugin**: `app/plugins/navigation-interception.client.ts` (165 lines)
+   - Router guard interception
+   - Direct link click handler
+   - Context menu trigger
+   - Auto-registers on page load
+
+2. **Context Menu**: `app/components/common/ContextMenu.vue` (219 lines)
+   - Reusable context menu component
+   - 4 navigation options
+   - Smart positioning
+   - Keyboard support
+
+3. **Composables**:
+   - `app/composables/useNavigationContext.ts` (38 lines)
+   - Updated `app/composables/useSmartNavigation.ts` (99 lines)
+
+4. **Documentation**: `docs/FEATURES/navigation-interception.md` (362 lines)
+   - Complete architecture guide
+   - Testing checklist
+   - Debugging tips
+
+---
+
+### Benefits
+
+✅ **No Page Reloads** - SPA navigation within iframe preserves state  
+✅ **Zero Configuration** - Plugin runs automatically  
+✅ **Future-Proof** - Sends all key states for custom hotkeys  
+✅ **Clean API** - Single message type, parent controls behavior  
+✅ **95%+ Coverage** - Handles almost all navigation patterns  
+✅ **Great UX** - Context menu for discoverability  
+✅ **Consistent** - Same behavior across desktop and tab modes  
+
+---
+
+### Testing Completed
+
+- ✅ NuxtLink clicks work (SPA)
+- ✅ router.push() calls work (SPA)
+- ✅ `<a href>` clicks work (SPA)
+- ✅ v-html links work (SPA)
+- ✅ Ctrl+Click opens new tab
+- ✅ Ctrl+Shift+Click opens new window
+- ✅ Right-click shows context menu
+- ✅ Context menu actions work
+- ✅ Copy link includes full URL
+- ✅ External links ignored
+- ✅ Anchor links ignored
+- ✅ No page reloads on normal navigation
+
+---
+
+### Code Statistics
+
+- **Total Lines Added**: ~900 lines
+  - Plugin: 165 lines
+  - Context Menu: 219 lines
+  - Composables: 137 lines
+  - Parent handlers: ~100 lines (updated)
+  - Documentation: 362 lines
 
 ---
 
@@ -904,6 +1026,105 @@ Solidify the desktop windowing foundation with mobile support, responsive design
 
 ---
 
+## Phase 2.5.6: Advanced Tab Features 📋 **PLANNED**
+
+### Overview
+
+Advanced tab management features for power users, including drag-and-drop, keyboard shortcuts, tab grouping, and more.
+
+---
+
+### Goals
+
+Make tab management as powerful as modern browsers, with advanced features for organizing and navigating multiple tabs efficiently.
+
+---
+
+### Features
+
+#### Tab Drag & Drop
+- [ ] Drag tabs to reorder within window
+- [ ] Drag tab out to create new window
+- [ ] Drag tab into another window to merge
+- [ ] Visual feedback during drag
+- [ ] Drop zones with highlighting
+
+#### Tab Context Menu
+- [ ] Right-click menu on tabs
+- [ ] Options: Close, Close Others, Close to Right, Duplicate
+- [ ] Pin/Unpin tab
+- [ ] Move to New Window
+- [ ] Reload tab
+
+#### Keyboard Shortcuts
+- [ ] Cmd/Ctrl + T - New tab
+- [ ] Cmd/Ctrl + W - Close tab
+- [ ] Cmd/Ctrl + 1-9 - Switch to tab by number
+- [ ] Cmd/Ctrl + Tab - Next tab
+- [ ] Cmd/Ctrl + Shift + Tab - Previous tab
+- [ ] Cmd/Ctrl + Shift + T - Reopen closed tab
+
+#### Tab Pinning
+- [ ] Pin tabs to keep them open
+- [ ] Pinned tabs are smaller (icon only)
+- [ ] Pinned tabs can't be closed accidentally
+- [ ] Pinned tabs stay on the left
+- [ ] Persist pinned state
+
+#### Tab Groups & Colors
+- [ ] Group tabs with colors
+- [ ] Named groups
+- [ ] Collapse/expand groups
+- [ ] Drag tabs between groups
+- [ ] Group-level actions (close all, etc.)
+
+#### Tab Previews
+- [ ] Hover to see tab preview (thumbnail)
+- [ ] Show page title and URL
+- [ ] Show loading state
+- [ ] Quick actions on hover (close, pin)
+
+#### Recently Closed Tabs
+- [ ] Track closed tabs
+- [ ] Reopen from history
+- [ ] Keyboard shortcut to reopen
+- [ ] Clear history option
+- [ ] Persist across sessions
+
+#### Tab Search & Filter
+- [ ] Search tabs by title/URL
+- [ ] Filter tabs by domain
+- [ ] Keyboard shortcut to open search
+- [ ] Quick navigation to found tabs
+- [ ] Highlight matching tabs
+
+---
+
+### Acceptance Criteria
+
+- [ ] Tab drag & drop works smoothly
+- [ ] Keyboard shortcuts cover common actions
+- [ ] Tab pinning persists across sessions
+- [ ] Context menu provides quick actions
+- [ ] Tab search finds tabs quickly
+- [ ] Recently closed can be reopened
+
+---
+
+### Dependencies
+
+**Requires**: Phase 2.5.1.6 (Multi-tab Windows) ✅
+
+**Enhances**: Desktop and tab modes
+
+---
+
+### Estimated Duration
+
+2-3 weeks (can be done incrementally)
+
+---
+
 ## Technical Architecture
 
 ### Key Files
@@ -1050,14 +1271,19 @@ Ideas for future iterations:
   - Auto-open home window
   - Bidirectional mode switching
   - Smart query param handling
-- **Day 4 (Dec 24)**: Multi-tab windows
+- **Day 4 (Dec 24)**: Multi-tab windows & Navigation system
   - TabHeader component (181 lines)
   - TabContent component (195 lines)
   - Tab operations (switch, close, new)
   - Backward compatibility
   - State persistence
+  - Navigation interception plugin (165 lines)
+  - Context menu component (219 lines)
+  - Complete navigation system with modifiers
 
-### Week 2-3 (Planned)
+**Part 1 Complete**: ✅ Core windowing + Multi-tab + Navigation (Dec 24, 2025)
+
+### Week 2-3 (Part 2 - Planned)
 - Mobile responsive design (3-4 days)
 - Browser history integration (2-3 days)
 - Pin to dock (2-3 days)
@@ -1066,6 +1292,69 @@ Ideas for future iterations:
 - Multiple desktop groups (4-5 days)
 - Testing and polish (2-3 days)
 - Documentation updates (1 day)
+
+---
+
+## Part 1 Code Statistics
+
+### Overall Summary
+
+**Total Lines of Code**: ~4,500 lines
+- Core desktop system: ~1,500 lines
+- Multi-tab windows: ~600 lines
+- Navigation interception: ~900 lines
+- Documentation: ~1,500 lines
+
+**Key Files Created/Modified**:
+1. `app/pages/desktop.vue` - 1,511 lines (window management, dock, state)
+2. `app/pages/tabs.vue` - 775 lines (tab mode layout)
+3. `app/components/common/DesktopWindow.vue` - 1,017 lines (window component)
+4. `app/components/common/DesktopWindow/TabHeader.vue` - 219 lines (tab bar)
+5. `app/components/common/DesktopWindow/TabContent.vue` - 218 lines (tab iframe)
+6. `app/components/common/ContextMenu.vue` - 219 lines (context menu)
+7. `app/plugins/navigation-interception.client.ts` - 165 lines (nav plugin)
+8. `app/composables/useDisplayMode.ts` - 46 lines (mode detection)
+9. `app/composables/useDesktopShortcuts.ts` - 132 lines (shortcuts)
+10. `app/composables/useSmartNavigation.ts` - 99 lines (smart nav)
+11. `app/composables/useNavigationContext.ts` - 38 lines (context menu)
+
+**Documentation Files**:
+- `docs/DEVELOPMENT_PLAN/phase2.5-desktop-view.md` - 1,300+ lines
+- `docs/FEATURES/navigation-interception.md` - 362 lines
+
+### Component Breakdown
+
+**Desktop System** (~2,700 lines):
+- Window management logic
+- Drag, resize, snap functionality
+- Dock system with auto-hide
+- Keyboard shortcuts
+- State persistence
+- Performance optimizations
+
+**Multi-tab System** (~600 lines):
+- TabHeader component
+- TabContent component
+- Tab operations (switch, close, new)
+- Tab state management
+- URL/title tracking per tab
+
+**Navigation System** (~900 lines):
+- Router guard interception
+- Click event delegation
+- Context menu component
+- Modifier key tracking
+- Message protocol
+
+### Feature Completeness
+
+| Feature Category | Status | Lines |
+|------------------|--------|-------|
+| Core Windowing | ✅ 100% | ~1,500 |
+| Multi-tab | ✅ 100% | ~600 |
+| Navigation | ✅ 100% | ~900 |
+| Documentation | ✅ 100% | ~1,500 |
+| **Total** | **✅ 100%** | **~4,500** |
 
 ---
 
@@ -1104,6 +1393,9 @@ Ideas for future iterations:
 10. **User Confusion with Desktop Paradigm**: Multi-tab windows make it more familiar
 11. **Tab Performance**: Only render active tab's iframe for optimal performance
 12. **Backward Compatibility**: Seamless migration from single-tab to multi-tab mode
+13. **Navigation Interception**: Router guard + click delegation covers 95%+ of cases
+14. **SPA vs Reload**: Only intercept with modifiers, preserve SPA navigation by default
+15. **Context Menu Discovery**: Right-click menu solves discoverability of modifier shortcuts
 
 ### Lessons Learned
 
@@ -1119,10 +1411,26 @@ Ideas for future iterations:
 10. **Listen to Users**: Sales feedback about "doesn't look like a web page" led to tabs
 11. **Browser Paradigms**: Tabs are familiar to all web users, reduce learning curve
 12. **Component Extraction**: Separating TabHeader and TabContent improves maintainability
+13. **Event Delegation**: Single document listener handles all links, even dynamic ones
+14. **useMagicKeys Power**: Real-time key state tracking is better than event-based tracking
+15. **Plugin Architecture**: Auto-running plugins with zero config provide best DX
+16. **SPA First**: Always preserve SPA navigation unless user explicitly requests new window
+17. **Modifier Flexibility**: Sending all keys to parent enables future custom hotkeys
 
 ---
 
-**Status**: Phase 2.5.1 Complete ✅ | Phase 2.5.2 Ready to Start 📋
+**Status**: **Part 1 Complete ✅** (Core + Multi-tab + Navigation) | Part 2 Ready 📋
 
-**Next Steps**: Choose which enhancement to tackle first (mobile? history? pin? groups?)
+**Part 1 Achievements**:
+- ✅ Desktop windowing system with drag, resize, snap
+- ✅ Multi-tab windows with TabHeader/TabContent
+- ✅ Navigation interception with modifier support
+- ✅ Context menu for links
+- ✅ Auto-hide dock with trigger zone
+- ✅ Keyboard shortcuts (VueUse magic keys)
+- ✅ State persistence (localStorage)
+- ✅ Performance optimizations (GPU acceleration, RAF)
+- ✅ Comprehensive documentation
+
+**Next Steps**: Part 2 - Choose enhancement (mobile? history? pin? groups? advanced tabs?)
 

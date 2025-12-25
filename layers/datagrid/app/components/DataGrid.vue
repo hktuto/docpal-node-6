@@ -39,6 +39,7 @@ interface Props {
   // Auto proxy mode - provide API endpoint details
   workspaceSlug?: string
   tableSlug?: string
+  viewId?: string // NEW: Query by view instead of raw table
   autoProxy?: boolean // Enable automatic proxy configuration
   
   // Virtual scrolling - for large datasets

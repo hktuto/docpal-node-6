@@ -49,15 +49,37 @@ const gridColumns = computed(() => {
     
     return {
       id: col.id, // Include column ID for management operations
-    field: col.name,
-    title: col.label,
+      field: col.name,
+      title: col.label,
       minWidth: width || 120,
       width: width,
-    sortable: true,
+      sortable: true,
       visible: !col.isHidden, // Respect column visibility
     }
   })
 })
+
+// Fetch rows from view query endpoint
+const currentPage = ref(1)
+const pageSize = ref(50)
+
+const { data: rowsData, pending: rowsPending, refresh: refreshRows } = await useApi<SuccessResponse<any[]>>(
+  () => {
+    if (!currentView.value?.data.id) return null
+    const limit = pageSize.value
+    const offset = (currentPage.value - 1) * pageSize.value
+    return `/api/query/views/${currentView.value.data.id}/rows?limit=${limit}&offset=${offset}`
+  },
+  {
+    key: `view-rows-${workspaceSlug.value}-${tableSlug.value}`,
+    watch: [currentPage, pageSize, currentView],
+  }
+)
+
+// Extract rows and total from response
+const gridRows = computed(() => rowsData.value?.data || [])
+const totalRows = computed(() => rowsData.value?.meta?.pagination?.total || 0)
+const loading = computed(() => tablePending.value || viewPending.value || rowsPending.value)
 
 // Row dialog state
 const showRowDialog = ref(false)
@@ -67,13 +89,6 @@ const editingRow = ref<any>(null)
 const showColumnDialog = ref(false)
 const editingColumn = ref<DataTableColumn | undefined>(undefined)
 const columnPosition = ref<number | null>(null) // Index where column should be inserted
-
-// Refresh rows (works with proxy mode)
-async function refreshRows() {
-  if (gridRef.value?.refresh) {
-    await gridRef.value.refresh()
-  }
-}
 
 // Add row
 function handleAddRow() {
@@ -312,7 +327,7 @@ useHead({
   <div class="table-view-page">
     <!-- Teleport: Page Actions -->
     <Teleport v-if="table && isMounted" to="#app-page-actions">
-      <nuxt-link :to="`/workspaces/${workspaceSlug}/tables/${tableSlug}/settings`">
+      <nuxt-link :to="`/workspaces/${workspaceSlug}/table/${tableSlug}/settings`">
         <el-button size="small">
           <Icon name="lucide:settings" />
           Settings
@@ -341,7 +356,7 @@ useHead({
       
       <!-- Data Grid with Auto Proxy & Virtual Scroll -->
       <div class="table-data">
-        <DataGrid
+        <!-- <DataGrid
           ref="gridRef"
           :columns="gridColumns"
           :workspace-slug="workspaceSlug"
@@ -359,6 +374,21 @@ useHead({
           @edit-column="handleEditColumn"
           @remove-column="handleRemoveColumn"
           @column-reorder="handleColumnReorder"
+        /> -->
+        <DataGridV 
+          ref="gridRef"
+          :columns="gridColumns"
+          :data="gridRows"
+          :loading="loading"
+          :current-page="currentPage"
+          :page-size="pageSize"
+          :total="totalRows"
+          height="100%"
+          theme="arco"
+          :show-actions="true"
+          @edit="handleEditRow"
+          @delete="handleDeleteRow"
+          @page-change="(page) => currentPage = page"
         />
       </div>
     </div>
