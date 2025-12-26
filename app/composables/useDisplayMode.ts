@@ -9,7 +9,7 @@ export function useDisplayMode() {
   
   // Auto-detect: if page is in iframe, it's desktop mode
   const isDesktopMode = computed(() => {
-    return window.self !== window.top
+    return route.path === '/desktop' || window.self !== window.top
   })
   
   // Detect tab mode: route is /tabs

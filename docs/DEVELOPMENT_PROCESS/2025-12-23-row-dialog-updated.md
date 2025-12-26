@@ -267,3 +267,4 @@ All column config is respected:
 
 **The Add/Edit Row form now supports all 19 field types!** 🎉
 
+

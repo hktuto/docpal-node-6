@@ -37,6 +37,7 @@
     "@types/leaflet": "^1.9.21",
     "@visactor/vtable": "^1.22.8",
     "bcrypt": "^6.0.0",
+    "dockview-vue": "^4.12.0",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
     "element-plus": "^2.12.0",
@@ -53,7 +54,7 @@
     "vxe-table": "~4.17.32",
     "xe-utils": "~3.8.0"
   },
-  "packageManager": "pnpm@8.5.1+sha1.97019f5a8ec2416123506419ab36dd558e4c72eb",
+  "packageManager": "pnpm@10.26.2",
   "devDependencies": {
     "@element-plus/nuxt": "^1.1.4",
     "@iconify-json/lucide": "^1.2.81",
