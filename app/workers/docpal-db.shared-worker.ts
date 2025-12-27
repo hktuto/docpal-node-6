@@ -79,63 +79,7 @@ async function fetchAPI<T = any>(
   return response.json()
 }
 
-/**
- * Sync essential user data on login
- * Called once after authentication
- */
-async function syncEssentialData(): Promise<void> {
-  console.log('[Worker] Syncing essential data...')
-  
-  try {
-    // Fetch current user
-    const userResponse = await fetchAPI<{ data: any }>('/api/auth/me')
-    await cacheData('user', userResponse.data)
-    console.log('[Worker] User data cached')
-    
-    // Fetch workspaces
-    const workspacesResponse = await fetchAPI<{ data: any[] }>('/api/workspaces')
-    await cacheData('workspaces', workspacesResponse.data)
-    console.log('[Worker] Workspaces cached:', workspacesResponse.data.length)
-    
-    broadcast({ type: 'ESSENTIAL_SYNC_COMPLETE' })
-    
-  } catch (error) {
-    console.error('[Worker] Essential sync failed:', error)
-    broadcast({ type: 'ESSENTIAL_SYNC_FAILED', error: (error as Error).message })
-    throw error
-  }
-}
 
-/**
- * Cache data in local PGlite
- */
-async function cacheData(key: string, data: any): Promise<void> {
-  const db = await initDB()
-  const now = Date.now()
-  
-  await db.exec(`
-    INSERT INTO _cache_meta (key, data, timestamp, ttl)
-    VALUES ('${key}', '${JSON.stringify(data).replace(/'/g, "''")}', ${now}, 0)
-    ON CONFLICT (key) DO UPDATE SET 
-      data = EXCLUDED.data,
-      timestamp = EXCLUDED.timestamp
-  `)
-}
-
-/**
- * Get cached data from local PGlite
- */
-async function getCachedData<T = any>(key: string): Promise<T | null> {
-  const db = await initDB()
-  
-  const result = await db.query(`
-    SELECT data FROM _cache_meta WHERE key = $1
-  `, [key])
-  
-  if (result.rows.length === 0) return null
-  
-  return (result.rows[0] as any).data as T
-}
 
 // ============================================
 // Database Initialization
@@ -486,27 +430,6 @@ async function handleMessage(port: MessagePort, message: WorkerMessage): Promise
         
       // ========== API Operations ==========
       
-      case 'FETCH_API':
-        // Generic API fetch with cookie auth
-        result = await fetchAPI(payload.endpoint, payload.options)
-        break
-        
-      case 'SYNC_ESSENTIAL':
-        // Sync essential user data on login
-        await syncEssentialData()
-        result = { success: true }
-        break
-        
-      case 'GET_USER':
-        // Get cached user data
-        result = await getCachedData('user')
-        break
-        
-      case 'GET_WORKSPACES':
-        // Get cached workspaces
-        result = await getCachedData('workspaces')
-        break
-        
       case 'CHECK_AUTH':
         // Verify auth is still valid
         try {

@@ -301,10 +301,8 @@ export function useDocpalDB() {
       if (Date.now() - start > timeoutMs) {
         throw new Error('Timeout waiting for database')
       }
-      console.log('waitForReady', status.value)
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    console.log('waitForReady', status.value)
   }
   
   // ========== Smart Data Fetching ==========
@@ -354,40 +352,6 @@ export function useDocpalDB() {
     })
   }
   
-  // ========== Legacy API Methods (kept for compatibility) ==========
-  
-  /**
-   * Fetch from API using worker (with cookie auth)
-   * @deprecated Use getData() instead for automatic caching
-   */
-  async function fetchAPI<T = any>(endpoint: string, options?: RequestInit): Promise<T> {
-    return sendMessage('FETCH_API', { endpoint, options })
-  }
-  
-  /**
-   * Sync essential user data (user, workspaces, etc.)
-   * Call this after login
-   */
-  async function syncEssentialData(): Promise<void> {
-    await sendMessage('SYNC_ESSENTIAL')
-  }
-  
-  /**
-   * Get cached user data
-   * @deprecated Use getData('/api/auth/me') instead
-   */
-  async function getUser<T = any>(): Promise<T | null> {
-    return sendMessage('GET_USER')
-  }
-  
-  /**
-   * Get cached workspaces
-   * @deprecated Use getData('/api/workspaces') instead
-   */
-  async function getWorkspaces<T = any>(): Promise<T[] | null> {
-    return sendMessage('GET_WORKSPACES')
-  }
-  
   /**
    * Check if authentication is still valid
    */
@@ -410,12 +374,6 @@ export function useDocpalDB() {
     getStatus,
     ping,
     waitForReady,
-    
-    // Legacy API methods (prefer getData)
-    fetchAPI,
-    syncEssentialData,
-    getUser,
-    getWorkspaces,
     checkAuth,
     
     // Reactive state
