@@ -8,33 +8,20 @@
   useHead({
     title: 'Home - DocPal'
   })
-  const localState = ref(0)
-  const shareState = useState('shareState', () => 0)
-  const homePageRef = ref<HTMLDivElement | null>(null)
-  onMounted(() => {
-    console.log('HomePage mounted')
-    console.log('HomePage ref', homePageRef.value)
-    const boundingClientRect = homePageRef.value?.getBoundingClientRect()
-    console.log('Bounding client rect', boundingClientRect)
-  })
+
   </script>
   
   <template>
     <div ref="homePageRef" class="home-page">
       <!-- Header -->
-      localState: {{ localState }}
-      shareState: {{ shareState }}
-      {{ params }}
+
       <div class="home-page__header">
         <div>
           <h1 class="home-page__title">Home Dashboard</h1>
           <p class="home-page__subtitle">
             Your personalized workspace is coming soon
           </p>
-          <button @click="localState++">local Increment</button>
-          <button @click="localState--">local Decrement</button>
-          <button @click="shareState++">share Increment</button>
-          <button @click="shareState--">share Decrement</button>
+
         </div>
       </div>
   
