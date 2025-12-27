@@ -6,7 +6,6 @@ import {
     themeReplit,
     type DockviewReadyEvent
 } from 'dockview-vue';
-
 definePageMeta({
   layout: false
 })
@@ -16,12 +15,18 @@ const dockApi = ref<DockviewApi | null>(null)
     dockApi.value?.addPanel({
       id: 'home',
       title: 'Home',
-      component:'HomePage'
+      component: 'Pane',
+      params:{
+        key: 'home'
+      }
     })
     dockApi.value?.addPanel({
       id: 'home2',
       title: 'Home2',
-      component:'HomePage'
+      component:'Pane',
+      params:{
+        key: 'home2'
+      }
     })
   }
 function onLoad() {

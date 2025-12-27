@@ -2,20 +2,29 @@
   definePageMeta({
     layout: 'default'
   })
-  
+  const props = defineProps<{
+    params: any
+  }>()
   useHead({
     title: 'Home - DocPal'
   })
   const localState = ref(0)
   const shareState = useState('shareState', () => 0)
+  const homePageRef = ref<HTMLDivElement | null>(null)
+  onMounted(() => {
+    console.log('HomePage mounted')
+    console.log('HomePage ref', homePageRef.value)
+    const boundingClientRect = homePageRef.value?.getBoundingClientRect()
+    console.log('Bounding client rect', boundingClientRect)
+  })
   </script>
   
   <template>
-    <div class="home-page">
+    <div ref="homePageRef" class="home-page">
       <!-- Header -->
       localState: {{ localState }}
       shareState: {{ shareState }}
-
+      {{ params }}
       <div class="home-page__header">
         <div>
           <h1 class="home-page__title">Home Dashboard</h1>
