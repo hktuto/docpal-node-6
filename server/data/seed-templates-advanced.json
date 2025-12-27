@@ -1,0 +1,705 @@
+{
+  "templates": [
+    {
+      "name": "Advanced CRM",
+      "description": "Complete CRM system demonstrating relations, lookups, aggregations, and formulas across multiple connected tables.",
+      "icon": "lucide:briefcase",
+      "coverImage": "",
+      "category": "Business",
+      "tags": ["CRM", "Sales", "Advanced", "Relations"],
+      "visibility": "system",
+      "isFeatured": true,
+      "includesSampleData": true,
+      "includesViews": true,
+      "templateDefinition": {
+        "menu": [
+          {
+            "id": "019d1234-5678-7001-8000-000000000001",
+            "label": "Sales & CRM",
+            "slug": "sales-crm",
+            "type": "folder",
+            "order": 0,
+            "children": [
+              {
+                "id": "019d1234-5678-7002-8000-000000000001",
+                "label": "Companies",
+                "slug": "companies",
+                "type": "table",
+                "order": 0
+              },
+              {
+                "id": "019d1234-5678-7002-8000-000000000002",
+                "label": "Contacts",
+                "slug": "contacts",
+                "type": "table",
+                "order": 1
+              },
+              {
+                "id": "019d1234-5678-7002-8000-000000000003",
+                "label": "Deals",
+                "slug": "deals",
+                "type": "table",
+                "order": 2
+              }
+            ]
+          },
+          {
+            "id": "019d1234-5678-7001-8000-000000000002",
+            "label": "Activity & Engagement",
+            "slug": "activity-engagement",
+            "type": "folder",
+            "order": 1,
+            "children": [
+              {
+                "id": "019d1234-5678-7002-8000-000000000004",
+                "label": "Activities",
+                "slug": "activities",
+                "type": "table",
+                "order": 0
+              }
+            ]
+          },
+          {
+            "id": "019d1234-5678-7001-8000-000000000003",
+            "label": "Analytics & Insights",
+            "slug": "analytics-insights",
+            "type": "folder",
+            "order": 2,
+            "children": [
+              {
+                "id": "019d1234-5678-7002-8000-000000000005",
+                "label": "Company Stats",
+                "slug": "company-stats",
+                "type": "table",
+                "order": 0
+              }
+            ]
+          }
+        ],
+        "tables": [
+          {
+            "name": "Companies",
+            "slug": "companies",
+            "description": "Customer companies and organizations",
+            "columns": [
+              {
+                "name": "company_name",
+                "label": "Company Name",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "industry",
+                "label": "Industry",
+                "type": "select",
+                "required": false,
+                "order": 1,
+                "config": {
+                  "options": ["Technology", "Healthcare", "Finance", "Retail", "Manufacturing", "Other"]
+                }
+              },
+              {
+                "name": "website",
+                "label": "Website",
+                "type": "url",
+                "required": false,
+                "order": 2
+              },
+              {
+                "name": "employee_count",
+                "label": "Employee Count",
+                "type": "number",
+                "required": false,
+                "order": 3
+              },
+              {
+                "name": "annual_revenue",
+                "label": "Annual Revenue",
+                "type": "currency",
+                "required": false,
+                "order": 4
+              },
+              {
+                "name": "status",
+                "label": "Status",
+                "type": "select",
+                "required": true,
+                "order": 5,
+                "config": {
+                  "options": ["Lead", "Prospect", "Customer", "Churned"]
+                }
+              },
+              {
+                "name": "notes",
+                "label": "Notes",
+                "type": "long-text",
+                "required": false,
+                "order": 6
+              }
+            ],
+            "sampleData": [
+              {
+                "id": "019d1234-5678-7100-8000-000000000001",
+                "company_name": "Acme Corp",
+                "industry": "Technology",
+                "website": "https://acme.example.com",
+                "employee_count": 500,
+                "annual_revenue": 50000000,
+                "status": "Customer"
+              },
+              {
+                "id": "019d1234-5678-7100-8000-000000000002",
+                "company_name": "GlobalTech Solutions",
+                "industry": "Technology",
+                "website": "https://globaltech.example.com",
+                "employee_count": 1200,
+                "annual_revenue": 120000000,
+                "status": "Prospect"
+              },
+              {
+                "id": "019d1234-5678-7100-8000-000000000003",
+                "company_name": "MediCare Plus",
+                "industry": "Healthcare",
+                "website": "https://medicare.example.com",
+                "employee_count": 800,
+                "annual_revenue": 75000000,
+                "status": "Lead"
+              }
+            ]
+          },
+          {
+            "name": "Contacts",
+            "slug": "contacts",
+            "description": "Individual contacts at customer companies",
+            "columns": [
+              {
+                "name": "full_name",
+                "label": "Full Name",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "email",
+                "label": "Email",
+                "type": "email",
+                "required": true,
+                "order": 1
+              },
+              {
+                "name": "phone",
+                "label": "Phone",
+                "type": "phone",
+                "required": false,
+                "order": 2
+              },
+              {
+                "name": "job_title",
+                "label": "Job Title",
+                "type": "text",
+                "required": false,
+                "order": 3
+              },
+              {
+                "name": "company",
+                "label": "Company",
+                "type": "relation",
+                "required": false,
+                "order": 4,
+                "config": {
+                  "targetTable": "companies",
+                  "displayField": "company_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "company_industry",
+                "label": "Company Industry",
+                "type": "lookup",
+                "required": false,
+                "order": 5,
+                "config": {
+                  "relationField": "company",
+                  "targetField": "industry"
+                }
+              },
+              {
+                "name": "is_primary",
+                "label": "Primary Contact",
+                "type": "boolean",
+                "required": false,
+                "order": 6
+              },
+              {
+                "name": "last_contacted",
+                "label": "Last Contacted",
+                "type": "date",
+                "required": false,
+                "order": 7
+              },
+              {
+                "name": "notes",
+                "label": "Notes",
+                "type": "long-text",
+                "required": false,
+                "order": 8
+              }
+            ],
+            "sampleData": [
+              {
+                "id": "019d1234-5678-7200-8000-000000000001",
+                "full_name": "John Smith",
+                "email": "john@acme.example.com",
+                "phone": "+1-555-0100",
+                "job_title": "CEO",
+                "company": "019d1234-5678-7100-8000-000000000001",
+                "is_primary": true,
+                "last_contacted": "2024-12-20"
+              },
+              {
+                "id": "019d1234-5678-7200-8000-000000000002",
+                "full_name": "Sarah Johnson",
+                "email": "sarah@acme.example.com",
+                "phone": "+1-555-0101",
+                "job_title": "CTO",
+                "company": "019d1234-5678-7100-8000-000000000001",
+                "is_primary": false,
+                "last_contacted": "2024-12-15"
+              },
+              {
+                "id": "019d1234-5678-7200-8000-000000000003",
+                "full_name": "Michael Chen",
+                "email": "michael@globaltech.example.com",
+                "phone": "+1-555-0200",
+                "job_title": "VP of Engineering",
+                "company": "019d1234-5678-7100-8000-000000000002",
+                "is_primary": true,
+                "last_contacted": "2024-12-18"
+              }
+            ]
+          },
+          {
+            "name": "Deals",
+            "slug": "deals",
+            "description": "Sales opportunities and deals",
+            "columns": [
+              {
+                "name": "deal_name",
+                "label": "Deal Name",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "company",
+                "label": "Company",
+                "type": "relation",
+                "required": true,
+                "order": 1,
+                "config": {
+                  "targetTable": "companies",
+                  "displayField": "company_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "primary_contact",
+                "label": "Primary Contact",
+                "type": "relation",
+                "required": false,
+                "order": 2,
+                "config": {
+                  "targetTable": "contacts",
+                  "displayField": "full_name",
+                  "allowMultiple": false,
+                  "filterBy": {
+                    "field": "company",
+                    "matchesParent": "company"
+                  }
+                }
+              },
+              {
+                "name": "contact_email",
+                "label": "Contact Email",
+                "type": "lookup",
+                "required": false,
+                "order": 3,
+                "config": {
+                  "relationField": "primary_contact",
+                  "targetField": "email"
+                }
+              },
+              {
+                "name": "deal_value",
+                "label": "Deal Value",
+                "type": "currency",
+                "required": true,
+                "order": 4
+              },
+              {
+                "name": "stage",
+                "label": "Stage",
+                "type": "select",
+                "required": true,
+                "order": 5,
+                "config": {
+                  "options": ["Prospecting", "Qualification", "Proposal", "Negotiation", "Closed Won", "Closed Lost"]
+                }
+              },
+              {
+                "name": "probability",
+                "label": "Win Probability %",
+                "type": "number",
+                "required": false,
+                "order": 6,
+                "config": {
+                  "min": 0,
+                  "max": 100
+                }
+              },
+              {
+                "name": "expected_value",
+                "label": "Expected Value",
+                "type": "formula",
+                "required": false,
+                "order": 7,
+                "config": {
+                  "formula": "deal_value * (probability / 100)",
+                  "resultType": "currency"
+                }
+              },
+              {
+                "name": "close_date",
+                "label": "Expected Close Date",
+                "type": "date",
+                "required": false,
+                "order": 8
+              },
+              {
+                "name": "days_to_close",
+                "label": "Days to Close",
+                "type": "formula",
+                "required": false,
+                "order": 9,
+                "config": {
+                  "formula": "DAYS_BETWEEN(TODAY(), close_date)",
+                  "resultType": "number"
+                }
+              },
+              {
+                "name": "owner",
+                "label": "Deal Owner",
+                "type": "text",
+                "required": false,
+                "order": 10
+              },
+              {
+                "name": "notes",
+                "label": "Notes",
+                "type": "long-text",
+                "required": false,
+                "order": 11
+              }
+            ],
+            "sampleData": [
+              {
+                "id": "019d1234-5678-7300-8000-000000000001",
+                "deal_name": "Acme Enterprise License",
+                "company": "019d1234-5678-7100-8000-000000000001",
+                "primary_contact": "019d1234-5678-7200-8000-000000000001",
+                "deal_value": 500000,
+                "stage": "Negotiation",
+                "probability": 75,
+                "close_date": "2025-01-15",
+                "owner": "Sales Team"
+              },
+              {
+                "id": "019d1234-5678-7300-8000-000000000002",
+                "deal_name": "GlobalTech Integration Project",
+                "company": "019d1234-5678-7100-8000-000000000002",
+                "primary_contact": "019d1234-5678-7200-8000-000000000003",
+                "deal_value": 1200000,
+                "stage": "Proposal",
+                "probability": 50,
+                "close_date": "2025-02-28",
+                "owner": "Sales Team"
+              },
+              {
+                "id": "019d1234-5678-7300-8000-000000000003",
+                "deal_name": "MediCare Platform Upgrade",
+                "company": "019d1234-5678-7100-8000-000000000003",
+                "deal_value": 750000,
+                "stage": "Qualification",
+                "probability": 30,
+                "close_date": "2025-03-31",
+                "owner": "Sales Team"
+              }
+            ]
+          },
+          {
+            "name": "Activities",
+            "slug": "activities",
+            "description": "Customer interactions and activities log",
+            "columns": [
+              {
+                "name": "activity_title",
+                "label": "Activity",
+                "type": "text",
+                "required": true,
+                "order": 0
+              },
+              {
+                "name": "type",
+                "label": "Type",
+                "type": "select",
+                "required": true,
+                "order": 1,
+                "config": {
+                  "options": ["Call", "Email", "Meeting", "Demo", "Follow-up", "Note"]
+                }
+              },
+              {
+                "name": "related_to",
+                "label": "Related To",
+                "type": "select",
+                "required": true,
+                "order": 2,
+                "config": {
+                  "options": ["Company", "Contact", "Deal"]
+                }
+              },
+              {
+                "name": "company",
+                "label": "Company",
+                "type": "relation",
+                "required": false,
+                "order": 3,
+                "config": {
+                  "targetTable": "companies",
+                  "displayField": "company_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "contact",
+                "label": "Contact",
+                "type": "relation",
+                "required": false,
+                "order": 4,
+                "config": {
+                  "targetTable": "contacts",
+                  "displayField": "full_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "deal",
+                "label": "Deal",
+                "type": "relation",
+                "required": false,
+                "order": 5,
+                "config": {
+                  "targetTable": "deals",
+                  "displayField": "deal_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "activity_date",
+                "label": "Date & Time",
+                "type": "datetime",
+                "required": true,
+                "order": 6
+              },
+              {
+                "name": "duration_minutes",
+                "label": "Duration (minutes)",
+                "type": "number",
+                "required": false,
+                "order": 7
+              },
+              {
+                "name": "outcome",
+                "label": "Outcome",
+                "type": "select",
+                "required": false,
+                "order": 8,
+                "config": {
+                  "options": ["Successful", "No Answer", "Rescheduled", "Not Interested"]
+                }
+              },
+              {
+                "name": "notes",
+                "label": "Notes",
+                "type": "long-text",
+                "required": false,
+                "order": 9
+              }
+            ],
+            "sampleData": [
+              {
+                "id": "019d1234-5678-7400-8000-000000000001",
+                "activity_title": "Initial Discovery Call",
+                "type": "Call",
+                "related_to": "Company",
+                "company": "019d1234-5678-7100-8000-000000000001",
+                "activity_date": "2024-12-20T10:00:00",
+                "duration_minutes": 45,
+                "outcome": "Successful"
+              },
+              {
+                "id": "019d1234-5678-7400-8000-000000000002",
+                "activity_title": "Product Demo",
+                "type": "Demo",
+                "related_to": "Deal",
+                "deal": "019d1234-5678-7300-8000-000000000001",
+                "activity_date": "2024-12-22T14:00:00",
+                "duration_minutes": 60,
+                "outcome": "Successful"
+              },
+              {
+                "id": "019d1234-5678-7400-8000-000000000003",
+                "activity_title": "Follow-up Email",
+                "type": "Email",
+                "related_to": "Contact",
+                "contact": "019d1234-5678-7200-8000-000000000001",
+                "activity_date": "2024-12-23T09:30:00",
+                "outcome": "Successful"
+              }
+            ]
+          },
+          {
+            "name": "Company_Stats",
+            "slug": "company-stats",
+            "description": "Aggregated statistics per company (demonstration of rollup/aggregation)",
+            "columns": [
+              {
+                "name": "company",
+                "label": "Company",
+                "type": "relation",
+                "required": true,
+                "order": 0,
+                "config": {
+                  "targetTable": "companies",
+                  "displayField": "company_name",
+                  "allowMultiple": false
+                }
+              },
+              {
+                "name": "total_contacts",
+                "label": "Total Contacts",
+                "type": "rollup",
+                "required": false,
+                "order": 1,
+                "config": {
+                  "sourceTable": "contacts",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}"
+                  },
+                  "aggregation": "COUNT"
+                }
+              },
+              {
+                "name": "total_deals",
+                "label": "Total Deals",
+                "type": "rollup",
+                "required": false,
+                "order": 2,
+                "config": {
+                  "sourceTable": "deals",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}"
+                  },
+                  "aggregation": "COUNT"
+                }
+              },
+              {
+                "name": "total_deal_value",
+                "label": "Total Deal Value",
+                "type": "rollup",
+                "required": false,
+                "order": 3,
+                "config": {
+                  "sourceTable": "deals",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}"
+                  },
+                  "aggregation": "SUM",
+                  "aggregationField": "deal_value"
+                }
+              },
+              {
+                "name": "won_deals",
+                "label": "Won Deals",
+                "type": "rollup",
+                "required": false,
+                "order": 4,
+                "config": {
+                  "sourceTable": "deals",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}",
+                    "and": {
+                      "field": "stage",
+                      "equals": "Closed Won"
+                    }
+                  },
+                  "aggregation": "COUNT"
+                }
+              },
+              {
+                "name": "total_activities",
+                "label": "Total Activities",
+                "type": "rollup",
+                "required": false,
+                "order": 5,
+                "config": {
+                  "sourceTable": "activities",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}"
+                  },
+                  "aggregation": "COUNT"
+                }
+              },
+              {
+                "name": "last_activity_date",
+                "label": "Last Activity",
+                "type": "rollup",
+                "required": false,
+                "order": 6,
+                "config": {
+                  "sourceTable": "activities",
+                  "filterBy": {
+                    "field": "company",
+                    "matchesValue": "{{company}}"
+                  },
+                  "aggregation": "MAX",
+                  "aggregationField": "activity_date"
+                }
+              },
+              {
+                "name": "health_score",
+                "label": "Health Score",
+                "type": "formula",
+                "required": false,
+                "order": 7,
+                "config": {
+                  "formula": "MIN(100, (total_activities * 10) + (won_deals * 20))",
+                  "resultType": "number",
+                  "description": "Calculated health score based on engagement"
+                }
+              }
+            ],
+            "sampleData": []
+          }
+        ]
+      }
+    }
+  ]
+}
+

@@ -1,4 +1,4 @@
-import { users, companies, workspaces, dataTables, dataTableColumns, dataTableViews } from 'hub:db:schema'
+import { users, companies, workspaces, dataTables, dataTableColumns, dataTableViews, appTemplates, viewPermissions, userViewPreferences } from 'hub:db:schema'
 import type { ColumnType } from './fieldTypes'
 // Users
 export type User = typeof users.$inferSelect
@@ -23,6 +23,18 @@ export type NewDataTableColumn = typeof dataTableColumns.$inferInsert
 // Data Table Views
 export type DataTableView = typeof dataTableViews.$inferSelect
 export type NewDataTableView = typeof dataTableViews.$inferInsert
+
+// View Permissions
+export type ViewPermission = typeof viewPermissions.$inferSelect
+export type NewViewPermission = typeof viewPermissions.$inferInsert
+
+// User View Preferences
+export type UserViewPreference = typeof userViewPreferences.$inferSelect
+export type NewUserViewPreference = typeof userViewPreferences.$inferInsert
+
+// App Templates
+export type AppTemplate = typeof appTemplates.$inferSelect
+export type NewAppTemplate = typeof appTemplates.$inferInsert
 
 // Menu Item Interface
 export interface MenuItem {
@@ -136,4 +148,26 @@ export interface DashboardJson {
       h: number 
     }
   }[]
+}
+
+// ==================== App Template Types ====================
+
+export interface TemplateTableDefinition {
+  name: string
+  slug?: string
+  description?: string
+  columns: TableColumnDef[]
+  views?: {
+    name: string
+    viewType: 'grid' | 'kanban' | 'gallery' | 'calendar' | 'form'
+    filterJson?: any
+    sortJson?: any
+    visibleColumns?: string[]
+  }[]
+  sampleData?: Record<string, any>[]
+}
+
+export interface AppTemplateDefinition {
+  menu?: MenuItem[]  // Optional menu structure for the workspace
+  tables: TemplateTableDefinition[]
 }

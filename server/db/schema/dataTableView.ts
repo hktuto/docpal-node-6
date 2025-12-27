@@ -3,7 +3,7 @@ import { dataTables } from './dataTable'
 import { users } from './user'
 
 export const dataTableViews = pgTable('data_table_views', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   
   // Reference to parent table
   dataTableId: uuid('data_table_id')
@@ -13,13 +13,15 @@ export const dataTableViews = pgTable('data_table_views', {
   // View metadata
   name: text('name').notNull(), // e.g., "All Records", "Active Only", "My Tasks"
   slug: text('slug').notNull(), // URL-friendly
-  type: text('type').notNull().default('table'), // 'table' | 'kanban' | 'calendar' | 'gantt' | 'gallery'
+  description: text('description'), // Optional description of what the view shows
+  viewType: text('view_type').notNull().default('grid'), // 'grid' | 'kanban' | 'calendar' | 'gantt' | 'gallery' | 'form'
   
   // Default view flag (only one default per table)
   isDefault: boolean('is_default').notNull().default(false),
   
-  // Public sharing (for future use)
-  isPublic: boolean('is_public').notNull().default(false),
+  // Sharing settings
+  isShared: boolean('is_shared').notNull().default(false), // Shared with team (requires permissions)
+  isPublic: boolean('is_public').notNull().default(false), // Public access (no login required)
   
   // Column configuration
   visibleColumns: jsonb('visible_columns').$type<string[]>(), // Array of column IDs in display order

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Grid, Tickets, Calendar, Picture, Link } from '@element-plus/icons-vue'
 import type { DataTable, DataTableColumn, DataTableView } from '#shared/types/db'
 
 definePageMeta({
@@ -6,6 +7,7 @@ definePageMeta({
 })
 
 const route = useRoute()
+const router = useRouter()
 const workspaceSlug = computed(() => route.params.workspaceSlug as string)
 const tableSlug = computed(() => route.params.tableSlug as string)
 
@@ -23,63 +25,55 @@ const { data: table, pending: tablePending, refresh: refreshTable } = await useA
   }
 )
 
-// Fetch default view (contains view settings + columns)
+// Fetch ALL views for this table
+const { data: allViews, pending: viewsPending, refresh: refreshViews } = await useApi<SuccessResponse<DataTableView[]>>(
+  () => `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views`,
+  {
+    key: `views-${workspaceSlug.value}-${tableSlug.value}`,
+  }
+)
+
+// Current view slug (from URL hash or default)
+const currentViewSlug = ref<string>('')
+
+// Parse hash to get view slug
+const viewSlugFromHash = computed(() => {
+  const hash = route.hash
+  if (hash.startsWith('#view-')) {
+    return hash.replace('#view-', '')
+  }
+  return null
+})
+
+// Initialize currentViewSlug from URL hash or find default view
+watch([allViews, viewSlugFromHash], ([views, slugFromHash]) => {
+  if (!views?.data || views.data.length === 0) return
+  
+  if (slugFromHash) {
+    // Try to find view by slug from hash
+    const view = views.data.find(v => v.slug === slugFromHash)
+    if (view) {
+      currentViewSlug.value = view.slug
+      return
+    }
+  }
+  
+  // Fallback to default view or first view
+  const defaultView = views.data.find(v => v.isDefault)
+  currentViewSlug.value = defaultView?.slug || views.data[0].slug
+}, { immediate: true })
+
+// Fetch current view details (contains view settings + enriched columns)
 const { data: currentView, pending: viewPending, refresh: refreshView } = await useApi<SuccessResponse<DataTableView & { 
   columns: DataTableColumn[]
   allColumns: DataTableColumn[] 
 }>>(
-  () => `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/default`,
+  () => `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${currentViewSlug.value || 'default'}`,
   {
-    key: `view-${workspaceSlug.value}-${tableSlug.value}-default`,
+    key: `view-${workspaceSlug.value}-${tableSlug.value}`,
+    watch: [currentViewSlug],
   }
 )
-
-// Grid ref for manual operations
-const gridRef = ref()
-
-// Transform columns for DataGrid (use view's visible columns)
-const gridColumns = computed(() => {
-  if (!currentView.value?.data.columns) return []
-  
-  // Use columns from the view (already in correct order and filtered)
-  return currentView.value.data.columns.map((col: DataTableColumn) => {
-    // Get custom width from view config if available
-    const customWidths = currentView.value?.data.columnWidths as Record<string, number> | undefined
-    const width = customWidths?.[col.id]
-    
-    return {
-      id: col.id, // Include column ID for management operations
-      field: col.name,
-      title: col.label,
-      minWidth: width || 120,
-      width: width,
-      sortable: true,
-      visible: !col.isHidden, // Respect column visibility
-    }
-  })
-})
-
-// Fetch rows from view query endpoint
-const currentPage = ref(1)
-const pageSize = ref(50)
-
-const { data: rowsData, pending: rowsPending, refresh: refreshRows } = await useApi<SuccessResponse<any[]>>(
-  () => {
-    if (!currentView.value?.data.id) return null
-    const limit = pageSize.value
-    const offset = (currentPage.value - 1) * pageSize.value
-    return `/api/query/views/${currentView.value.data.id}/rows?limit=${limit}&offset=${offset}`
-  },
-  {
-    key: `view-rows-${workspaceSlug.value}-${tableSlug.value}`,
-    watch: [currentPage, pageSize, currentView],
-  }
-)
-
-// Extract rows and total from response
-const gridRows = computed(() => rowsData.value?.data || [])
-const totalRows = computed(() => rowsData.value?.meta?.pagination?.total || 0)
-const loading = computed(() => tablePending.value || viewPending.value || rowsPending.value)
 
 // Row dialog state
 const showRowDialog = ref(false)
@@ -123,7 +117,7 @@ async function handleDeleteRow(row: any) {
     )
 
     ElMessage.success('Row deleted successfully')
-    await refreshRows()
+    // DataGrid auto-refreshes via proxy
   } catch (error: any) {
     if (error !== 'cancel') {
       console.error('Error deleting row:', error)
@@ -134,7 +128,7 @@ async function handleDeleteRow(row: any) {
 
 // Row saved
 async function handleRowSaved() {
-  await refreshRows()
+  // DataGrid auto-refreshes via proxy
   showRowDialog.value = false
   editingRow.value = null
 }
@@ -310,6 +304,169 @@ function handleCloseColumnDialog() {
   columnPosition.value = null
 }
 
+// ============================================
+// VIEW HELPERS
+// ============================================
+
+// Get view type icon
+function getViewIcon(viewType: string) {
+  switch (viewType) {
+    case 'grid': return Grid
+    case 'kanban': return Tickets
+    case 'calendar': return Calendar
+    case 'gallery': return Picture
+    default: return Grid
+  }
+}
+
+// ============================================
+// VIEW MANAGEMENT HANDLERS
+// ============================================
+
+// Handle view change (via tab click)
+async function handleViewChange(viewSlug: string) {
+  currentViewSlug.value = viewSlug
+  
+  // Update URL hash
+  await router.push({
+    hash: `#view-${viewSlug}`
+  })
+}
+
+// Handle view update (filters, sorts, columns, etc.)
+async function handleViewUpdate(updates: Partial<DataTableView>) {
+  if (!currentViewSlug.value) return
+  
+  try {
+    const { $api } = useNuxtApp()
+    await $api(
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${currentViewSlug.value}`,
+      {
+        method: 'PUT' as any,
+        body: updates
+      }
+    )
+    
+    // Refresh view data
+    await refreshView()
+    await refreshViews() // Also refresh views list in case name changed
+    // DataGrid auto-refreshes via proxy
+    
+    ElMessage.success('View updated')
+  } catch (error: any) {
+    console.error('Error updating view:', error)
+    ElMessage.error('Failed to update view')
+  }
+}
+
+// Handle view create
+async function handleViewCreate() {
+  // TODO: Open proper create dialog, for now use prompt
+  const viewName = prompt('Enter view name:')
+  if (!viewName) return
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api<SuccessResponse<DataTableView>>(
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views`,
+      {
+        method: 'POST',
+        body: {
+          name: viewName,
+          viewType: 'grid',
+          isDefault: false,
+          // Use current view's columns as default
+          visibleColumns: currentView.value?.data.columns?.map((col: DataTableColumn) => col.id) || []
+        }
+      }
+    )
+    
+    // Refresh views list
+    await refreshViews()
+    
+    // Switch to new view by slug
+    if (response.data) {
+      await handleViewChange(response.data.slug)
+    }
+    
+    ElMessage.success('View created')
+  } catch (error: any) {
+    console.error('Error creating view:', error)
+    ElMessage.error('Failed to create view')
+  }
+}
+
+// Handle view delete
+async function handleViewDelete(viewSlug: string) {
+  const slug = viewSlug
+  const view = allViews.value?.data.find(v => v.slug === slug)
+  
+  if (!view) return
+  
+  try {
+    await ElMessageBox.confirm(
+      `Delete view "${view.name}"? This cannot be undone.`,
+      'Delete View',
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+      }
+    )
+    
+    const { $api } = useNuxtApp()
+    await $api(
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${slug}`,
+      {
+        method: 'DELETE' as any
+      }
+    )
+    
+    // Refresh views list
+    await refreshViews()
+    
+    // If deleted current view, switch to default
+    if (slug === currentViewSlug.value) {
+      const defaultView = allViews.value?.data.find(v => v.isDefault)
+      if (defaultView) {
+        await handleViewChange(defaultView.slug)
+      }
+    }
+    
+    ElMessage.success('View deleted')
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Error deleting view:', error)
+      ElMessage.error('Failed to delete view')
+    }
+  }
+}
+
+// Handle view duplicate
+async function handleViewDuplicate(viewSlug: string) {
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api<SuccessResponse<DataTableView>>(
+      `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${viewSlug}/duplicate`,
+      {
+        method: 'POST'
+      }
+    )
+    
+    // Refresh views list
+    await refreshViews()
+    
+    // Switch to duplicated view by slug
+    if (response.data) {
+      await handleViewChange(response.data.slug)
+    }
+    
+    ElMessage.success('View duplicated')
+  } catch (error: any) {
+    console.error('Error duplicating view:', error)
+    ElMessage.error('Failed to duplicate view')
+  }
+}
 
 // Dynamic page title based on table name
 const pageTitle = computed(() => {
@@ -340,57 +497,61 @@ useHead({
     </Teleport>
     
     <!-- Loading State -->
-    <div v-if="tablePending || viewPending" class="loading-state">
+    <div v-if="!table && (viewsPending || viewPending)" class="loading-state">
       <el-skeleton :rows="5" animated />
     </div>
     
     <!-- Error State -->
-    <div v-else-if="!table || !currentView" class="error-state">
+    <div v-else-if="!table || !allViews || !currentView" class="error-state">
       <Icon name="lucide:alert-circle" size="48" />
-      <h3>{{ !table ? 'Table not found' : 'View not found' }}</h3>
-      <p>{{ !table ? "The table you're looking for doesn't exist or has been deleted." : "The default view for this table is missing." }}</p>
+      <h3>{{ !table ? 'Table not found' : !allViews ? 'Views not found' : 'Current view not found' }}</h3>
+      <p>{{ !table ? "The table you're looking for doesn't exist or has been deleted." : !allViews ? "No views found for this table." : "The selected view is missing." }}</p>
     </div>
     
     <!-- Table Content -->
     <div v-else class="table-content">
-      
-      <!-- Data Grid with Auto Proxy & Virtual Scroll -->
-      <div class="table-data">
-        <!-- <DataGrid
-          ref="gridRef"
-          :columns="gridColumns"
-          :workspace-slug="workspaceSlug"
-          :table-slug="tableSlug"
-          :auto-proxy="true"
-          :allow-column-management="true"
-          :virtual-scroll="true"
-          :scroll-y-load="false"
-          :page-size="50"
-          height="100%"
-          @edit="handleEditRow"
-          @delete="handleDeleteRow"
-          @add-column-left="handleAddColumnLeft"
-          @add-column-right="handleAddColumnRight"
-          @edit-column="handleEditColumn"
-          @remove-column="handleRemoveColumn"
-          @column-reorder="handleColumnReorder"
-        /> -->
-        <DataGridV 
-          ref="gridRef"
-          :columns="gridColumns"
-          :data="gridRows"
-          :loading="loading"
-          :current-page="currentPage"
-          :page-size="pageSize"
-          :total="totalRows"
-          height="100%"
-          theme="arco"
-          :show-actions="true"
-          @edit="handleEditRow"
-          @delete="handleDeleteRow"
-          @page-change="(page) => currentPage = page"
-        />
-      </div>
+      <!-- View Tabs -->
+      <el-tabs
+        v-if="allViews?.data && currentViewSlug"
+        :model-value="currentViewSlug"
+        type="card"
+        editable
+        class="view-tabs"
+        @tab-change="(slug: string | number) => handleViewChange(slug as string)"
+        @tab-add="handleViewCreate"
+        @tab-remove="(slug: string | number) => handleViewDelete(slug as string)"
+      >
+        <el-tab-pane
+          v-for="view in allViews.data"
+          :key="view.slug"
+          :name="view.slug"
+          :closable="!view.isDefault"
+        >
+          <template #label>
+            <div class="tab-label">
+              <el-icon><component :is="getViewIcon(view.viewType)" /></el-icon>
+              <span>{{ view.name }}</span>
+              <el-tag v-if="view.isDefault" size="small" type="info">Default</el-tag>
+              <el-icon v-if="view.isPublic" class="badge-icon" title="Public"><Link /></el-icon>
+            </div>
+          </template>
+          
+          <!-- Render ViewTab only for current view -->
+          <AppViewsViewTab
+            v-if="view.slug === currentViewSlug && currentView?.data"
+            :view="currentView.data"
+            :workspace-slug="workspaceSlug"
+            :table-slug="tableSlug"
+            @edit="handleEditRow"
+            @delete="handleDeleteRow"
+            @add-column-left="handleAddColumnLeft"
+            @add-column-right="handleAddColumnRight"
+            @edit-column="handleEditColumn"
+            @remove-column="handleRemoveColumn"
+            @column-reorder="handleColumnReorder"
+          />
+        </el-tab-pane>
+      </el-tabs>
     </div>
     
     <!-- Column Dialog -->
@@ -462,6 +623,35 @@ useHead({
   overflow: hidden;
   background: var(--app-bg-color-page);
   padding: var(--app-space-m);
+}
+
+/* View Tabs */
+.view-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.view-tabs :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+}
+
+.view-tabs :deep(.el-tab-pane) {
+  height: 100%;
+}
+
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.badge-icon {
+  font-size: 14px;
+  color: var(--el-color-info);
+  margin-left: 4px;
 }
 </style>
 

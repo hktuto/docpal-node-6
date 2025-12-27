@@ -5,6 +5,7 @@ import { successResponse } from '~~/server/utils/response'
 import { getFieldType } from '~~/server/utils/fieldTypes'
 import { createForeignKey } from '~~/server/utils/relationHelpers'
 import { generateSlug } from '#shared/utils/slug'
+import { generateUUID } from '~~/server/utils/uuid'
 
 /**
  * Create a new column in a table
@@ -78,6 +79,7 @@ export default eventHandler(async (event) => {
     const [newColumn] = await db
       .insert(schema.dataTableColumns)
       .values({
+        id: generateUUID(),
         dataTableId: table.id,
         name,
         label,

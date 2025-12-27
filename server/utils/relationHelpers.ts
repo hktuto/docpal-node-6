@@ -31,9 +31,9 @@ export async function getRelatedRecord(
     // Query the physical table
     const query = fields && fields.length > 0
       ? `SELECT ${fields.map(f => `"${f}"`).join(', ')} FROM "${table.tableName}" WHERE id = $1`
-      : `SELECT * FROM "${table.tableName}" WHERE id = $1`
+      : `SELECT * FROM "${table.tableName}" WHERE id = "${recordId}"`
     
-    const result = await db.execute(query, [recordId])
+    const result = await db.execute(query)
     
     return result.rows[0] || null
   } catch (error) {

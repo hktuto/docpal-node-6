@@ -3,7 +3,7 @@ import { companies } from './company'
 import { users } from './user'
 
 export const companyInvites = pgTable('company_invites', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   companyId: uuid('company_id').notNull().references(() => companies.id, { onDelete: 'cascade' }),
   email: text('email').notNull(),
   role: text('role').notNull(), // 'admin', 'member'

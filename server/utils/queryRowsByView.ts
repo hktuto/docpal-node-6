@@ -1,6 +1,6 @@
 import type { SQL } from 'drizzle-orm'
 import { eq, sql as drizzleSql } from 'drizzle-orm'
-import { getRelatedRecord } from './relationHelpers'
+import { resolveRelationFieldsForRows, resolveFormulaFieldsForRows, resolveRollupFieldsForRows } from './computedFields'
 
 /**
  * Query Rows by View - Server Utility
@@ -256,7 +256,9 @@ async function resolveRelations(
 async function resolveLookups(
   rows: any[],
   columns: any[],
-  allColumns: any[]
+  allColumns: any[],
+  db: any,
+  schema: any
 ): Promise<any[]> {
   if (rows.length === 0) return rows
 
@@ -265,8 +267,8 @@ async function resolveLookups(
   
   if (lookupColumns.length === 0) return rows
 
-  // Create a map of column names to column definitions
-  const columnMap = new Map(allColumns.map(col => [col.id, col]))
+  // Create a map of column names to column definitions (by name, not ID)
+  const columnMapByName = new Map(allColumns.map(col => [col.name, col]))
 
   // For each row, resolve lookups
   const resolvedRows = []
@@ -275,17 +277,17 @@ async function resolveLookups(
     const resolvedRow = { ...row }
     
     for (const lookupColumn of lookupColumns) {
-      // Get the relation column this lookup depends on
-      const relationColumnId = lookupColumn.config?.relationField
+      // Get the relation column this lookup depends on (by field NAME)
+      const relationFieldName = lookupColumn.config?.relationField
       const targetFieldName = lookupColumn.config?.targetField
       
-      if (!relationColumnId || !targetFieldName) {
+      if (!relationFieldName || !targetFieldName) {
         resolvedRow[lookupColumn.name] = null
         continue
       }
       
-      // Get the relation column definition
-      const relationColumn = columnMap.get(relationColumnId)
+      // Get the relation column definition by NAME
+      const relationColumn = columnMapByName.get(relationFieldName)
       
       if (!relationColumn || relationColumn.type !== 'relation') {
         resolvedRow[lookupColumn.name] = null
@@ -293,22 +295,45 @@ async function resolveLookups(
       }
       
       // Get the relation ID from the current row
-      const relationId = row[relationColumn.name]
+      // Note: After relation enrichment, this might be an object { relatedId, displayFieldValue, displayField }
+      const relationValue = row[relationColumn.name]
+      const relationId = typeof relationValue === 'object' && relationValue !== null
+        ? relationValue.relatedId
+        : relationValue
       
       if (!relationId) {
         resolvedRow[lookupColumn.name] = null
         continue
       }
       
-      // Fetch the related record with only the target field
-      const relatedRecord = await getRelatedRecord(
-        relationColumn.config.targetTable,
-        relationId,
-        ['id', targetFieldName]
-      )
+      // Get target table slug from relation config
+      const targetTableSlug = relationColumn.config.targetTable
+      
+      if (!targetTableSlug) {
+        resolvedRow[lookupColumn.name] = null
+        continue
+      }
+      
+      // Find the target table by slug to get its physical table name
+      const [targetTable] = await db
+        .select()
+        .from(schema.dataTables)
+        .where(eq(schema.dataTables.slug, targetTableSlug))
+        .limit(1)
+      
+      if (!targetTable) {
+        console.warn(`Lookup: Target table "${targetTableSlug}" not found`)
+        resolvedRow[lookupColumn.name] = null
+        continue
+      }
+      
+      // Query the physical table directly
+      // Note: relationId is a UUID from database, safe to interpolate
+      const query = `SELECT "${targetFieldName}" as value FROM "${targetTable.tableName}" WHERE id = '${relationId}' LIMIT 1`
+      const result = await db.execute(drizzleSql.raw(query))
       
       // Store the lookup value
-      resolvedRow[lookupColumn.name] = relatedRecord?.[targetFieldName] || null
+      resolvedRow[lookupColumn.name] = result?.[0]?.value || null
     }
     
     resolvedRows.push(resolvedRow)
@@ -336,7 +361,6 @@ export async function queryRowsByView(
     .where(eq(schema.dataTableViews.id, viewId))
     .limit(1)
     .then((rows: any[]) => rows[0])
-
   if (!view) {
     throw new Error(`View not found: ${viewId}`)
   }
@@ -361,8 +385,8 @@ export async function queryRowsByView(
     .orderBy(schema.dataTableColumns.order)
 
   // Create column lookup maps
-  const columnMap = new Map(allColumns.map((col: any) => [col.id, col]))
-  const columnNameMap = new Map(allColumns.map((col: any) => [col.name, col]))
+  const columnMap = new Map<string, any>(allColumns.map((col: any) => [col.id, col]))
+  const columnNameMap = new Map<string, any>(allColumns.map((col: any) => [col.name, col]))
 
   // 4. Get visible columns (or all if not specified)
   const visibleColumnIds = (view.visibleColumns as string[]) || []
@@ -405,11 +429,24 @@ export async function queryRowsByView(
   `.trim()
 
   // 6. Execute queries
-  const rows = await db.execute(drizzleSql.raw(selectSQL))
+  let rows = await db.execute(drizzleSql.raw(selectSQL))
   const countResult = await db.execute(drizzleSql.raw(countSQL))
   const total = parseInt((countResult[0] as any).count, 10)
 
-  // 7. Return results
+  // 7. Resolve computed fields in order:
+  // 7a. Relation fields (enrich with display information)
+  rows = await resolveRelationFieldsForRows(rows as any[], visibleColumns)
+
+  // 7b. Lookup fields (pull data from relations)
+  rows = await resolveLookups(rows as any[], visibleColumns, allColumns, db, schema)
+
+  // 7c. Rollup fields (aggregate data from related tables)
+  rows = await resolveRollupFieldsForRows(rows as any[], visibleColumns)
+
+  // 7d. Formula fields (calculate values from current row, may use lookup/rollup results)
+  rows = resolveFormulaFieldsForRows(rows as any[], visibleColumns)
+
+  // 8. Return results
   return {
     rows,
     total,
@@ -421,57 +458,6 @@ export async function queryRowsByView(
   }
 }
 
-/**
- * Helper: Get view with validation
- */
-export async function getViewWithValidation(
-  db: any,
-  schema: any,
-  viewId: string
-) {
-  const view = await db
-    .select()
-    .from(schema.dataTableViews)
-    .where(eq(schema.dataTableViews.id, viewId))
-    .limit(1)
-    .then((rows: any[]) => rows[0])
-
-  if (!view) {
-    throw new Error(`View not found: ${viewId}`)
-  }
-
-  return view
-}
-
-/**
- * Helper: Validate user has access to view's workspace
- */
-export async function validateViewAccess(
-  db: any,
-  schema: any,
-  viewId: string,
-  workspaceId: string
-) {
-  // Get view
-  const view = await getViewWithValidation(db, schema, viewId)
-
-  // Get table
-  const table = await db
-    .select()
-    .from(schema.dataTables)
-    .where(eq(schema.dataTables.id, view.dataTableId))
-    .limit(1)
-    .then((rows: any[]) => rows[0])
-
-  if (!table) {
-    throw new Error('Table not found')
-  }
-
-  // Check if table belongs to the workspace
-  if (table.workspaceId !== workspaceId) {
-    throw new Error('Access denied: View does not belong to this workspace')
-  }
-
-  return { view, table }
-}
+// Note: Access control functions moved to server/utils/viewAccess.ts
+// Use validateViewAccess() from there for comprehensive access control
 

@@ -1,6 +1,7 @@
 import { db } from 'hub:db'
 import { auditLogs } from 'hub:db:schema'
 import type { H3Event } from 'h3'
+import { generateUUID } from '~~/server/utils/uuid'
 
 export type AuditAction = 
   | 'create' 
@@ -23,6 +24,7 @@ export type AuditEntityType =
   | 'workflow'
   | 'dashboard'
   | 'folder'
+  | 'app_template'
 
 export interface AuditLogData {
   companyId?: string
@@ -44,6 +46,7 @@ export interface AuditLogData {
 export async function createAuditLog(data: AuditLogData) {
   try {
     await db.insert(auditLogs).values({
+      id: generateUUID(),
       companyId: data.companyId || null,
       userId: data.userId || null,
       action: data.action,
@@ -167,3 +170,20 @@ export async function auditWorkspaceOperation(
   })
 }
 
+export async function auditTemplateOperation(
+  event: H3Event,
+  action: 'create' | 'update' | 'delete',
+  templateId: string,
+  userId: string,
+  companyId?: string,
+  changes?: { before?: any; after?: any }
+) {
+  await auditFromEvent(event, {
+    companyId,
+    userId,
+    action,
+    entityType: 'app_template',
+    entityId: templateId,
+    changes,
+  })
+}

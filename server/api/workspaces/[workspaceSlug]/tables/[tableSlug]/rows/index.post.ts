@@ -3,6 +3,7 @@ import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName, validateColumnName } from '~~/server/utils/dynamicTable'
+import { generateUUID } from '~~/server/utils/uuid'
 import { auditRowOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 
@@ -78,18 +79,43 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'No valid data provided' })
   }
 
+  // Generate UUID for the new row
+  const rowId = generateUUID()
+  
+  // Add id to columns
+  columnNames.unshift('id')
+  columnValues.unshift(rowId)
+
   // Execute raw INSERT and return the created row
-  // Escape and format values properly
-  const formattedValues = columnValues.map(val => {
+  // Escape and format values properly based on column type
+  const formattedValues = columnNames.map((colName, index) => {
+    const val = columnValues[index]
+    const column = columns.find(c => c.name === colName)
+    const colType = column?.type
+    
     if (val === null || val === undefined) return 'NULL'
     if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE'
     if (typeof val === 'number') return String(val)
+    
+    // Check if this column type is stored as JSONB
+    const jsonbTypes = ['url', 'email', 'phone', 'select', 'multi-select', 'rating', 'currency', 'location', 'relation']
+    if (colType && jsonbTypes.includes(colType)) {
+      // For JSONB columns, wrap the value in JSON format
+      if (typeof val === 'object') {
+        return `'${JSON.stringify(val)}'::jsonb`
+      } else {
+        // Wrap primitive values in JSON
+        return `'${JSON.stringify(val)}'::jsonb`
+      }
+    }
+    
+    // For non-JSONB columns (text, number, etc.)
+    if (typeof val === 'object') return `'${JSON.stringify(val)}'::jsonb`
     // Escape single quotes in strings
     return `'${String(val).replace(/'/g, "''")}'`
   }).join(', ')
 
   const insertSQL = `INSERT INTO "${validatedTableName}" (${columnNames.join(', ')}) VALUES (${formattedValues}) RETURNING *`
-
   const result = await db.execute(sql.raw(insertSQL))
   
   // Result format from Drizzle execute: array of row objects
@@ -98,10 +124,10 @@ export default eventHandler(async (event) => {
   }
 
   const createdRow = result[0]
-  const rowId = createdRow.id
+  const createdRowId = createdRow.id as string
 
   // Audit log row creation
-  await auditRowOperation(event, 'create', rowId, table.id, table.companyId, event.context.user.id, {
+  await auditRowOperation(event, 'create', createdRowId, table.id, table.companyId, event.context.user.id, {
     after: body,
   })
 

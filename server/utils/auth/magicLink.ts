@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { magicLinks } from 'hub:db:schema'
 import { eq, and, gte, isNull } from 'drizzle-orm'
 import { generateToken } from './token'
+import { generateUUID } from '~~/server/utils/uuid'
 
 const MAGIC_LINK_EXPIRY_HOURS = 1
 
@@ -16,6 +17,7 @@ export async function createMagicLink(email: string, type: MagicLinkType) {
   expiresAt.setHours(expiresAt.getHours() + MAGIC_LINK_EXPIRY_HOURS)
 
   const [magicLink] = await db.insert(magicLinks).values({
+    id: generateUUID(),
     email,
     token,
     type,

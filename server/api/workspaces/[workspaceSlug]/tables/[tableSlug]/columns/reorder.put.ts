@@ -55,7 +55,6 @@ export default eventHandler(async (event) => {
     ))
     .limit(1)
     .then(rows => rows[0])
-
   if (!view) {
     throw createError({ statusCode: 404, message: 'View not found' })
   }

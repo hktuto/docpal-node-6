@@ -4,6 +4,12 @@ import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName } from '~~/server/utils/dynamicTable'
 import { paginatedResponse } from '~~/server/utils/response'
+import { 
+  resolveRelationFieldsForRows,
+  resolveLookupFieldsForRows,
+  resolveFormulaFieldsForRows,
+  resolveRollupFieldsForRows
+} from '~~/server/utils/computedFields'
 
 /**
  * List rows from a dynamic table with pagination
@@ -46,15 +52,35 @@ export default eventHandler(async (event) => {
   }
   const validatedTableName = table.tableName
 
+  // Get table columns to check for lookup fields
+  const columns = await db
+    .select()
+    .from(schema.dataTableColumns)
+    .where(eq(schema.dataTableColumns.dataTableId, table.id))
+    .orderBy(schema.dataTableColumns.order)
+
   // Execute raw SELECT query
   const selectSQL = `SELECT * FROM "${validatedTableName}" ORDER BY created_at DESC LIMIT ${limit} OFFSET ${offset}`
-  const result = await db.execute(sql.raw(selectSQL))
+  let rows:any[] = await db.execute(sql.raw(selectSQL))
+
+  // Resolve computed fields in order:
+  // 1. Relation fields (enrich with display information)
+  rows = await resolveRelationFieldsForRows(rows as any[], columns)
+
+  // 2. Lookup fields (pull data from relations)
+  rows = await resolveLookupFieldsForRows(rows as any[], columns, validatedTableName)
+
+  // 3. Rollup fields (aggregate data from related tables)
+  rows = await resolveRollupFieldsForRows(rows as any[], columns)
+
+  // 4. Formula fields (calculate values from current row, may use lookup/rollup results)
+  rows = resolveFormulaFieldsForRows(rows as any[], columns)
 
   // Get total count
   const countSQL = `SELECT COUNT(*) as count FROM "${validatedTableName}"`
   const countResult = await db.execute(sql.raw(countSQL))
   const total = parseInt((countResult[0] as any).count, 10)
 
-  return paginatedResponse(result, total, limit, offset)
+  return paginatedResponse(rows, total, limit, offset)
 })
 

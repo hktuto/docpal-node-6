@@ -19,7 +19,7 @@ interface Column {
 interface Props {
   // Data mode: either provide data directly OR use proxy
   data?: T[]
-  columns: Column[]
+  columns: DataTableColumn[]
   loading?: boolean
   height?: number | string
   maxHeight?: number | string
@@ -117,6 +117,24 @@ defineExpose({
     $grid.value?.clearCheckboxRow()
   }
 })
+
+function getGridColumns() {
+  const displayColumns = props.columns.filter((col: DataTableColumn) => !col.isHidden)
+  return displayColumns.map((col: DataTableColumn) => {
+    // Get custom width from view config if available
+    
+    return {
+      id: col.id, // Include column ID for management operations
+      field: col.type === 'relation' ? `${col.name}.displayFieldValue` : col.name,
+      title: col.label,
+      minWidth: 120,
+      sortable: true,
+      visible: !col.isHidden, // Respect column visibility
+    }
+  })
+}
+
+
 
 // Build automatic proxy configuration
 function buildAutoProxyConfig(workspaceSlug: string, tableSlug: string): VxeGridPropTypes.ProxyConfig {
@@ -247,7 +265,8 @@ function handleColumnMenuClick({ menu, column }: { menu: any, column: any }) {
 
 // Build columns config
 function buildColumns(): any[] {
-  const cols: any[] = props.columns
+  const columns = getGridColumns() // generate columns from props.columns
+  const cols: any[] = columns
     .filter(col => col.visible !== false) // Filter out hidden columns
     .map(col => ({
     field: col.field,

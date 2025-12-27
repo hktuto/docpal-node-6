@@ -2,6 +2,7 @@ import { db } from 'hub:db'
 import { sessions } from 'hub:db:schema'
 import { eq, and, gte } from 'drizzle-orm'
 import { generateToken } from './token'
+import { generateUUID } from '~~/server/utils/uuid'
 
 const SESSION_EXPIRY_DAYS = 30
 
@@ -14,6 +15,7 @@ export async function createSession(userId: string, companyId?: string) {
   expiresAt.setDate(expiresAt.getDate() + SESSION_EXPIRY_DAYS)
 
   const [session] = await db.insert(sessions).values({
+    id: generateUUID(),
     userId,
     companyId: companyId || null,
     token,

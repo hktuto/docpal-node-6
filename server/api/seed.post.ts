@@ -4,13 +4,21 @@ import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { hashPassword } from '~~/server/utils/auth/password'
 import { successResponse } from '~~/server/utils/response'
+import { seedAdvancedTemplate } from '~~/server/utils/seedTemplates'
+import { generateUUID } from '~~/server/utils/uuid'
 
 /**
- * Seed endpoint - creates superadmin account and test company
+ * Seed endpoint - creates superadmin account, test company, and advanced CRM template
  * 
  * Credentials:
  * Email: admin@docpal.dev
  * Password: admin123
+ * 
+ * Includes:
+ * - User & Company
+ * - Advanced CRM Template (5 tables: Companies, Contacts, Deals, Activities, Stats)
+ * - Demonstrates: Relations, Lookups, Rollups, Formulas
+ * - Sample data included
  * 
  * Usage: POST /api/seed
  */
@@ -40,6 +48,7 @@ export default defineEventHandler(async (event) => {
       const hashedPassword = await hashPassword(SEED_PASSWORD)
       
       const [newUser] = await db.insert(users).values({
+        id: generateUUID(),
         email: SEED_EMAIL,
         name: 'Super Admin',
         password: hashedPassword,
@@ -64,6 +73,7 @@ export default defineEventHandler(async (event) => {
     } else {
       // Create seed company
       const [newCompany] = await db.insert(companies).values({
+        id: generateUUID(),
         name: 'Acme Corporation',
         slug: SEED_COMPANY_SLUG,
         description: 'Test company for development',
@@ -90,6 +100,7 @@ export default defineEventHandler(async (event) => {
     if (existingMembership.length === 0) {
       // Add user as owner of the company
       await db.insert(companyMembers).values({
+        id: generateUUID(),
         userId: user.id,
         companyId: company.id,
         role: 'owner',
@@ -98,6 +109,10 @@ export default defineEventHandler(async (event) => {
     } else {
       console.log('✓ User is already a member of the company')
     }
+
+    // Seed advanced CRM template
+    console.log('\n📦 Seeding Advanced CRM template...')
+    const templateResult = await seedAdvancedTemplate({ skipExisting: true })
 
     return successResponse({
       user: {
@@ -110,13 +125,18 @@ export default defineEventHandler(async (event) => {
         name: company.name,
         slug: company.slug,
       },
+      templates: {
+        created: templateResult.created,
+        skipped: templateResult.skipped,
+        total: templateResult.templates.length,
+      },
       credentials: {
         email: SEED_EMAIL,
         password: SEED_PASSWORD,
       },
-      isNewData: isNewUser || isNewCompany,
+      isNewData: isNewUser || isNewCompany || templateResult.created > 0,
     }, {
-      message: isNewUser || isNewCompany 
+      message: isNewUser || isNewCompany || templateResult.created > 0
         ? 'Seed data created successfully' 
         : 'Seed data already exists',
     })

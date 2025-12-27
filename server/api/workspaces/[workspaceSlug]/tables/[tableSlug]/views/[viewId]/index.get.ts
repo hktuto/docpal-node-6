@@ -2,10 +2,16 @@ import { eventHandler, getRouterParam, createError, getQuery } from 'h3'
 import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
+import { validateViewAccess } from '~~/server/utils/viewAccess'
+import { isValidUUID } from '~~/server/utils/uuid'
 
 /**
  * Get a specific view by ID or slug
- * Returns view with full column data and optionally filtered/sorted data
+ * Returns view with full column data
+ * 
+ * ✅ Supports public views (no auth required)
+ * ✅ Supports shared views (workspace members)
+ * ✅ Supports private views (creator only)
  */
 export default eventHandler(async (event) => {
   const workspace = event.context.workspace
@@ -34,21 +40,30 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Table not found' })
   }
 
-  // Get view by ID or slug
-  const view = await db
+  // Get view by ID (UUID) or slug
+  // Use UUID validation to determine if it's an ID or slug
+  const viewData = await db
     .select()
     .from(schema.dataTableViews)
     .where(and(
       eq(schema.dataTableViews.dataTableId, table.id),
-      viewIdOrSlug.includes('-') 
-        ? eq(schema.dataTableViews.slug, viewIdOrSlug)
-        : eq(schema.dataTableViews.id, viewIdOrSlug)
+      isValidUUID(viewIdOrSlug) 
+        ? eq(schema.dataTableViews.id, viewIdOrSlug)
+        : eq(schema.dataTableViews.slug, viewIdOrSlug)
     ))
     .limit(1).then(rows => rows[0])
 
-  if (!view) {
+  if (!viewData) {
     throw createError({ statusCode: 404, message: 'View not found' })
   }
+
+  // Validate access (supports public views!)
+  const accessResult = await validateViewAccess(event, viewData.id, {
+    requireEdit: false,
+    allowPublic: true
+  })
+  
+  const view = accessResult.view
 
   // Get all columns for this table
   const allColumns = await db
@@ -71,6 +86,7 @@ export default eventHandler(async (event) => {
     ...view,
     columns: visibleColumns, // Full column objects in correct order
     allColumns: allColumns, // All table columns (for reference)
+    accessType: accessResult.accessType // Include access type
   }
 
   return successResponse(enrichedView)

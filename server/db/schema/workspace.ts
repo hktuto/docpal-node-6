@@ -3,7 +3,7 @@ import { companies } from './company'
 import type{ MenuItem } from '#shared/types/db'
 
 export const workspaces = pgTable('workspaces', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull(),
   icon: text('icon'),

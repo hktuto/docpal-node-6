@@ -30,16 +30,35 @@ const localMenu = ref<MenuItem[]>([])
 // Watch for menu prop changes
 watch(() => props.menu, (newMenu) => {
   localMenu.value = JSON.parse(JSON.stringify(newMenu || []))
-  // Auto-expand folders containing active items
-  expandActiveFolders()
+  // Expand all folders by default
+  expandAllFolders()
 }, { immediate: true })
 
-// Watch route changes to expand folders containing newly active items
+// Watch route changes (no need to expand again since all are already expanded)
 watch(() => route.path, () => {
-  expandActiveFolders()
+  // Folders remain expanded
 })
 
-// Auto-expand folders that contain the currently active item
+// Expand all folders recursively
+function expandAllFolders() {
+  const collectAllFolderIds = (items: MenuItem[]) => {
+    items.forEach(item => {
+      if (item.type === 'folder') {
+        expandedFolders.value.add(item.id)
+        // Recursively expand nested folders
+        if (item.children && item.children.length > 0) {
+          collectAllFolderIds(item.children)
+        }
+      }
+    })
+  }
+  
+  if (localMenu.value.length > 0) {
+    collectAllFolderIds(localMenu.value)
+  }
+}
+
+// Legacy function - kept for compatibility but no longer used
 function expandActiveFolders() {
   const expandParentFolders = (items: MenuItem[], parents: string[] = []): boolean => {
     for (const item of items) {

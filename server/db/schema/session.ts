@@ -3,7 +3,7 @@ import { users } from './user'
 import { companies } from './company'
 
 export const sessions = pgTable('sessions', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   companyId: uuid('company_id').references(() => companies.id, { onDelete: 'set null' }),
   token: text('token').notNull().unique(),

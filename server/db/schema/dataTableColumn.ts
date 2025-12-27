@@ -2,7 +2,7 @@ import { pgTable, uuid, text, jsonb, integer, boolean, timestamp } from 'drizzle
 import { dataTables } from './dataTable'
 
 export const dataTableColumns = pgTable('data_table_columns', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   
   // Reference to parent table
   dataTableId: uuid('data_table_id')

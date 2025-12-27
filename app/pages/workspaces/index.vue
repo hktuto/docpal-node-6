@@ -24,6 +24,8 @@
   const { data, pending, refresh, error } = await useApi<SuccessResponse<App[]>>('/api/workspaces')
   const apps = computed(() => data.value?.data)
   // Create app
+  const router = useRouter()
+  
   const createApp = async () => {
     if (!formRef.value) return
     
@@ -31,23 +33,55 @@
     try {
       await formRef.value.validate()
       
-      await $api('/api/workspaces', {
-        method: 'POST',
-        body: {
-          name: form.value.name,
-          description: form.value.description,
-          icon: form.value.icon
-        }
-      })
+      let result
       
-      // Clear form
+      // If creating from template
+      if (selectedTemplateId.value) {
+        const loading = ElLoading.service({
+          lock: true,
+          text: 'Creating workspace from template...',
+          background: 'rgba(0, 0, 0, 0.7)',
+        })
+        
+        result = await $api('/api/app-templates/create-workspace', {
+          method: 'POST',
+          body: {
+            templateId: selectedTemplateId.value,
+            name: form.value.name,
+            description: form.value.description,
+            includeSampleData: includesSampleData.value
+          }
+        })
+        
+        loading.close()
+      } else {
+        // Create empty workspace
+        result = await $api('/api/workspaces', {
+          method: 'POST',
+          body: {
+            name: form.value.name,
+            description: form.value.description,
+            icon: form.value.icon
+          }
+        })
+      }
+      
+      // Clear form and template selection
       form.value = { name: '', description: '', icon: 'lucide:grid-3x3' }
+      selectedTemplateId.value = null
+      includesSampleData.value = false
       showCreateDialog.value = false
       
-      // Refresh the list
-      await refresh()
+      ElMessage.success(selectedTemplateId.value ? 'Workspace created from template!' : 'App created successfully!')
       
-      ElMessage.success('App created successfully!')
+      // Navigate to the new workspace
+      const workspace = result?.data
+      if (workspace?.slug) {
+        await router.push(`/workspaces/${workspace.slug}`)
+      } else {
+        // Fallback: refresh list if no slug
+        await refresh()
+      }
     } catch (error: any) {
       if (error?.data?.message) {
         ElMessage.error(error.data.message)
@@ -58,25 +92,37 @@
     }
   }
 
-  // Apply template
+  // Apply template - pre-fill form with template data
   const applyTemplate = async (template: any) => {
     try {
       // Pre-fill the form with template data
       form.value = {
         name: template.name,
         description: template.description,
-        icon: template.icon
+        icon: template.icon || 'lucide:grid-3x3'
       }
+      
+      // Store template ID for later use
+      selectedTemplateId.value = template.id
+      // Enable sample data by default (now fully supported with proper UUIDs!)
+      includesSampleData.value = template.includesSampleData || true
       
       // Open the create dialog
       showCreateDialog.value = true
       
-      ElMessage.info('Template applied! Customize the app name and details before creating.')
+      ElMessage.info('Customize workspace details before creating')
     } catch (error: any) {
       console.error('Error applying template:', error)
       ElMessage.error('Failed to apply template')
     }
   }
+  
+  // Track selected template
+  const selectedTemplateId = ref<string | null>(null)
+  const includesSampleData = ref(false)
+  
+  // Template picker dialog
+  const showTemplateDialog = ref(false)
 
   // Edit app
   const handleEditApp = (app: Workspace) => {
@@ -120,6 +166,8 @@
   
   const handleDialogClose = () => {
     form.value = { name: '', description: '', icon: 'lucide:grid-3x3' }
+    selectedTemplateId.value = null
+    includesSampleData.value = false
     formRef.value?.clearValidate()
     showCreateDialog.value = false
   }
@@ -153,15 +201,23 @@
               Create and manage your applications
             </p>
           </div>
-          <el-button 
-            v-if="pending || (apps && apps.length !== 0)"
-            type="primary" 
-            size="large"
-            @click="showCreateDialog = true"
-          >
-            <Icon name="lucide:plus" class="button-icon" />
-            Create App
-          </el-button>
+          <div v-if="!pending" class="header-actions">
+            <el-button 
+              size="large"
+              @click="showTemplateDialog = true"
+            >
+              <Icon name="lucide:layout-template" class="button-icon" />
+              From Template
+            </el-button>
+            <el-button 
+              type="primary" 
+              size="large"
+              @click="showCreateDialog = true"
+            >
+              <Icon name="lucide:plus" class="button-icon" />
+              Create New
+            </el-button>
+          </div>
         </div>
     
         <!-- Apps Grid -->
@@ -183,10 +239,22 @@
           />
         </div>
     
+        <!-- Template Picker Dialog -->
+        <el-dialog
+          v-model="showTemplateDialog"
+          title="Choose a Template"
+          width="900px"
+          @close="showTemplateDialog = false"
+        >
+          <AppTemplatesListPicker 
+            @apply="(template) => { showTemplateDialog = false; applyTemplate(template); }" 
+          />
+        </el-dialog>
+    
         <!-- Create App Dialog -->
         <el-dialog
           v-model="showCreateDialog"
-          title="Create New App"
+          :title="selectedTemplateId ? 'Create Workspace from Template' : 'Create New App'"
           width="500px"
           :before-close="handleDialogClose"
         >
@@ -226,6 +294,7 @@
             </el-form-item>
     
             <el-form-item
+              v-if="!selectedTemplateId"
               label="Icon"
               prop="icon"
             >
@@ -240,6 +309,19 @@
                   <Icon :name="icon" size="24" />
                 </div>
               </div>
+            </el-form-item>
+            
+            <!-- Sample Data Option (only when creating from template) -->
+            <el-form-item v-if="selectedTemplateId">
+              <el-checkbox v-model="includesSampleData">
+                <span>Include sample data</span>
+                <el-tooltip
+                  content="Import pre-populated sample data to help you understand the structure"
+                  placement="top"
+                >
+                  <Icon name="lucide:help-circle" size="16" style="margin-left: 4px; color: var(--app-text-color-secondary);" />
+                </el-tooltip>
+              </el-checkbox>
             </el-form-item>
           </el-form>
     
@@ -322,6 +404,12 @@
         font-size: var(--app-font-size-m);
         color: var(--app-text-color-secondary);
       }
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: var(--app-space-s);
+      align-items: center;
     }
     
     .button-icon {

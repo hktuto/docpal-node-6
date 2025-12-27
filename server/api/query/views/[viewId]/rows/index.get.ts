@@ -3,7 +3,7 @@ import { db, schema } from 'hub:db'
 import { eq } from 'drizzle-orm'
 import { queryRowsByView } from '~~/server/utils/queryRowsByView'
 import { successResponse } from '~~/server/utils/response'
-import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
+import { validateViewAccess } from '~~/server/utils/viewAccess'
 
 /**
  * Query rows by view ID
@@ -11,7 +11,9 @@ import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
  * This endpoint applies view's filters, sorting, and column visibility.
  * Works for all view types (Table, Kanban, Calendar, Gallery, etc.)
  * 
- * Future: Add public sharing support with ?token=xyz
+ * ✅ Supports public views (no auth required)
+ * ✅ Supports shared views (workspace members)
+ * ✅ Supports private views (creator only)
  * 
  * GET /api/query/views/:viewId/rows?limit=50&offset=0
  */
@@ -23,16 +25,11 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'View ID is required' })
   }
 
-  // Future: Check for public share token
-  // const shareToken = query.token as string | undefined
-  // if (shareToken) {
-  //   // Validate share token and return public data
-  //   return handlePublicAccess(viewId, shareToken, query)
-  // }
-
-  // Current: Basic authentication only
-  // TODO: Phase 2.6 - Add proper table/view permissions (RBAC)
-  const user = await requireCompany(event)
+  // Validate access (supports public views!)
+  const accessResult = await validateViewAccess(event, viewId, {
+    requireEdit: false,
+    allowPublic: true
+  })
 
   // Parse pagination params
   const limit = query.limit ? parseInt(query.limit as string, 10) : 50
@@ -61,7 +58,9 @@ export default eventHandler(async (event) => {
           name: result.view.name,
           type: result.view.type,
           columns: result.columns, // Include visible columns for frontend
-        }
+        },
+        // Include access type for frontend (useful for UI decisions)
+        accessType: accessResult.accessType
       }
     )
   } catch (error) {

@@ -7,6 +7,7 @@ import { successResponse } from '~~/server/utils/response'
 import { generatePhysicalTableName } from '~~/server/utils/dynamicTable'
 import { createPhysicalTable } from '~~/server/utils/tableOperations'
 import type { TableColumnDef } from '#shared/types/db'
+import { generateUUID } from '~~/server/utils/uuid'
 
 // Helper to generate a human-friendly label from a column name
 function generateLabel(name: string): string {
@@ -82,9 +83,9 @@ export default eventHandler(async (event) => {
   const existingSlugs = existingTables.map(t => t.slug)
   const slug = generateUniqueSlug(body.name, existingSlugs)
 
-  // Generate a temporary table ID for physical table name
-  const tempTableId = crypto.randomUUID()
-  const physicalTableName = generatePhysicalTableName(companyId, tempTableId)
+  // Generate a table ID for physical table name
+  const tableId = generateUUID()
+  const physicalTableName = generatePhysicalTableName(companyId, tableId)
 
   try {
     // Step 1: Create physical PostgreSQL table
@@ -94,7 +95,7 @@ export default eventHandler(async (event) => {
     const [newTable] = await db
       .insert(schema.dataTables)
       .values({
-        id: tempTableId,
+        id: tableId,
         name: body.name,
         slug,
         tableName: physicalTableName,
@@ -109,6 +110,7 @@ export default eventHandler(async (event) => {
     if (columns.length > 0) {
       const createdColumns = await db.insert(schema.dataTableColumns).values(
         columns.map((col, index) => ({
+          id: generateUUID(),
           dataTableId: newTable.id,
           name: col.name,
           label: col.label || generateLabel(col.name), // Auto-generate label if not provided
@@ -124,6 +126,7 @@ export default eventHandler(async (event) => {
 
     // Step 4: Create default table view
     await db.insert(schema.dataTableViews).values({
+      id: generateUUID(),
       dataTableId: newTable.id,
       name: 'All Records',
       slug: 'all-records',

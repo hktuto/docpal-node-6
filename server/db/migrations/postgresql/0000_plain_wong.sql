@@ -1,3 +1,24 @@
+CREATE TABLE "app_templates" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" text NOT NULL,
+	"description" text,
+	"icon" text,
+	"cover_image" text,
+	"category" text,
+	"tags" text[],
+	"created_from_app_id" uuid,
+	"created_by" uuid,
+	"company_id" uuid,
+	"visibility" text DEFAULT 'personal' NOT NULL,
+	"is_featured" boolean DEFAULT false,
+	"template_definition" jsonb NOT NULL,
+	"includes_sample_data" boolean DEFAULT false,
+	"includes_views" boolean DEFAULT true,
+	"usage_count" integer DEFAULT 0,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "audit_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid,
@@ -67,8 +88,10 @@ CREATE TABLE "data_table_views" (
 	"data_table_id" uuid NOT NULL,
 	"name" text NOT NULL,
 	"slug" text NOT NULL,
-	"type" text DEFAULT 'table' NOT NULL,
+	"description" text,
+	"view_type" text DEFAULT 'grid' NOT NULL,
 	"is_default" boolean DEFAULT false NOT NULL,
+	"is_shared" boolean DEFAULT false NOT NULL,
 	"is_public" boolean DEFAULT false NOT NULL,
 	"visible_columns" jsonb,
 	"column_widths" jsonb,
@@ -121,6 +144,16 @@ CREATE TABLE "sessions" (
 	CONSTRAINT "sessions_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
+CREATE TABLE "user_view_preferences" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"view_id" uuid NOT NULL,
+	"user_id" uuid NOT NULL,
+	"preferences" jsonb,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "user_view_preferences_view_id_user_id_unique" UNIQUE("view_id","user_id")
+);
+--> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" text NOT NULL,
@@ -132,6 +165,15 @@ CREATE TABLE "users" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
+CREATE TABLE "view_permissions" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"view_id" uuid NOT NULL,
+	"user_id" uuid,
+	"role" text,
+	"permission_type" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "workspaces" (
@@ -147,6 +189,9 @@ CREATE TABLE "workspaces" (
 	CONSTRAINT "workspaces_company_id_slug_unique" UNIQUE("company_id","slug")
 );
 --> statement-breakpoint
+ALTER TABLE "app_templates" ADD CONSTRAINT "app_templates_created_from_app_id_workspaces_id_fk" FOREIGN KEY ("created_from_app_id") REFERENCES "public"."workspaces"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "app_templates" ADD CONSTRAINT "app_templates_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "app_templates" ADD CONSTRAINT "app_templates_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "companies" ADD CONSTRAINT "companies_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -161,4 +206,8 @@ ALTER TABLE "data_tables" ADD CONSTRAINT "data_tables_workspace_id_workspaces_id
 ALTER TABLE "data_tables" ADD CONSTRAINT "data_tables_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_view_preferences" ADD CONSTRAINT "user_view_preferences_view_id_data_table_views_id_fk" FOREIGN KEY ("view_id") REFERENCES "public"."data_table_views"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_view_preferences" ADD CONSTRAINT "user_view_preferences_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "view_permissions" ADD CONSTRAINT "view_permissions_view_id_data_table_views_id_fk" FOREIGN KEY ("view_id") REFERENCES "public"."data_table_views"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "view_permissions" ADD CONSTRAINT "view_permissions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workspaces" ADD CONSTRAINT "workspaces_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;

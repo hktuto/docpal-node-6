@@ -5,6 +5,7 @@ import { generateSlug } from '#shared/utils/slug'
 import { auditWorkspaceOperation } from '~~/server/utils/audit'
 import { successResponse } from '~~/server/utils/response'
 import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
+import { generateUUID } from '~~/server/utils/uuid'
 
 /**
  * Create a new workspace in the current company
@@ -37,6 +38,7 @@ export default defineEventHandler(async (event) => {
   }
   
   const [workspace] = await db.insert(workspaces).values({
+    id: generateUUID(),
     name: body.name,
     slug: finalSlug,
     icon: body.icon,

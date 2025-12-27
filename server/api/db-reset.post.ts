@@ -30,10 +30,13 @@ export default defineEventHandler(async (event) => {
       'company_members',
       'magic_links',
       'sessions',
+      'user_view_preferences',    // NEW: Phase 2.6
+      'view_permissions',          // NEW: Phase 2.6
       'data_table_views',
       'data_table_columns',
       'data_tables',
-      "apps",
+      'app_templates',             // NEW: Template system
+      'apps',
       'workspaces',
       'companies',
       'users',

@@ -3,7 +3,7 @@ import { companies } from './company'
 import { users } from './user'
 
 export const auditLogs = pgTable('audit_logs', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   companyId: uuid('company_id').references(() => companies.id, { onDelete: 'cascade' }),
   userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
   action: text('action').notNull(), // 'create', 'update', 'delete', 'login', 'logout', 'invite', etc.

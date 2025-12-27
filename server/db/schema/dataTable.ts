@@ -3,7 +3,7 @@ import { workspaces } from './workspace'
 import { companies } from './company'
 
 export const dataTables = pgTable('data_tables', {
-  id: uuid('id').primaryKey().defaultRandom(),
+  id: uuid('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull(),
   
