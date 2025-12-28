@@ -86,6 +86,16 @@ export default eventHandler(async (event) => {
   columnNames.unshift('id')
   columnValues.unshift(rowId)
 
+  // Helper to check if column is stored as JSONB
+  const isJSONBColumn = (columnType: string): boolean => {
+    const jsonbTypes = [
+      'text', 'richtext', 'url', 'email', 'phone',
+      'select', 'multiSelect', 'user', 'relation',
+      'currency', 'attachment', 'lookup', 'formula', 'rollup'
+    ]
+    return jsonbTypes.includes(columnType)
+  }
+
   // Execute raw INSERT and return the created row
   // Escape and format values properly based on column type
   const formattedValues = columnNames.map((colName, index) => {
@@ -94,20 +104,12 @@ export default eventHandler(async (event) => {
     const colType = column?.type
     
     if (val === null || val === undefined) return 'NULL'
+    if (colType && isJSONBColumn(colType)) {
+      // For JSONB columns, wrap the value in JSON format
+      return `'${JSON.stringify(val)}'::jsonb`
+    }
     if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE'
     if (typeof val === 'number') return String(val)
-    
-    // Check if this column type is stored as JSONB
-    const jsonbTypes = ['url', 'email', 'phone', 'select', 'multi-select', 'rating', 'currency', 'location', 'relation']
-    if (colType && jsonbTypes.includes(colType)) {
-      // For JSONB columns, wrap the value in JSON format
-      if (typeof val === 'object') {
-        return `'${JSON.stringify(val)}'::jsonb`
-      } else {
-        // Wrap primitive values in JSON
-        return `'${JSON.stringify(val)}'::jsonb`
-      }
-    }
     
     // For non-JSONB columns (text, number, etc.)
     if (typeof val === 'object') return `'${JSON.stringify(val)}'::jsonb`

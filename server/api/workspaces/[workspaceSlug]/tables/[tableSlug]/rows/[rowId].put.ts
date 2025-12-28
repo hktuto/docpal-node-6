@@ -56,6 +56,16 @@ export default eventHandler(async (event) => {
   const validatedTableName = table.tableName
   const setClauses: string[] = []
 
+  // Helper to check if column is stored as JSONB
+  const isJSONBColumn = (columnType: string): boolean => {
+    const jsonbTypes = [
+      'text', 'richtext', 'url', 'email', 'phone',
+      'select', 'multiSelect', 'user', 'relation',
+      'currency', 'attachment', 'lookup', 'formula', 'rollup'
+    ]
+    return jsonbTypes.includes(columnType)
+  }
+
   for (const col of columns) {
     if (col.name in body) {
       if (!validateColumnName(col.name)) {
@@ -66,12 +76,15 @@ export default eventHandler(async (event) => {
       let formattedVal: string
       if (val === null || val === undefined) {
         formattedVal = 'NULL'
+      } else if (isJSONBColumn(col.type)) {
+        // For JSONB columns, wrap in JSON and cast to jsonb
+        formattedVal = `'${JSON.stringify(val)}'::jsonb`
       } else if (typeof val === 'boolean') {
         formattedVal = val ? 'TRUE' : 'FALSE'
       } else if (typeof val === 'number') {
         formattedVal = String(val)
       } else {
-        // Escape single quotes in strings
+        // Escape single quotes in strings (for native text columns)
         formattedVal = `'${String(val).replace(/'/g, "''")}'`
       }
       

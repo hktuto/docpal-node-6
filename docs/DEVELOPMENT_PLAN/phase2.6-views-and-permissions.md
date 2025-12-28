@@ -2,7 +2,7 @@
 
 **Status**: 🟡 **In Progress** - Phase 2.6.1 COMPLETE! ✅  
 **Estimated Duration**: 3-4 weeks  
-**Progress**: 20% Complete (1 of 5 phases done)
+**Progress**: 25% Complete (Phase 2.6.1 done + Kanban view done)
 
 **Previous Name**: Phase 1.5 (Views & Bulk Operations)  
 **Expanded Scope**: Now includes comprehensive CRUD, sharing, and permissions for workspaces, tables, and views

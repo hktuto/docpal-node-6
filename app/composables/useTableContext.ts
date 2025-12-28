@@ -8,6 +8,10 @@ export interface TableContext {
   table: Ref<DataTable | null>
   currentView: Ref<DataTableView | null>
   
+  // Temporary filters/sorts state (applied but not saved)
+  tempFilters: Ref<FilterGroup | null>
+  tempSorts: Ref<SortConfig[] | null>
+  
   // Row actions
   handleAddRow: () => void
   handleEditRow: (row: any) => void
@@ -24,6 +28,7 @@ export interface TableContext {
   
   // View actions
   handleViewUpdate: (updates: Partial<DataTableView>) => Promise<void>
+  handleViewEdit?: (view: DataTableView) => void
   
   // Filter/Sort actions (temporary, not saved to view)
   handleFiltersApplied: (filters: FilterGroup | null) => void

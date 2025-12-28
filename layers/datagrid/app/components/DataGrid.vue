@@ -130,14 +130,16 @@ function getGridColumns() {
       id: col.id, // Include column ID for management operations
       field: col.type === 'relation' ? `${col.name}.displayFieldValue` : col.name,
       title: col.label,
+      width: undefined,
       minWidth: 120,
       sortable: true,
+      fixed: undefined,
       visible: !col.isHidden, // Respect column visibility
+      formatter: undefined,
+      slots: undefined
     }
   })
 }
-
-
 
 // Build automatic proxy configuration
 function buildAutoProxyConfig(workspaceSlug: string, tableSlug: string): VxeGridPropTypes.ProxyConfig {
@@ -149,8 +151,29 @@ function buildAutoProxyConfig(workspaceSlug: string, tableSlug: string): VxeGrid
           const limit = page.pageSize
           const offset = (page.currentPage - 1) * page.pageSize
           
+          // Get view ID from props
+          const viewId = props.viewId
+          if (!viewId) {
+            console.error('View ID is required for DataGrid')
+            return { result: [], page: { total: 0 } }
+          }
+          
+          // Get temporary filters/sorts from table context (if available)
+          const tempFilters = tableContext?.tempFilters?.value || null
+          const tempSorts = tableContext?.tempSorts?.value || null
+          
+          // Use POST to send complex filters/sorts in body
           const apiResponse = await $api<{ data: any[], meta?: any }>(
-            `/api/workspaces/${workspaceSlug}/tables/${tableSlug}/rows?limit=${limit}&offset=${offset}`
+            `/api/query/views/${viewId}/rows`,
+            {
+              method: 'POST',
+              body: {
+                limit,
+                offset,
+                filters: tempFilters,
+                sorts: tempSorts
+              }
+            }
           )
           
           return {
@@ -289,18 +312,23 @@ function buildColumns(): any[] {
   const columns = getGridColumns() // generate columns from props.columns
   const cols: any[] = columns
     .filter(col => col.visible !== false) // Filter out hidden columns
-    .map(col => ({
-    field: col.field,
-    title: col.title,
-    width: col.width,
-    minWidth: col.minWidth,
-    sortable: col.sortable,
-    fixed: col.fixed,
-      visible: col.visible !== false, // Default to visible
-    showOverflow: props.showOverflow,
-    ...(col.formatter && { formatter: col.formatter }),
-    ...(col.slots && { slots: col.slots }),
-  }))
+    .map(col => {
+      const colConfig: any = {
+        field: col.field,
+        title: col.title,
+        width: col.width,
+        minWidth: col.minWidth,
+        sortable: col.sortable,
+        fixed: col.fixed,
+        visible: col.visible !== false, // Default to visible
+        showOverflow: props.showOverflow
+      }
+      
+      if (col.formatter) colConfig.formatter = col.formatter
+      if (col.slots) colConfig.slots = col.slots
+      
+      return colConfig
+    })
   
   // Add actions column if enabled
   if (props.showActions) {
@@ -421,6 +449,17 @@ function handleDelete(row: T) {
 function handleView(row: T) {
   emit('view', row)
 }
+
+// Watch for filter/sort changes and refresh data
+watch(() => tableContext?.tempFilters?.value, (newFilters) => {
+  console.log('Filters changed, refreshing grid:', newFilters)
+  $grid.value?.commitProxy('query')
+}, { deep: true })
+
+watch(() => tableContext?.tempSorts?.value, (newSorts) => {
+  console.log('Sorts changed, refreshing grid:', newSorts)
+  $grid.value?.commitProxy('query')
+}, { deep: true })
 </script>
 
 <template>

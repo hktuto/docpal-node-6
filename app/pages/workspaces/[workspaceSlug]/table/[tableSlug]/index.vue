@@ -393,6 +393,7 @@ async function handleViewUpdate(updates: Partial<DataTableView>) {
 const tempFilters = ref<any>(null)
 const tempSorts = ref<any>(null)
 
+
 // Handle temporary filters applied (DON'T save to view, just apply to query)
 function handleFiltersApplied(filters: any) {
   console.log('Temporary filters applied:', filters)
@@ -611,6 +612,10 @@ const tableContext: TableContext = {
   table: computed(() => table.value?.data || null),
   currentView: computed(() => currentView.value?.data || null),
   
+  // Temporary filters/sorts state
+  tempFilters,
+  tempSorts,
+  
   // Row actions
   handleAddRow,
   handleEditRow,
@@ -627,6 +632,7 @@ const tableContext: TableContext = {
   
   // View actions
   handleViewUpdate,
+  handleViewEdit,
   
   // Filter/Sort actions
   handleFiltersApplied,

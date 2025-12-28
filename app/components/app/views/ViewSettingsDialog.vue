@@ -45,11 +45,16 @@
         <el-form-item label="Group By Column">
           <el-select v-model="viewConfig.groupBy" clearable placeholder="None (default)">
             <el-option
-              v-for="col in columns"
+              v-for="col in groupableColumns"
               :key="col.id"
               :label="col.label"
               :value="col.name"
-            />
+            >
+              <span>{{ col.label }}</span>
+              <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px">
+                {{ getColumnTypeLabel(col.type) }}
+              </span>
+            </el-option>
           </el-select>
         </el-form-item>
         
@@ -79,12 +84,20 @@
         <el-form-item label="Group By Column" required>
           <el-select v-model="viewConfig.groupBy" placeholder="Select a column">
             <el-option
-              v-for="col in columns.filter((c: any) => c.type === 'select' || c.type === 'status')"
+              v-for="col in groupableColumns"
               :key="col.id"
               :label="col.label"
               :value="col.name"
-            />
+            >
+              <span>{{ col.label }}</span>
+              <span style="float: right; color: var(--el-text-color-secondary); font-size: 13px">
+                {{ getColumnTypeLabel(col.type) }}
+              </span>
+            </el-option>
           </el-select>
+          <div style="margin-top: 8px; color: var(--el-text-color-secondary); font-size: 12px">
+            📊 Group by Select, Status, Relation, User, Text, Number, Boolean, or Date fields
+          </div>
         </el-form-item>
       </template>
       
@@ -121,6 +134,42 @@
           </el-radio-group>
         </el-form-item>
       </template>
+      
+      <el-divider />
+      
+      <!-- Default Filters Section -->
+      <el-form-item>
+        <template #label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>Default Filters</span>
+            <el-tooltip content="These filters are applied by default when the view opens. Users can still add temporary filters.">
+              <el-icon><InfoFilled /></el-icon>
+            </el-tooltip>
+          </div>
+        </template>
+        <AppViewsFilterBuilder
+          :columns="columns"
+          :filters="localView.filters"
+          @change="(filters: any) => localView.filters = filters"
+        />
+      </el-form-item>
+      
+      <!-- Default Sorts Section -->
+      <el-form-item>
+        <template #label>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span>Default Sorting</span>
+            <el-tooltip content="These sorting rules are applied by default. Users can still add temporary sorts.">
+              <el-icon><InfoFilled /></el-icon>
+            </el-tooltip>
+          </div>
+        </template>
+        <AppViewsSortBuilder
+          :columns="columns"
+          :sorts="localView.sorts"
+          @change="(sorts: any) => localView.sorts = sorts"
+        />
+      </el-form-item>
       
       <el-divider />
       
@@ -170,7 +219,7 @@
 </template>
 
 <script setup lang="ts">
-import { Grid, Tickets, Calendar, Picture } from '@element-plus/icons-vue'
+import { Grid, Tickets, Calendar, Picture, InfoFilled } from '@element-plus/icons-vue'
 import type { DataTableView } from '#shared/types/db'
 import type { FormInstance } from 'element-plus'
 
@@ -201,6 +250,43 @@ const formRef = ref<FormInstance>()
 const localView = ref<Partial<DataTableView>>({})
 const viewConfig = ref<any>({})
 
+// Groupable column types for Kanban view
+const groupableColumnTypes = [
+  'select', 'status',                    // Select fields (best for Kanban)
+  'relation',                            // Relations to other tables
+  'text', 'richtext', 'email', 'url', 'phone', // Text fields (groups by unique values)
+  'number', 'currency',                  // Number fields (groups by unique values)
+  'boolean',                             // Boolean fields (Yes/No groups)
+  'date', 'datetime',                    // Date fields (groups by dates)
+  'user'                                 // User fields
+]
+
+// Get columns that can be grouped in Kanban
+const groupableColumns = computed(() => {
+  return props.columns.filter((col: any) => groupableColumnTypes.includes(col.type))
+})
+
+// Get human-readable column type label
+function getColumnTypeLabel(type: string): string {
+  const labels: Record<string, string> = {
+    select: 'Select',
+    status: 'Status',
+    relation: 'Relation',
+    text: 'Text',
+    richtext: 'Rich Text',
+    email: 'Email',
+    url: 'URL',
+    phone: 'Phone',
+    number: 'Number',
+    currency: 'Currency',
+    boolean: 'Boolean',
+    date: 'Date',
+    datetime: 'DateTime',
+    user: 'User'
+  }
+  return labels[type] || type
+}
+
 // Clone view when dialog opens
 watch(() => [props.view, props.isCreating, props.visible], ([newView, creating, visible]) => {
   if (visible) {
@@ -212,7 +298,9 @@ watch(() => [props.view, props.isCreating, props.visible], ([newView, creating, 
         viewType: 'grid',
         isPublic: false,
         isDefault: false,
-        pageSize: 50
+        pageSize: 50,
+        filters: null,
+        sorts: null
       }
       viewConfig.value = {}
     } else if (newView) {
@@ -223,7 +311,9 @@ watch(() => [props.view, props.isCreating, props.visible], ([newView, creating, 
         viewType: newView.viewType,
         isPublic: newView.isPublic,
         isDefault: newView.isDefault,
-        pageSize: newView.pageSize || 50
+        pageSize: newView.pageSize || 50,
+        filters: newView.filters ? JSON.parse(JSON.stringify(newView.filters)) : null,
+        sorts: newView.sorts ? JSON.parse(JSON.stringify(newView.sorts)) : null
       }
       viewConfig.value = (newView.viewConfig as any) || {}
     }

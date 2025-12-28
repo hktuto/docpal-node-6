@@ -5,8 +5,6 @@
       :columns="view.allColumns || view.columns"
       :default-filters="view.filters"
       :default-sorts="view.sorts"
-      @filters-applied="handleFiltersApplied"
-      @sorts-applied="handleSortsApplied"
     />
     
     <!-- View Content -->
@@ -30,11 +28,15 @@
       
       <!-- Kanban View -->
       <template v-else-if="view.viewType === 'kanban'">
-        <div class="view-placeholder">
-          <el-icon :size="48"><Tickets /></el-icon>
-          <h3>Kanban View</h3>
-          <p>Coming soon...</p>
-        </div>
+        <AppViewsKanbanBoard
+          :columns="view.columns"
+          :workspace-slug="workspaceSlug"
+          :table-slug="tableSlug"
+          :view-id="view.id"
+          :group-by-column-name="(view.viewConfig as any)?.groupBy"
+          @card-click="handleCardClick"
+          @configure="handleConfigure"
+        />
       </template>
       
       <!-- Calendar View -->
@@ -81,6 +83,27 @@ interface Props {
 }
 
 defineProps<Props>()
+
+// Inject table context to get temporary filters/sorts
+const tableContext = useTableContext()
+
+// Get reactive refs for temporary filters/sorts from context
+const tempFilters = tableContext.tempFilters
+const tempSorts = tableContext.tempSorts
+
+// Event handlers for Kanban
+function handleCardClick(card: any) {
+  // Open row dialog
+  tableContext.handleEditRow(card)
+}
+
+function handleConfigure() {
+  // Open view settings dialog
+  const view = tableContext.currentView.value
+  if (view && tableContext.handleViewEdit) {
+    tableContext.handleViewEdit(view)
+  }
+}
 
 // Inherit all events from DataGrid
 defineOptions({

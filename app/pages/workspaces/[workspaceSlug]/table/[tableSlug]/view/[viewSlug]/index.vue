@@ -406,6 +406,10 @@ const tableContext: TableContext = {
   table: computed(() => table.value?.data || null),
   currentView: computed(() => viewData.value?.data || null),
   
+  // Temporary filters/sorts state
+  tempFilters,
+  tempSorts,
+  
   // Row actions
   handleAddRow,
   handleEditRow,
@@ -422,6 +426,7 @@ const tableContext: TableContext = {
   
   // View actions
   handleViewUpdate: handleViewSettingsSave,
+  handleViewEdit: () => handleViewEdit(),
   
   // Filter/Sort actions
   handleFiltersApplied,

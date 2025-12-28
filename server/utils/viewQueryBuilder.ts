@@ -13,9 +13,6 @@ import type {
  * Converts view filter/sort configurations into Drizzle ORM compatible SQL
  */
 
-// Re-export types for backward compatibility
-export type { FilterOperator, FilterCondition, FilterGroup, SortConfig }
-
 /**
  * Build WHERE clause from filter configuration
  */

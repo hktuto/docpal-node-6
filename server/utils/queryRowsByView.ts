@@ -21,9 +21,11 @@ import { eq, sql as drizzleSql } from 'drizzle-orm'
 export interface QueryRowsByViewOptions {
   limit?: number
   offset?: number
-  // Override view's default filters/sorts if needed
+  // Override view's default filters/sorts (replaces view's filters/sorts if provided)
+  filtersOverride?: any
+  // Additional filters to AND on top (for grouping/lanes)
   additionalFilters?: any
-  additionalSort?: any
+  sortsOverride?: any
 }
 
 export interface QueryRowsByViewResult {
@@ -51,6 +53,31 @@ interface ViewSort {
 }
 
 /**
+ * Check if column type is stored as JSONB in dynamic tables
+ */
+function isJSONBColumn(columnType: string): boolean {
+  // These types are stored as JSONB and need extraction
+  const jsonbTypes = [
+    'text', 'richtext', 'url', 'email', 'phone',
+    'select', 'multiSelect', 'user', 'relation',
+    'currency', 'attachment', 'geolocation', 'color'
+  ]
+  return jsonbTypes.includes(columnType)
+}
+
+/**
+ * Get column SQL reference with JSONB extraction if needed
+ */
+function getColumnSQL(columnName: string, columnType: string): string {
+  if (isJSONBColumn(columnType)) {
+    // Extract text value from JSONB
+    return `"${columnName}" #>> '{}'`
+  }
+  // Native types (number, date, timestamp, boolean, etc.)
+  return `"${columnName}"`
+}
+
+/**
  * Build SQL WHERE clause from view filters
  * ⚠️ SERVER-ONLY: Never expose this to frontend
  */
@@ -68,67 +95,87 @@ function buildFilterSQL(
       if (!column) return null
 
       const columnName = column.name
+      const columnType = column.type
       const operator = condition.operator
       const value = condition.value
+      
+      // Get proper SQL reference for column (with JSONB extraction if needed)
+      const colSQL = getColumnSQL(columnName, columnType)
 
       switch (operator) {
         case 'equals':
           return value === null 
             ? `"${columnName}" IS NULL`
-            : `"${columnName}" = '${escapeSQLValue(value)}'`
+            : `${colSQL} = '${escapeSQLValue(value)}'`
         
         case 'notEquals':
           return value === null
             ? `"${columnName}" IS NOT NULL`
-            : `"${columnName}" != '${escapeSQLValue(value)}'`
+            : `${colSQL} != '${escapeSQLValue(value)}'`
         
         case 'contains':
-          return `"${columnName}" ILIKE '%${escapeSQLValue(value)}%'`
+          return `${colSQL} ILIKE '%${escapeSQLValue(value)}%'`
         
         case 'notContains':
-          return `"${columnName}" NOT ILIKE '%${escapeSQLValue(value)}%'`
+          return `${colSQL} NOT ILIKE '%${escapeSQLValue(value)}%'`
         
         case 'startsWith':
-          return `"${columnName}" ILIKE '${escapeSQLValue(value)}%'`
+          return `${colSQL} ILIKE '${escapeSQLValue(value)}%'`
         
         case 'endsWith':
-          return `"${columnName}" ILIKE '%${escapeSQLValue(value)}'`
+          return `${colSQL} ILIKE '%${escapeSQLValue(value)}'`
         
         case 'isEmpty':
-          return `("${columnName}" IS NULL OR "${columnName}" = '')`
+          return `("${columnName}" IS NULL OR ${colSQL} = '')`
         
         case 'isNotEmpty':
-          return `("${columnName}" IS NOT NULL AND "${columnName}" != '')`
+          return `("${columnName}" IS NOT NULL AND ${colSQL} != '')`
         
         case 'gt':
-          return `"${columnName}" > '${escapeSQLValue(value)}'`
+          // For JSONB, cast to numeric for comparison
+          if (isJSONBColumn(columnType)) {
+            return `(${colSQL})::numeric > ${escapeSQLValue(value)}`
+          }
+          return `${colSQL} > '${escapeSQLValue(value)}'`
         
         case 'gte':
-          return `"${columnName}" >= '${escapeSQLValue(value)}'`
+          if (isJSONBColumn(columnType)) {
+            return `(${colSQL})::numeric >= ${escapeSQLValue(value)}`
+          }
+          return `${colSQL} >= '${escapeSQLValue(value)}'`
         
         case 'lt':
-          return `"${columnName}" < '${escapeSQLValue(value)}'`
+          if (isJSONBColumn(columnType)) {
+            return `(${colSQL})::numeric < ${escapeSQLValue(value)}`
+          }
+          return `${colSQL} < '${escapeSQLValue(value)}'`
         
         case 'lte':
-          return `"${columnName}" <= '${escapeSQLValue(value)}'`
+          if (isJSONBColumn(columnType)) {
+            return `(${colSQL})::numeric <= ${escapeSQLValue(value)}`
+          }
+          return `${colSQL} <= '${escapeSQLValue(value)}'`
         
         case 'between':
           if (Array.isArray(value) && value.length === 2) {
-            return `"${columnName}" BETWEEN '${escapeSQLValue(value[0])}' AND '${escapeSQLValue(value[1])}'`
+            if (isJSONBColumn(columnType)) {
+              return `(${colSQL})::numeric BETWEEN ${escapeSQLValue(value[0])} AND ${escapeSQLValue(value[1])}`
+            }
+            return `${colSQL} BETWEEN '${escapeSQLValue(value[0])}' AND '${escapeSQLValue(value[1])}'`
           }
           return null
         
         case 'in':
           if (Array.isArray(value) && value.length > 0) {
             const values = value.map(v => `'${escapeSQLValue(v)}'`).join(', ')
-            return `"${columnName}" IN (${values})`
+            return `${colSQL} IN (${values})`
           }
           return null
         
         case 'notIn':
           if (Array.isArray(value) && value.length > 0) {
             const values = value.map(v => `'${escapeSQLValue(v)}'`).join(', ')
-            return `"${columnName}" NOT IN (${values})`
+            return `${colSQL} NOT IN (${values})`
           }
           return null
         
@@ -163,8 +210,14 @@ function buildSortSQL(
       const column = columnMap.get(sort.columnId)
       if (!column) return null
 
+      const columnName = column.name
+      const columnType = column.type
       const direction = sort.direction.toUpperCase()
-      return `"${column.name}" ${direction}`
+      
+      // Get proper SQL reference for column (with JSONB extraction if needed)
+      const colSQL = getColumnSQL(columnName, columnType)
+      
+      return `${colSQL} ${direction}`
     })
     .filter(Boolean)
 
@@ -401,13 +454,32 @@ export async function queryRowsByView(
     throw new Error('Invalid table name')
   }
 
-  // Build WHERE clause from filters
-  const filters = view.filters as ViewFilters | undefined
+  // Build WHERE clause from filters (use override if provided)
+  let filters = (options.filtersOverride !== undefined 
+    ? options.filtersOverride 
+    : view.filters) as ViewFilters | undefined
+  
+  // Merge with additional filters if provided
+  if (options.additionalFilters) {
+    if (filters) {
+      // Both exist: wrap in AND
+      filters = {
+        operator: 'AND',
+        conditions: [filters, options.additionalFilters]
+      }
+    } else {
+      // Only additional filters exist
+      filters = options.additionalFilters
+    }
+  }
+  
   const whereClause = buildFilterSQL(filters, columnMap)
   const whereSQL = whereClause ? `WHERE ${whereClause}` : ''
 
-  // Build ORDER BY clause from sort config
-  const sorts = view.sort as ViewSort[] | undefined
+  // Build ORDER BY clause from sort config (use override if provided)
+  const sorts = (options.sortsOverride !== undefined 
+    ? options.sortsOverride 
+    : view.sort) as ViewSort[] | undefined
   const orderBySQL = `ORDER BY ${buildSortSQL(sorts, columnMap)}`
 
   // Build SELECT query
