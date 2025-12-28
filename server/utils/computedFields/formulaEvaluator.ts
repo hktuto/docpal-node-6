@@ -278,14 +278,12 @@ export function resolveFormulaFieldsForRows(
     return rows
   }
 
-  console.log(`🧮 Resolving ${formulaColumns.length} formula fields for ${rows.length} rows...`)
 
   // Resolve formulas for each row
   const resolvedRows = rows.map(row => 
     resolveFormulaFieldsForRow(row, formulaColumns)
   )
 
-  console.log(`✅ Resolved formula fields`)
 
   return resolvedRows
 }

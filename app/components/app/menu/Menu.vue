@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { MenuItem } from '#shared/types/db'
+import type { MenuItem, DataTable, DataTableView } from '#shared/types/db'
 import draggable from 'vuedraggable'
 import { nanoid } from 'nanoid'
 import { generateUniqueSlug } from '#shared/utils/slug'
@@ -18,6 +18,9 @@ const route = useRoute()
 const showCreateFolderDialog = ref(false)
 const showCreateDashboardDialog = ref(false)
 const showCreateTableDialog = ref(false)
+const showSelectTableDialog = ref(false)
+const showRenameDialog = ref(false)
+const renamingItem = ref<MenuItem | null>(null)
 const expandedFolders = ref<Set<string>>(new Set())
 const highlightedItems = ref<Set<string>>(new Set())
 const justCreatedItemId = ref<string | null>(null)
@@ -141,6 +144,14 @@ function isFolderExpanded(folderId: string): boolean {
 // Check if menu item is active
 function isItemActive(item: MenuItem): boolean {
   const basePath = `/workspaces/${props.workspaceSlug}`
+  
+  // Special handling for view items (need table slug in path)
+  if (item.type === 'view' && item.tableSlug && item.slug) {
+    const viewPath = `${basePath}/table/${item.tableSlug}/view/${item.slug}`
+    return route.path === viewPath || route.path.startsWith(viewPath + '/')
+  }
+  
+  // Standard handling for other item types
   const itemPath = `${basePath}/${item.type}/${item.slug}`
   return route.path === itemPath || route.path.startsWith(itemPath + '/')
 }
@@ -174,6 +185,12 @@ function navigateToItem(item: MenuItem, event?: MouseEvent) {
     expandedFolders.value.add(item.id)
   }
   
+  // Special handling for view items (need both table and view slug)
+  if (item.type === 'view' && item.tableSlug && item.slug) {
+    navigateTo(`${basePath.value}/table/${item.tableSlug}/view/${item.slug}`, event)
+    return
+  }
+  
   navigateTo(`${basePath.value}/${item.type}/${item.slug}`, event)
 }
 
@@ -187,6 +204,8 @@ function handleCreate(type: 'folder' | 'table' | 'view' | 'dashboard', parentId?
     showCreateDashboardDialog.value = true
   } else if (type === 'table') {
     showCreateTableDialog.value = true
+  } else if (type === 'view') {
+    showSelectTableDialog.value = true
   } else {
     emit('create', type)
   }
@@ -340,6 +359,209 @@ function handleCreateTable(table: any) {
     navigateToItem(newTable)
   })
 }
+
+// Handle table selection for view creation
+function handleSelectTableForView(tableSlug: string) {
+  // Navigate to table page with create view query param
+  // The table page will detect this and open the ViewSettingsDialog
+  navigateTo(`${basePath.value}/table/${tableSlug}?createView=true`)
+}
+
+// ============================================
+// MENU ITEM ACTIONS
+// ============================================
+
+// Rename item
+function handleRenameItem(item: MenuItem) {
+  renamingItem.value = item
+  showRenameDialog.value = true
+}
+
+// Confirm rename
+function handleRenameConfirm(newName: string) {
+  if (!renamingItem.value || newName === renamingItem.value.label) return
+  
+  // Find and update item in menu
+  const updateItemName = (items: MenuItem[]): boolean => {
+    for (const menuItem of items) {
+      if (menuItem.id === renamingItem.value!.id) {
+        menuItem.label = newName
+        return true
+      }
+      if (menuItem.children && updateItemName(menuItem.children)) {
+        return true
+      }
+    }
+    return false
+  }
+  
+  if (updateItemName(localMenu.value)) {
+    emit('update', localMenu.value)
+    ElMessage.success('Item renamed successfully')
+  }
+}
+
+// Duplicate view
+async function handleDuplicateItem(item: MenuItem) {
+  if (item.type !== 'view' || !item.viewId || !item.tableSlug) {
+    ElMessage.error('Only views can be duplicated')
+    return
+  }
+  
+  try {
+    const { $api } = useNuxtApp()
+    const response = await $api<SuccessResponse<DataTableView>>(
+      `/api/workspaces/${props.workspaceSlug}/tables/${item.tableSlug}/views/${item.slug}/duplicate`,
+      {
+        method: 'POST',
+        body: {
+          name: `${item.label} (Copy)`
+        }
+      }
+    )
+    
+    if (response.data) {
+      ElMessage.success('View duplicated successfully')
+      // Navigate to the duplicated view
+      await navigateTo(`${basePath.value}/table/${item.tableSlug}#view-${response.data.slug}`)
+    }
+  } catch (error: any) {
+    console.error('Error duplicating view:', error)
+    ElMessage.error('Failed to duplicate view')
+  }
+}
+
+// Unpin item from menu
+function handleUnpinItem(item: MenuItem) {
+  // Remove item from menu
+  const removeItem = (items: MenuItem[], itemId: string): MenuItem[] => {
+    return items.filter(menuItem => {
+      if (menuItem.id === itemId) {
+        return false
+      }
+      if (menuItem.children) {
+        menuItem.children = removeItem(menuItem.children, itemId)
+      }
+      return true
+    })
+  }
+  
+  localMenu.value = removeItem(localMenu.value, item.id)
+  emit('update', localMenu.value)
+  ElMessage.success('Item unpinned from menu')
+}
+
+// Count all children in a folder (recursively)
+function countFolderChildren(item: MenuItem): number {
+  if (!item.children || item.children.length === 0) return 0
+  
+  let count = item.children.length
+  
+  // Recursively count children of sub-folders
+  for (const child of item.children) {
+    if (child.type === 'folder' && child.children) {
+      count += countFolderChildren(child)
+    }
+  }
+  
+  return count
+}
+
+// Flatten all children from a folder (including nested folders) to a single level
+function flattenFolderChildren(item: MenuItem): MenuItem[] {
+  if (!item.children || item.children.length === 0) return []
+  
+  const flattened: MenuItem[] = []
+  
+  for (const child of item.children) {
+    // Add the child
+    flattened.push(child)
+    
+    // If child is a folder, recursively flatten its children
+    if (child.type === 'folder' && child.children) {
+      const nestedChildren = flattenFolderChildren(child)
+      flattened.push(...nestedChildren)
+      // Clear the folder's children since we're flattening
+      child.children = []
+    }
+  }
+  
+  return flattened
+}
+
+// Delete item
+async function handleDeleteItem(item: MenuItem) {
+  try {
+    let confirmMessage = `Are you sure you want to delete "${item.label}"?`
+    let confirmTitle = 'Delete Item'
+    
+    // Special handling for folders with children
+    if (item.type === 'folder') {
+      const childCount = countFolderChildren(item)
+      
+      if (childCount > 0) {
+        confirmMessage = `Delete folder "${item.label}"?\n\nThis folder contains ${childCount} item(s) (including nested items).\nAll items will be moved to the root level.`
+        confirmTitle = 'Delete Folder'
+      } else {
+        confirmMessage = `Delete empty folder "${item.label}"?`
+        confirmTitle = 'Delete Folder'
+      }
+    } else {
+      confirmMessage = `Are you sure you want to delete "${item.label}"? This action cannot be undone.`
+    }
+    
+    await ElMessageBox.confirm(
+      confirmMessage,
+      confirmTitle,
+      {
+        confirmButtonText: 'Delete',
+        cancelButtonText: 'Cancel',
+        type: 'warning',
+        confirmButtonClass: 'el-button--danger'
+      }
+    )
+    
+    const { $api } = useNuxtApp()
+    
+    // Delete based on item type
+    if (item.type === 'folder') {
+      // Move all children to root before deleting folder
+      if (item.children && item.children.length > 0) {
+        const flattenedChildren = flattenFolderChildren(item)
+        localMenu.value.push(...flattenedChildren)
+      }
+      
+      // Remove folder from menu
+      handleUnpinItem(item)
+      ElMessage.success(`Folder deleted. ${item.children?.length || 0} item(s) moved to root.`)
+      return
+    } else if (item.type === 'view' && item.viewId && item.tableSlug) {
+      await $api(
+        `/api/workspaces/${props.workspaceSlug}/tables/${item.tableSlug}/views/${item.slug}`,
+        { method: 'DELETE' as any }
+      )
+      ElMessage.success('View deleted successfully')
+      // Menu will be updated by the delete API
+    } else if (item.type === 'table') {
+      await $api(
+        `/api/workspaces/${props.workspaceSlug}/tables/${item.slug}`,
+        { method: 'DELETE' as any }
+      )
+      ElMessage.success('Table deleted successfully')
+      // Manually remove from menu
+      handleUnpinItem(item)
+    } else {
+      // For other types, just remove from menu
+      handleUnpinItem(item)
+      ElMessage.success('Item removed from menu')
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Error deleting item:', error)
+      ElMessage.error('Failed to delete item')
+    }
+  }
+}
 </script>
 
 <template>
@@ -383,6 +605,10 @@ function handleCreateTable(table: any) {
             @toggle="toggleFolder"
             @create="handleCreate"
             @drag-end="onDragEnd"
+            @rename="handleRenameItem"
+            @duplicate="handleDuplicateItem"
+            @unpin="handleUnpinItem"
+            @delete-item="handleDeleteItem"
           />
         </template>
       </draggable>
@@ -405,6 +631,20 @@ function handleCreateTable(table: any) {
       v-model="showCreateTableDialog"
       :workspace-slug="workspaceSlug"
       @created="handleCreateTable"
+    />
+    
+    <!-- Rename Dialog -->
+    <AppMenuRenameDialog
+      v-model:visible="showRenameDialog"
+      :item="renamingItem"
+      @confirm="handleRenameConfirm"
+    />
+    
+    <!-- Select Table for View Creation -->
+    <AppMenuSelectTableDialog
+      v-model:visible="showSelectTableDialog"
+      :workspace-slug="workspaceSlug"
+      @confirm="handleSelectTableForView"
     />
   </div>
 </template>

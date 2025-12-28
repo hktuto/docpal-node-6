@@ -13,14 +13,14 @@ export default defineEventHandler(async (event) => {
   const user = requireCompany(event)
   const workspace = event.context.workspace
   const tableSlug = getRouterParam(event, 'tableSlug')
-  const viewId = getRouterParam(event, 'viewId')
+  const viewSlug = getRouterParam(event, 'viewSlug')
 
   if (!workspace) {
     throw createError({ statusCode: 500, message: 'Workspace context not found' })
   }
 
-  if (!tableSlug || !viewId) {
-    throw createError({ statusCode: 400, message: 'Table slug and view ID are required' })
+  if (!tableSlug || !viewSlug) {
+    throw createError({ statusCode: 400, message: 'Table slug and view slug are required' })
   }
 
   const body = await readBody(event)
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
       .select()
       .from(dataTableViews)
       .where(and(
-        eq(dataTableViews.id, viewId),
+        eq(dataTableViews.slug, viewSlug),
         eq(dataTableViews.dataTableId, table.id)
       ))
       .limit(1)

@@ -119,12 +119,11 @@
 import { ref, computed, watch } from 'vue'
 import { Plus, Close, Rank, SortUp, SortDown, InfoFilled } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
-import type { DataTableColumn } from '#shared/types/db'
+import type { DataTableColumn, SortConfig as BaseSortConfig } from '#shared/types/db'
 
-interface SortConfig {
+// Extend with id for draggable
+interface SortConfig extends BaseSortConfig {
   id?: string // For draggable key
-  columnId: string
-  direction: 'asc' | 'desc'
 }
 
 interface Props {

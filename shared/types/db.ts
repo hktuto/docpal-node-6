@@ -46,6 +46,10 @@ export interface MenuItem {
     description?: string
     children?: MenuItem[]
     order: number
+    // View-specific fields
+    viewId?: string
+    tableId?: string
+    tableSlug?: string
 }
 
 // Column Configuration
@@ -170,4 +174,29 @@ export interface TemplateTableDefinition {
 export interface AppTemplateDefinition {
   menu?: MenuItem[]  // Optional menu structure for the workspace
   tables: TemplateTableDefinition[]
+}
+
+// View Filter and Sort Types
+export type FilterOperator = 
+  | 'equals' | 'notEquals' 
+  | 'contains' | 'notContains' 
+  | 'startsWith' | 'endsWith'
+  | 'isEmpty' | 'isNotEmpty'
+  | 'gt' | 'gte' | 'lt' | 'lte'
+  | 'between' | 'in' | 'notIn'
+
+export interface FilterCondition {
+  columnId: string
+  operator: FilterOperator
+  value?: any
+}
+
+export interface FilterGroup {
+  operator: 'AND' | 'OR'
+  conditions: (FilterCondition | FilterGroup)[]
+}
+
+export interface SortConfig {
+  columnId: string
+  direction: 'asc' | 'desc'
 }

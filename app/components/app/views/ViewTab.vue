@@ -1,57 +1,69 @@
 <template>
   <div class="view-tab">
-    <!-- Grid View -->
-    <template v-if="view.viewType === 'grid'">
-      <DataGrid
-        :columns="view.columns"
-        :workspace-slug="workspaceSlug"
-        :table-slug="tableSlug"
-        :view-id="view.id"
-        :auto-proxy="true"
-        :allow-column-management="true"
-        :virtual-scroll="true"
-        :scroll-y-load="false"
-        :page-size="view.pageSize || 50"
-        height="100%"
-        v-bind="$attrs"
-      />
-    </template>
+    <!-- View Toolbar (Temporary Filters & Sorts) -->
+    <AppViewsViewToolbar
+      :columns="view.allColumns || view.columns"
+      :default-filters="view.filters"
+      :default-sorts="view.sorts"
+      @filters-applied="handleFiltersApplied"
+      @sorts-applied="handleSortsApplied"
+    />
     
-    <!-- Kanban View -->
-    <template v-else-if="view.viewType === 'kanban'">
-      <div class="view-placeholder">
-        <el-icon :size="48"><Tickets /></el-icon>
-        <h3>Kanban View</h3>
-        <p>Coming soon...</p>
-      </div>
-    </template>
-    
-    <!-- Calendar View -->
-    <template v-else-if="view.viewType === 'calendar'">
-      <div class="view-placeholder">
-        <el-icon :size="48"><Calendar /></el-icon>
-        <h3>Calendar View</h3>
-        <p>Coming soon...</p>
-      </div>
-    </template>
-    
-    <!-- Gallery View -->
-    <template v-else-if="view.viewType === 'gallery'">
-      <div class="view-placeholder">
-        <el-icon :size="48"><Picture /></el-icon>
-        <h3>Gallery View</h3>
-        <p>Coming soon...</p>
-      </div>
-    </template>
-    
-    <!-- Form View -->
-    <template v-else-if="view.viewType === 'form'">
-      <div class="view-placeholder">
-        <el-icon :size="48"><Document /></el-icon>
-        <h3>Form View</h3>
-        <p>Coming soon...</p>
-      </div>
-    </template>
+    <!-- View Content -->
+    <div class="view-content">
+      <!-- Grid View -->
+      <template v-if="view.viewType === 'grid'">
+        <DataGrid
+          :columns="view.columns"
+          :workspace-slug="workspaceSlug"
+          :table-slug="tableSlug"
+          :view-id="view.id"
+          :auto-proxy="true"
+          :allow-column-management="true"
+          :virtual-scroll="true"
+          :scroll-y-load="false"
+          :page-size="view.pageSize || 50"
+          height="100%"
+          v-bind="$attrs"
+        />
+      </template>
+      
+      <!-- Kanban View -->
+      <template v-else-if="view.viewType === 'kanban'">
+        <div class="view-placeholder">
+          <el-icon :size="48"><Tickets /></el-icon>
+          <h3>Kanban View</h3>
+          <p>Coming soon...</p>
+        </div>
+      </template>
+      
+      <!-- Calendar View -->
+      <template v-else-if="view.viewType === 'calendar'">
+        <div class="view-placeholder">
+          <el-icon :size="48"><Calendar /></el-icon>
+          <h3>Calendar View</h3>
+          <p>Coming soon...</p>
+        </div>
+      </template>
+      
+      <!-- Gallery View -->
+      <template v-else-if="view.viewType === 'gallery'">
+        <div class="view-placeholder">
+          <el-icon :size="48"><Picture /></el-icon>
+          <h3>Gallery View</h3>
+          <p>Coming soon...</p>
+        </div>
+      </template>
+      
+      <!-- Form View -->
+      <template v-else-if="view.viewType === 'form'">
+        <div class="view-placeholder">
+          <el-icon :size="48"><Document /></el-icon>
+          <h3>Form View</h3>
+          <p>Coming soon...</p>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
 
@@ -79,6 +91,15 @@ defineOptions({
 <style scoped>
 .view-tab {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* View Content */
+.view-content {
+  flex: 1;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }

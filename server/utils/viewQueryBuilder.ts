@@ -1,5 +1,11 @@
 import { sql, SQL } from 'drizzle-orm'
-import type { DataTableColumn } from '#shared/types/db'
+import type { 
+  DataTableColumn, 
+  FilterOperator, 
+  FilterCondition, 
+  FilterGroup, 
+  SortConfig 
+} from '#shared/types/db'
 
 /**
  * View Query Builder - Parse filter and sort JSON into SQL
@@ -7,33 +13,8 @@ import type { DataTableColumn } from '#shared/types/db'
  * Converts view filter/sort configurations into Drizzle ORM compatible SQL
  */
 
-// Filter operator types
-export type FilterOperator = 
-  | 'equals' | 'notEquals' 
-  | 'contains' | 'notContains' 
-  | 'startsWith' | 'endsWith'
-  | 'isEmpty' | 'isNotEmpty'
-  | 'gt' | 'gte' | 'lt' | 'lte'
-  | 'between' | 'in' | 'notIn'
-
-// Filter condition structure
-export interface FilterCondition {
-  columnId: string
-  operator: FilterOperator
-  value?: any
-}
-
-// Filter group structure (supports nesting)
-export interface FilterGroup {
-  operator: 'AND' | 'OR'
-  conditions: (FilterCondition | FilterGroup)[]
-}
-
-// Sort configuration
-export interface SortConfig {
-  columnId: string
-  direction: 'asc' | 'desc'
-}
+// Re-export types for backward compatibility
+export type { FilterOperator, FilterCondition, FilterGroup, SortConfig }
 
 /**
  * Build WHERE clause from filter configuration

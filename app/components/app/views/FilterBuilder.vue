@@ -106,6 +106,8 @@
               v-else-if="isSelectInput(condition)"
               v-model="condition.value"
               size="small"
+              :disabled="getColumnOptions(condition.columnId).length === 0"
+              :placeholder="getColumnOptions(condition.columnId).length === 0 ? 'No options available' : 'Select value'"
               @change="emitChange"
             >
               <el-option
@@ -122,6 +124,8 @@
               v-model="condition.value"
               multiple
               size="small"
+              :disabled="getColumnOptions(condition.columnId).length === 0"
+              :placeholder="getColumnOptions(condition.columnId).length === 0 ? 'No options available' : 'Select values'"
               @change="emitChange"
             >
               <el-option
@@ -187,18 +191,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { Plus, Close } from '@element-plus/icons-vue'
-import type { DataTableColumn } from '#shared/types/db'
-
-interface FilterCondition {
-  columnId: string
-  operator: string
-  value?: any
-}
-
-interface FilterGroup {
-  operator: 'AND' | 'OR'
-  conditions: FilterCondition[]
-}
+import type { DataTableColumn, FilterCondition, FilterGroup } from '#shared/types/db'
 
 interface Props {
   columns: DataTableColumn[]

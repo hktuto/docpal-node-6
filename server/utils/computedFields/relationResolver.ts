@@ -153,7 +153,6 @@ export async function resolveRelationFieldsForRows(
     return rows
   }
   
-  console.log(`🔗 Resolving ${relationColumns.length} relation fields for ${rows.length} rows...`)
   
   // Resolve relations for each row
   const resolvedRows = []
@@ -165,7 +164,6 @@ export async function resolveRelationFieldsForRows(
     resolvedRows.push(resolvedRow)
   }
   
-  console.log(`✅ Resolved relation fields`)
   
   return resolvedRows
 }

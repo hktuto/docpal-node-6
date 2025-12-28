@@ -135,7 +135,6 @@ export async function resolveLookupFieldsForRows(
     return rows
   }
   
-  console.log(`🔍 Resolving ${lookupColumns.length} lookup fields for ${rows.length} rows...`)
   
   // Resolve lookups for each row
   const resolvedRows = []
@@ -149,7 +148,6 @@ export async function resolveLookupFieldsForRows(
     resolvedRows.push(resolvedRow)
   }
   
-  console.log(`✅ Resolved lookup fields`)
   
   return resolvedRows
 }

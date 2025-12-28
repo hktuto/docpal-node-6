@@ -19,6 +19,10 @@ const emit = defineEmits<{
   toggle: [folderId: string]
   create: [type: 'folder' | 'table' | 'view' | 'dashboard', parentId: string | null]
   dragEnd: []
+  rename: [item: MenuItem]
+  duplicate: [item: MenuItem]
+  unpin: [item: MenuItem]
+  deleteItem: [item: MenuItem]
 }>()
 
 function getIcon(type: string): string {
@@ -58,6 +62,15 @@ function getIcon(type: string): string {
         />
         <span class="item-label">{{ item.label }}</span>
       </div>
+      
+      <!-- Item Actions Dropdown (for all items) -->
+      <AppMenuItemActions
+        :item="item"
+        @rename="emit('rename', item)"
+        @duplicate="emit('duplicate', item)"
+        @unpin="emit('unpin', item)"
+        @delete="emit('deleteItem', item)"
+      />
       
       <!-- Add Child Button (for folders) -->
       <AppMenuAddButton
@@ -109,6 +122,10 @@ function getIcon(type: string): string {
               @toggle="emit('toggle', $event)"
               @create="(type, parentId) => emit('create', type, parentId)"
               @drag-end="emit('dragEnd')"
+              @rename="(item) => emit('rename', item)"
+              @duplicate="(item) => emit('duplicate', item)"
+              @unpin="(item) => emit('unpin', item)"
+              @delete-item="(item) => emit('deleteItem', item)"
             />
           </div>
         </template>

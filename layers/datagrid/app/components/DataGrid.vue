@@ -99,6 +99,9 @@ interface Emits {
 
 const emit = defineEmits<Emits>()
 
+// Try to inject table context (optional, falls back to events)
+const tableContext = useTableContext()
+
 // Grid ref
 const $grid = ref()
 
@@ -244,21 +247,39 @@ const gridOptions = computed<VxeGridProps>(() => {
 // Handle column menu clicks
 function handleColumnMenuClick({ menu, column }: { menu: any, column: any }) {
   // Find the original column data from props.columns
-  const columnData = props.columns.find(col => col.field === column.field)
+  const columnData = props.columns.find(col => col.name === (column.field.includes('.') ? column.field.split('.')[0] : column.field))
+
   if (!columnData) return
   
   switch (menu.code) {
     case 'add-column-left':
-      emit('add-column-left', columnData)
+      if (tableContext) {
+        tableContext.handleAddColumnLeft(columnData)
+      } else {
+        emit('add-column-left', columnData)
+      }
       break
     case 'add-column-right':
-      emit('add-column-right', columnData)
+      if (tableContext) {
+        tableContext.handleAddColumnRight(columnData)
+      } else {
+        emit('add-column-right', columnData)
+      }
       break
     case 'edit-column':
-      emit('edit-column', columnData)
+
+      if (tableContext) {
+        tableContext.handleEditColumn(columnData)
+      } else {
+        emit('edit-column', columnData)
+      }
       break
     case 'remove-column':
-      emit('remove-column', columnData)
+      if (tableContext) {
+        tableContext.handleRemoveColumn(columnData)
+      } else {
+        emit('remove-column', columnData)
+      }
       break
   }
 }
@@ -366,21 +387,35 @@ function handleColumnDragEnd({ newColumn, oldColumn, dragPos }: any) {
   const newColumnData = props.columns.find(col => col.field === newColumn.field)
   
   if (oldColumnData && newColumnData) {
-    emit('column-reorder', {
+    const params = {
       oldColumn: oldColumnData,
       newColumn: newColumnData,
       dragPos
-    })
+    }
+    
+    if (tableContext) {
+      tableContext.handleColumnReorder(params)
+    } else {
+      emit('column-reorder', params)
+    }
   }
 }
 
-// Action handlers
+// Action handlers - use context if available, otherwise emit
 function handleEdit(row: T) {
-  emit('edit', row)
+  if (tableContext) {
+    tableContext.handleEditRow(row)
+  } else {
+    emit('edit', row)
+  }
 }
 
 function handleDelete(row: T) {
-  emit('delete', row)
+  if (tableContext) {
+    tableContext.handleDeleteRow(row)
+  } else {
+    emit('delete', row)
+  }
 }
 
 function handleView(row: T) {

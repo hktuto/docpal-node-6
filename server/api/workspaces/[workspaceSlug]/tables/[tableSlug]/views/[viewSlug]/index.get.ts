@@ -3,10 +3,9 @@ import { db, schema } from 'hub:db'
 import { eq, and } from 'drizzle-orm'
 import { successResponse } from '~~/server/utils/response'
 import { validateViewAccess } from '~~/server/utils/viewAccess'
-import { isValidUUID } from '~~/server/utils/uuid'
 
 /**
- * Get a specific view by ID or slug
+ * Get a specific view by slug
  * Returns view with full column data
  * 
  * ✅ Supports public views (no auth required)
@@ -16,14 +15,14 @@ import { isValidUUID } from '~~/server/utils/uuid'
 export default eventHandler(async (event) => {
   const workspace = event.context.workspace
   const tableSlug = getRouterParam(event, 'tableSlug')
-  const viewIdOrSlug = getRouterParam(event, 'viewId')
+  const viewSlug = getRouterParam(event, 'viewSlug')
 
   if (!workspace) {
     throw createError({ statusCode: 500, message: 'Workspace context not found. Middleware error.' })
   }
 
-  if (!tableSlug || !viewIdOrSlug) {
-    throw createError({ statusCode: 400, message: 'Table slug and view ID are required' })
+  if (!tableSlug || !viewSlug) {
+    throw createError({ statusCode: 400, message: 'Table slug and view slug are required' })
   }
 
   // Get table metadata
@@ -40,16 +39,13 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Table not found' })
   }
 
-  // Get view by ID (UUID) or slug
-  // Use UUID validation to determine if it's an ID or slug
+  // Get view by slug
   const viewData = await db
     .select()
     .from(schema.dataTableViews)
     .where(and(
       eq(schema.dataTableViews.dataTableId, table.id),
-      isValidUUID(viewIdOrSlug) 
-        ? eq(schema.dataTableViews.id, viewIdOrSlug)
-        : eq(schema.dataTableViews.slug, viewIdOrSlug)
+      eq(schema.dataTableViews.slug, viewSlug)
     ))
     .limit(1).then(rows => rows[0])
 

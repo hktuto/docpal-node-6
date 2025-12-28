@@ -11,7 +11,7 @@ export default eventHandler(async (event) => {
   const workspace = event.context.workspace
   const tableSlug = getRouterParam(event, 'tableSlug')
   const body = await readBody<{ 
-    viewId: string
+    viewSlug: string
     columnIds: string[] 
   }>(event)
 
@@ -23,8 +23,8 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Table slug is required' })
   }
 
-  if (!body.viewId) {
-    throw createError({ statusCode: 400, message: 'viewId is required' })
+  if (!body.viewSlug) {
+    throw createError({ statusCode: 400, message: 'viewSlug is required' })
   }
 
   if (!body.columnIds || !Array.isArray(body.columnIds) || body.columnIds.length === 0) {
@@ -50,7 +50,7 @@ export default eventHandler(async (event) => {
     .select()
     .from(schema.dataTableViews)
     .where(and(
-      eq(schema.dataTableViews.id, body.viewId),
+      eq(schema.dataTableViews.slug, body.viewSlug),
       eq(schema.dataTableViews.dataTableId, table.id)
     ))
     .limit(1)
@@ -67,7 +67,7 @@ export default eventHandler(async (event) => {
         visibleColumns: body.columnIds,
         updatedAt: new Date()
       })
-      .where(eq(schema.dataTableViews.id, body.viewId))
+      .where(eq(schema.dataTableViews.id, view.id))
 
     console.log(`✅ Reordered ${body.columnIds.length} columns in view: ${view.name}`)
 

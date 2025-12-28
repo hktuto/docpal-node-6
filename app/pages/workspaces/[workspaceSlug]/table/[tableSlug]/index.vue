@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Grid, Tickets, Calendar, Picture, Link } from '@element-plus/icons-vue'
 import type { DataTable, DataTableColumn, DataTableView } from '#shared/types/db'
+import { TableContextKey, type TableContext } from '~/composables/useTableContext'
 
 definePageMeta({
   layout: 'app'
@@ -11,11 +12,34 @@ const router = useRouter()
 const workspaceSlug = computed(() => route.params.workspaceSlug as string)
 const tableSlug = computed(() => route.params.tableSlug as string)
 
+// Check if we should open create view dialog (from menu)
+const shouldOpenCreateView = computed(() => route.query.createView === 'true')
+
 // Track if component is mounted (for Teleport)
 const isMounted = ref(false)
 onMounted(() => {
   isMounted.value = true
 })
+
+// Watch for createView query param and open dialog
+watch(shouldOpenCreateView, (shouldOpen) => {
+  if (shouldOpen && isMounted.value) {
+    // Open create view dialog
+    nextTick(() => {
+      handleViewCreate()
+      // Remove query param from URL
+      router.replace({ query: { ...route.query, createView: undefined } })
+    })
+  }
+}, { immediate: true })
+
+// Fetch workspace (for menu refresh)
+const { data: workspace, refresh: refreshWorkspace } = await useApi<SuccessResponse<any>>(
+  () => `/api/workspaces/${workspaceSlug.value}`,
+  {
+    key: `workspace-${workspaceSlug.value}`,
+  }
+)
 
 // Fetch table metadata (with columns) - only schema, not rows
 const { data: table, pending: tablePending, refresh: refreshTable } = await useApi<SuccessResponse<DataTable & { columns: DataTableColumn[] }>>(
@@ -83,6 +107,12 @@ const editingRow = ref<any>(null)
 const showColumnDialog = ref(false)
 const editingColumn = ref<DataTableColumn | undefined>(undefined)
 const columnPosition = ref<number | null>(null) // Index where column should be inserted
+
+// View dialog states
+const showViewSettingsDialog = ref(false)
+const showPinToMenuDialog = ref(false)
+const selectedView = ref<DataTableView | null>(null)
+const isCreatingView = ref(false)
 
 // Add row
 function handleAddRow() {
@@ -249,7 +279,7 @@ async function handleColumnReorder({ oldColumn, newColumn, dragPos }: any) {
       {
         method: 'PUT',
         body: { 
-          viewId: currentView.value.data.id,
+          viewSlug: currentView.value.data.slug,
           columnIds 
         }
       }
@@ -277,7 +307,7 @@ async function handleColumnSaved(savedColumn: DataTableColumn) {
       
       // Update the view
       await $fetch(
-        `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${currentView.value.data.id}`,
+        `/api/workspaces/${workspaceSlug.value}/tables/${tableSlug.value}/views/${currentView.value.data.slug}`,
         {
           // @ts-ignore - Nuxt $fetch PUT method type issue
           method: 'PUT',
@@ -359,12 +389,33 @@ async function handleViewUpdate(updates: Partial<DataTableView>) {
   }
 }
 
+// State for temporary filters/sorts (applied to query, not saved to view)
+const tempFilters = ref<any>(null)
+const tempSorts = ref<any>(null)
+
+// Handle temporary filters applied (DON'T save to view, just apply to query)
+function handleFiltersApplied(filters: any) {
+  console.log('Temporary filters applied:', filters)
+  tempFilters.value = filters
+  // DataGrid will auto-refresh via proxy with new filters
+}
+
+// Handle temporary sorts applied (DON'T save to view, just apply to query)
+function handleSortsApplied(sorts: any) {
+  console.log('Temporary sorts applied:', sorts)
+  tempSorts.value = sorts
+  // DataGrid will auto-refresh via proxy with new sorts
+}
+
 // Handle view create
-async function handleViewCreate() {
-  // TODO: Open proper create dialog, for now use prompt
-  const viewName = prompt('Enter view name:')
-  if (!viewName) return
-  
+function handleViewCreate() {
+  selectedView.value = null
+  isCreatingView.value = true
+  showViewSettingsDialog.value = true
+}
+
+// Handle view create submit (from dialog)
+async function handleViewCreateSubmit(viewData: Partial<DataTableView>) {
   try {
     const { $api } = useNuxtApp()
     const response = await $api<SuccessResponse<DataTableView>>(
@@ -372,8 +423,7 @@ async function handleViewCreate() {
       {
         method: 'POST',
         body: {
-          name: viewName,
-          viewType: 'grid',
+          ...viewData,
           isDefault: false,
           // Use current view's columns as default
           visibleColumns: currentView.value?.data.columns?.map((col: DataTableColumn) => col.id) || []
@@ -390,6 +440,7 @@ async function handleViewCreate() {
     }
     
     ElMessage.success('View created')
+    isCreatingView.value = false
   } catch (error: any) {
     console.error('Error creating view:', error)
     ElMessage.error('Failed to create view')
@@ -421,6 +472,9 @@ async function handleViewDelete(viewSlug: string) {
         method: 'DELETE' as any
       }
     )
+    
+    // Refresh workspace to update menu (view was removed from menu by delete API)
+    await refreshWorkspace()
     
     // Refresh views list
     await refreshViews()
@@ -467,6 +521,124 @@ async function handleViewDuplicate(viewSlug: string) {
     ElMessage.error('Failed to duplicate view')
   }
 }
+
+// Handle view edit (opens settings dialog)
+function handleViewEdit(view: DataTableView) {
+  selectedView.value = view
+  isCreatingView.value = false
+  showViewSettingsDialog.value = true
+}
+
+// Handle view settings save
+async function handleViewSettingsSave(updates: Partial<DataTableView>) {
+  await handleViewUpdate(updates)
+}
+
+// Handle pin to menu
+function handlePinToMenu(view: DataTableView) {
+  selectedView.value = view
+  showPinToMenuDialog.value = true
+}
+
+// Handle pin to menu confirm
+async function handlePinToMenuConfirm(parentId: string | null) {
+  if (!selectedView.value || !workspace.value?.data) return
+  
+  try {
+    const { $api } = useNuxtApp()
+    
+    // Add view to menu
+    const currentMenu = workspace.value.data.menu || []
+    const newMenuItem = {
+      id: `view-${selectedView.value.id}`,
+      type: 'view' as const,
+      label: selectedView.value.name,
+      slug: selectedView.value.slug,
+      viewId: selectedView.value.id,
+      tableId: table.value?.data.id,
+      tableSlug: table.value?.data.slug
+    }
+    
+    // Find parent and add item
+    if (parentId) {
+      // Add to specific folder
+      function addToFolder(items: any[], folderId: string): boolean {
+        for (const item of items) {
+          if (item.id === folderId && item.type === 'folder') {
+            if (!item.children) item.children = []
+            item.children.push(newMenuItem)
+            return true
+          }
+          if (item.children && addToFolder(item.children, folderId)) {
+            return true
+          }
+        }
+        return false
+      }
+      addToFolder(currentMenu, parentId)
+    } else {
+      // Add to root
+      currentMenu.push(newMenuItem)
+    }
+    
+    // Update workspace menu
+    await $api(
+      `/api/workspaces/${workspaceSlug.value}`,
+      {
+        method: 'PUT' as any,
+        body: { menu: currentMenu }
+      }
+    )
+    
+    // Refresh workspace to update menu in UI
+    await refreshWorkspace()
+    
+    ElMessage.success('View pinned to menu')
+  } catch (error: any) {
+    console.error('Error pinning view to menu:', error)
+    ElMessage.error('Failed to pin view to menu')
+  }
+}
+
+// ============================================
+// PROVIDE TABLE CONTEXT
+// ============================================
+
+// Provide table context for child components to inject
+const tableContext: TableContext = {
+  workspaceSlug,
+  tableSlug,
+  table: computed(() => table.value?.data || null),
+  currentView: computed(() => currentView.value?.data || null),
+  
+  // Row actions
+  handleAddRow,
+  handleEditRow,
+  handleDeleteRow,
+  handleRowSaved,
+  
+  // Column actions
+  handleAddColumnLeft,
+  handleAddColumnRight,
+  handleEditColumn,
+  handleRemoveColumn,
+  handleColumnReorder,
+  handleColumnSaved,
+  
+  // View actions
+  handleViewUpdate,
+  
+  // Filter/Sort actions
+  handleFiltersApplied,
+  handleSortsApplied,
+  
+  // Refresh actions
+  refreshView,
+  refreshTable,
+  refreshWorkspace
+}
+
+provide(TableContextKey, tableContext)
 
 // Dynamic page title based on table name
 const pageTitle = computed(() => {
@@ -533,6 +705,16 @@ useHead({
               <span>{{ view.name }}</span>
               <el-tag v-if="view.isDefault" size="small" type="info">Default</el-tag>
               <el-icon v-if="view.isPublic" class="badge-icon" title="Public"><Link /></el-icon>
+              
+              <!-- View Actions Dropdown -->
+              <AppViewsViewActionsDropdown
+                v-if="view.slug === currentViewSlug"
+                :view="view"
+                @edit="handleViewEdit(view)"
+                @duplicate="handleViewDuplicate(view.slug)"
+                @pin="handlePinToMenu(view)"
+                @delete="handleViewDelete(view.slug)"
+              />
             </div>
           </template>
           
@@ -542,13 +724,6 @@ useHead({
             :view="currentView.data"
             :workspace-slug="workspaceSlug"
             :table-slug="tableSlug"
-            @edit="handleEditRow"
-            @delete="handleDeleteRow"
-            @add-column-left="handleAddColumnLeft"
-            @add-column-right="handleAddColumnRight"
-            @edit-column="handleEditColumn"
-            @remove-column="handleRemoveColumn"
-            @column-reorder="handleColumnReorder"
           />
         </el-tab-pane>
       </el-tabs>
@@ -576,6 +751,27 @@ useHead({
       :row="editingRow"
       @saved="handleRowSaved"
     />
+    
+    <!-- View Settings Dialog -->
+    <AppViewsViewSettingsDialog
+      v-model:visible="showViewSettingsDialog"
+      :view="selectedView"
+      :is-creating="isCreatingView"
+      :columns="currentView?.data.allColumns || []"
+      @save="handleViewSettingsSave"
+      @create="handleViewCreateSubmit"
+    />
+    
+    <!-- Pin to Menu Dialog -->
+    <AppViewsPinViewToMenuDialog
+      v-if="selectedView && workspace"
+      v-model:visible="showPinToMenuDialog"
+      :view="selectedView"
+      :menu="workspace.data.menu || []"
+      :workspace-slug="workspaceSlug"
+      :table-slug="tableSlug"
+      @confirm="handlePinToMenuConfirm"
+    />
   </div>
 </template>
 
@@ -585,6 +781,10 @@ useHead({
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  :deep(.el-tabs__new-tab){
+    // overrider el-tabs__new-tab button
+    margin : var(--app-space-s);
+  }
 }
 
 .loading-state,

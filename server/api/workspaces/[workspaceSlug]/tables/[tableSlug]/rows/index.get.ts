@@ -4,12 +4,7 @@ import { eq, and } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 import { validateTableName } from '~~/server/utils/dynamicTable'
 import { paginatedResponse } from '~~/server/utils/response'
-import { 
-  resolveRelationFieldsForRows,
-  resolveLookupFieldsForRows,
-  resolveFormulaFieldsForRows,
-  resolveRollupFieldsForRows
-} from '~~/server/utils/computedFields'
+
 
 /**
  * List rows from a dynamic table with pagination

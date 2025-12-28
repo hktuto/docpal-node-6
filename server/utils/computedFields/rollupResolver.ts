@@ -10,8 +10,7 @@
  *   Company_Stats has "total_deal_value" (rollup: SUM deals.deal_value where company = this.company)
  */
 
-import { db } from 'hub:db'
-import { dataTables } from 'hub:db:schema'
+import { db, schema } from 'hub:db'
 import { eq } from 'drizzle-orm'
 import { sql } from 'drizzle-orm'
 
@@ -105,8 +104,8 @@ export async function resolveRollupField(
     // 1. Find the source table's physical name
     const [targetTable] = await db
       .select()
-      .from(dataTables)
-      .where(eq(dataTables.slug, sourceTable))
+      .from(schema.dataTables)
+      .where(eq(schema.dataTables.slug, sourceTable))
       .limit(1)
     
     if (!targetTable) {
@@ -116,10 +115,26 @@ export async function resolveRollupField(
     
     const physicalTableName = targetTable.tableName
     
-    // 2. Build filter WHERE clause
+    // 2. Get column metadata to determine if field is JSONB or native type
+    let targetColumn = null
+    if (aggregationField) {
+      const columns = await db
+        .select()
+        .from(schema.dataTableColumns)
+        .where(eq(schema.dataTableColumns.dataTableId, targetTable.id))
+      
+      targetColumn = columns.find(col => col.name === aggregationField)
+    }
+    
+    // Determine if column is JSONB (relation, select, currency, etc.)
+    const isJSONBColumn = targetColumn && [
+      'relation', 'select', 'currency', 'multiSelect', 'user', 'attachment'
+    ].includes(targetColumn.type)
+    
+    // 3. Build filter WHERE clause
     const whereClause = buildFilterClause(filterBy, rowData)
     
-    // 3. Build aggregation query
+    // 4. Build aggregation query
     // Handle JSONB columns by casting them to appropriate types
     // For JSONB fields, we use #>> '{}' operator to extract the value as text
     let aggregationSQL: string
@@ -134,9 +149,13 @@ export async function resolveRollupField(
           console.warn('Rollup: SUM requires aggregationField')
           return null
         }
-        // For JSONB numeric fields (like currency), cast to numeric
-        // #>> '{}' extracts JSONB as text, then cast to numeric
-        aggregationSQL = 'SUM(("' + aggregationField + `" #>> '{}')::numeric)`
+        if (isJSONBColumn) {
+          // For JSONB numeric fields (like currency), extract and cast to numeric
+          aggregationSQL = 'SUM(("' + aggregationField + `" #>> '{}')::numeric)`
+        } else {
+          // For native numeric columns, use directly
+          aggregationSQL = 'SUM("' + aggregationField + `")`
+        }
         break
       
       case 'AVG':
@@ -144,8 +163,13 @@ export async function resolveRollupField(
           console.warn('Rollup: AVG requires aggregationField')
           return null
         }
-        // For JSONB numeric fields, cast to numeric
-        aggregationSQL = 'AVG(("' + aggregationField + `" #>> '{}')::numeric)`
+        if (isJSONBColumn) {
+          // For JSONB numeric fields, extract and cast to numeric
+          aggregationSQL = 'AVG(("' + aggregationField + `" #>> '{}')::numeric)`
+        } else {
+          // For native numeric columns, use directly
+          aggregationSQL = 'AVG("' + aggregationField + `")`
+        }
         break
       
       case 'MIN':
@@ -153,8 +177,13 @@ export async function resolveRollupField(
           console.warn('Rollup: MIN requires aggregationField')
           return null
         }
-        // For MIN, extract as text first (works for dates and numbers)
-        aggregationSQL = 'MIN("' + aggregationField + `" #>> '{}')`
+        if (isJSONBColumn) {
+          // For JSONB fields, extract as text
+          aggregationSQL = 'MIN("' + aggregationField + `" #>> '{}')`
+        } else {
+          // For native columns (date, timestamp, number), use directly
+          aggregationSQL = 'MIN("' + aggregationField + `")`
+        }
         break
       
       case 'MAX':
@@ -162,8 +191,13 @@ export async function resolveRollupField(
           console.warn('Rollup: MAX requires aggregationField')
           return null
         }
-        // For MAX, extract as text first (works for dates and numbers)
-        aggregationSQL = 'MAX("' + aggregationField + `" #>> '{}')`
+        if (isJSONBColumn) {
+          // For JSONB fields, extract as text
+          aggregationSQL = 'MAX("' + aggregationField + `" #>> '{}')`
+        } else {
+          // For native columns (date, timestamp, number), use directly
+          aggregationSQL = 'MAX("' + aggregationField + `")`
+        }
         break
       
       default:
@@ -241,7 +275,6 @@ export async function resolveRollupFieldsForRows(
     return rows
   }
   
-  console.log(`📊 Resolving ${rollupColumns.length} rollup fields for ${rows.length} rows...`)
   
   // Resolve rollups for each row
   const resolvedRows = []
@@ -253,7 +286,6 @@ export async function resolveRollupFieldsForRows(
     resolvedRows.push(resolvedRow)
   }
   
-  console.log(`✅ Resolved rollup fields`)
   
   return resolvedRows
 }

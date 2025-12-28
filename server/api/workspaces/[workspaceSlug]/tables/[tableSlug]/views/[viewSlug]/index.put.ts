@@ -9,13 +9,15 @@ import { successResponse } from '~~/server/utils/response'
 export default eventHandler(async (event) => {
   const workspace = event.context.workspace
   const tableSlug = getRouterParam(event, 'tableSlug')
-  const viewId = getRouterParam(event, 'viewId')
+  const viewSlug = getRouterParam(event, 'viewSlug')
   const body = await readBody<{
     name?: string
     slug?: string
-    type?: string
+    viewType?: string
+    description?: string
     isDefault?: boolean
     isPublic?: boolean
+    pageSize?: number
     visibleColumns?: string[]
     columnWidths?: Record<string, number>
     filters?: any
@@ -31,8 +33,8 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 400, message: 'Table slug is required' })
   }
 
-  if (!viewId) {
-    throw createError({ statusCode: 400, message: 'View ID is required' })
+  if (!viewSlug) {
+    throw createError({ statusCode: 400, message: 'View slug is required' })
   }
 
   // Get table metadata
@@ -50,13 +52,13 @@ export default eventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Table not found' })
   }
 
-  // Get existing view
+  // Get existing view by slug
   const existingView = await db
     .select()
     .from(schema.dataTableViews)
     .where(and(
-      eq(schema.dataTableViews.id, viewId),
-      eq(schema.dataTableViews.dataTableId, table.id)
+      eq(schema.dataTableViews.dataTableId, table.id),
+      eq(schema.dataTableViews.slug, viewSlug)
     ))
     .limit(1)
     .then(rows => rows[0])
@@ -73,9 +75,11 @@ export default eventHandler(async (event) => {
     // Update fields if provided
     if (body.name !== undefined) updates.name = body.name
     if (body.slug !== undefined) updates.slug = body.slug
-    if (body.type !== undefined) updates.type = body.type
+    if (body.viewType !== undefined) updates.viewType = body.viewType
+    if (body.description !== undefined) updates.description = body.description
     if (body.isDefault !== undefined) updates.isDefault = body.isDefault
     if (body.isPublic !== undefined) updates.isPublic = body.isPublic
+    if (body.pageSize !== undefined) updates.pageSize = body.pageSize
     if (body.columnWidths !== undefined) updates.columnWidths = body.columnWidths
     if (body.filters !== undefined) updates.filters = body.filters
     if (body.sort !== undefined) updates.sort = body.sort
@@ -85,7 +89,7 @@ export default eventHandler(async (event) => {
     const [updatedView] = await db
       .update(schema.dataTableViews)
       .set(updates)
-      .where(eq(schema.dataTableViews.id, viewId))
+      .where(eq(schema.dataTableViews.id, existingView.id))
       .returning()
 
     console.log(`✅ Updated view "${existingView.name}" for table: ${table.name}`)

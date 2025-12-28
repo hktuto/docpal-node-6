@@ -18,7 +18,6 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  console.log('🔧 API [workspaceSlug]/index.put.ts received body:', JSON.stringify(body))
   
   // Build update object with only provided fields
   const updateData: any = {
@@ -33,7 +32,6 @@ export default defineEventHandler(async (event) => {
     updateData.menu = body.menu
   }
   
-  console.log('💾 API updateData to be saved:', JSON.stringify(updateData))
   
   // Update workspace (using ID from context)
   const [updatedWorkspace] = await db
@@ -67,8 +65,7 @@ export default defineEventHandler(async (event) => {
     },
   })
   
-  console.log('✅ API updated workspace:', JSON.stringify(updatedWorkspace))
-  
+ 
   return successResponse(updatedWorkspace, { message: 'Workspace updated successfully' })
 })
 
