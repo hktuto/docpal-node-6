@@ -11,18 +11,8 @@
     <div class="view-content">
       <!-- Grid View -->
       <template v-if="view.viewType === 'grid'">
-        <DataGrid
-          :columns="view.columns"
-          :workspace-slug="workspaceSlug"
-          :table-slug="tableSlug"
-          :view-id="view.id"
-          :auto-proxy="true"
-          :allow-column-management="true"
-          :virtual-scroll="true"
-          :scroll-y-load="false"
-          :page-size="view.pageSize || 50"
-          height="100%"
-          v-bind="$attrs"
+        <AppViewsGroupedDataGrid
+          :view="view"
         />
       </template>
       

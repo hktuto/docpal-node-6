@@ -28,7 +28,6 @@ export default defineEventHandler(async (event) => {
   if (body.icon !== undefined) updateData.icon = body.icon
   if (body.description !== undefined) updateData.description = body.description
   if (body.menu !== undefined) {
-    console.log('📋 API menu field:', JSON.stringify(body.menu))
     updateData.menu = body.menu
   }
   

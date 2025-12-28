@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends Record<string, any>">
 import type { VxeGridProps, VxeColumnPropTypes, VxeGridPropTypes } from 'vxe-table'
+import type { FilterGroup } from '#shared/types/db'
 
 interface Column {
   id?: string // Column ID for management operations
@@ -57,6 +58,9 @@ interface Props {
   
   // Column Management
   allowColumnManagement?: boolean // Enable column editing features
+  
+  // Group filtering (for grouped data grid)
+  groupFilter?: FilterGroup | null // Additional filter for group-specific queries
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -171,6 +175,7 @@ function buildAutoProxyConfig(workspaceSlug: string, tableSlug: string): VxeGrid
                 limit,
                 offset,
                 filters: tempFilters,
+                additionalFilters: props.groupFilter || null, // Apply group-specific filter
                 sorts: tempSorts
               }
             }

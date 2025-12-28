@@ -1,6 +1,11 @@
 import { eq, sql } from 'drizzle-orm'
 import type { FilterGroup } from '#shared/types/db'
 
+export interface AggregateField {
+  field: string
+  function: 'SUM' | 'AVG' | 'MIN' | 'MAX'
+}
+
 export interface GenerateGroupOptionsParams {
   columnName: string
   filters?: FilterGroup | null
@@ -8,6 +13,8 @@ export interface GenerateGroupOptionsParams {
   maxOptions?: number
   includeEmpty?: boolean
   minCount?: number
+  includeAggregates?: boolean
+  aggregateFields?: AggregateField[]
 }
 
 export interface GroupOption {
@@ -15,6 +22,7 @@ export interface GroupOption {
   label: string
   color?: string
   count: number
+  aggregates?: Record<string, Record<string, number | null>>
   metadata?: Record<string, any>
 }
 
@@ -42,7 +50,9 @@ export async function generateGroupOptions(
     additionalFilters = null,
     maxOptions = 50,
     includeEmpty = true,
-    minCount = 1
+    minCount = 1,
+    includeAggregates = false,
+    aggregateFields = []
   } = params
 
   // 1. Get view and column metadata
@@ -105,7 +115,21 @@ export async function generateGroupOptions(
     { maxOptions, includeEmpty, minCount }
   )
 
-  // 5. Calculate total
+  // 5. Calculate aggregates if requested
+  if (includeAggregates && aggregateFields.length > 0) {
+    await calculateAggregatesForGroups(
+      db,
+      schema,
+      physicalTableName,
+      column,
+      options,
+      aggregateFields,
+      whereSQL,
+      columns
+    )
+  }
+
+  // 6. Calculate total
   const total = options.reduce((sum, opt) => sum + opt.count, 0)
 
   return {
@@ -115,6 +139,107 @@ export async function generateGroupOptions(
     total,
     hasMore: options.length >= maxOptions
   }
+}
+
+/**
+ * Calculate aggregates for each group
+ */
+async function calculateAggregatesForGroups(
+  db: any,
+  schema: any,
+  tableName: string,
+  groupColumn: any,
+  groups: GroupOption[],
+  aggregateFields: AggregateField[],
+  baseWhereSQL: string,
+  allColumns: any[]
+) {
+  // For each group, calculate the requested aggregates
+  for (const group of groups) {
+    group.aggregates = {}
+    
+    // Build WHERE clause for this specific group
+    const groupWhereSQL = buildGroupWhereSQL(groupColumn, group, baseWhereSQL)
+    
+    // For each aggregate field
+    for (const { field, function: aggFunc } of aggregateFields) {
+      // Find the column
+      const aggColumn = allColumns.find((c: any) => c.name === field)
+      if (!aggColumn) {
+        console.warn(`Aggregate field ${field} not found`)
+        continue
+      }
+      
+      // Determine if column is JSONB or native
+      const isJSONBColumn = ['relation', 'select', 'currency', 'multiSelect', 'user', 'attachment'].includes(aggColumn.type)
+      
+      // Build aggregate SQL
+      let aggSQL: string
+      if (aggFunc === 'SUM' || aggFunc === 'AVG') {
+        // For SUM/AVG, we need numeric values
+        aggSQL = isJSONBColumn 
+          ? `${aggFunc}(("${field}" #>> '{}')::numeric)` 
+          : `${aggFunc}("${field}")`
+      } else {
+        // For MIN/MAX, works with any comparable type
+        aggSQL = isJSONBColumn 
+          ? `${aggFunc}("${field}" #>> '{}')` 
+          : `${aggFunc}("${field}")`
+      }
+      
+      // Execute the aggregate query
+      const query = `
+        SELECT ${aggSQL} as result
+        FROM "${tableName}"
+        ${groupWhereSQL ? `WHERE ${groupWhereSQL}` : ''}
+      `
+      
+      try {
+        const results = await db.execute(sql.raw(query))
+        const value = results.length > 0 ? results[0].result : null
+        
+        // Store in aggregates
+        if (!group.aggregates[field]) {
+          group.aggregates[field] = {}
+        }
+        group.aggregates[field][aggFunc.toLowerCase()] = value
+      } catch (error) {
+        console.error(`Failed to calculate ${aggFunc} for ${field}:`, error)
+        if (!group.aggregates[field]) {
+          group.aggregates[field] = {}
+        }
+        group.aggregates[field][aggFunc.toLowerCase()] = null
+      }
+    }
+  }
+}
+
+/**
+ * Build WHERE clause specific to a group
+ */
+function buildGroupWhereSQL(
+  groupColumn: any,
+  group: GroupOption,
+  baseWhereSQL: string
+): string {
+  let groupCondition = ''
+  
+  if (group.id === null) {
+    // Empty group
+    const colRef = getColumnSQLReference(groupColumn.name, groupColumn.type)
+    groupCondition = `${colRef} IS NULL OR ${colRef} = ''`
+  } else {
+    // Specific value
+    const colRef = getColumnSQLReference(groupColumn.name, groupColumn.type)
+    const escapedValue = escapeSQLValue(group.id)
+    groupCondition = `${colRef} = '${escapedValue}'`
+  }
+  
+  if (baseWhereSQL) {
+    return `(${baseWhereSQL}) AND (${groupCondition})`
+  }
+  
+  return groupCondition
 }
 
 /**

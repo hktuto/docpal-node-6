@@ -15,14 +15,17 @@ import type { FilterGroup } from '#shared/types/db'
  *   additionalFilters?: FilterGroup | null, // AND on top of filters
  *   maxOptions?: number,                    // Limit returned options (default: 50)
  *   includeEmpty?: boolean,                 // Include null/empty group (default: true)
- *   minCount?: number                       // Only return groups with >= N items (default: 1)
+ *   minCount?: number,                      // Only return groups with >= N items (default: 1)
+ *   includeAggregates?: boolean,            // Calculate aggregates per group (default: false)
+ *   aggregateFields?: Array<{field: string, function: 'SUM'|'AVG'|'MIN'|'MAX'}> // Fields to aggregate
  * }
  * 
- * Returns group options with counts respecting all filters
+ * Returns group options with counts (and optionally aggregates) respecting all filters
  * 
  * ✅ Supports public views (no auth required)
  * ✅ Works with any column type (select, relation, text, number, date, etc.)
  * ✅ Respects filters to ensure counts match actual data
+ * ✅ Supports aggregations (SUM, AVG, MIN, MAX) per group
  */
 export default eventHandler(async (event) => {
   const viewId = getRouterParam(event, 'viewId')
@@ -45,7 +48,9 @@ export default eventHandler(async (event) => {
     additionalFilters = null,
     maxOptions = 50,
     includeEmpty = true,
-    minCount = 1
+    minCount = 1,
+    includeAggregates = false,
+    aggregateFields = []
   } = body
 
   if (!columnName) {
@@ -60,7 +65,9 @@ export default eventHandler(async (event) => {
       additionalFilters,
       maxOptions,
       includeEmpty,
-      minCount
+      minCount,
+      includeAggregates,
+      aggregateFields
     })
 
     return successResponse(result)
