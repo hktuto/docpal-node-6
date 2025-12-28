@@ -17,10 +17,12 @@ watch(() => auth.isAuthenticated.value, (isAuth) => {
   }
 }, { immediate: true })
 
-// Fetch user data
-const { data: userData, pending, refresh: refreshUser } = await useApi('/api/auth/me')
+// Get user data from Electric sync (real-time, offline-capable)
+const { currentUser, isLoading: loadingUser } = useUsers()
 
-const user = computed(() => userData.value?.data?.user)
+// Alias for template compatibility
+const user = currentUser
+const pending = loadingUser
 
 // Active tab
 const activeTab = ref('profile')
@@ -80,7 +82,7 @@ const saveProfile = async () => {
     }
 
     ElMessage.success('Profile updated successfully')
-    await refreshUser()
+    // No need to refresh! Electric will auto-sync the changes from PostgreSQL
   } catch (error: any) {
     ElMessage.error(error.data?.message || 'Failed to update profile')
   } finally {
@@ -149,16 +151,10 @@ const formatDate = (date: Date | string | null) => {
 
     <div v-else-if="!user" class="profile-page__error">
       <el-result
-        status="error"
-        title="User Not Found"
-        sub-title="Unable to load your profile information."
-      >
-        <template #extra>
-          <el-button type="primary" @click="refreshUser">
-            Retry
-          </el-button>
-        </template>
-      </el-result>
+        status="info"
+        title="Loading Profile"
+        sub-title="Syncing your profile information..."
+      />
     </div>
 
     <div v-else class="profile-page__content">

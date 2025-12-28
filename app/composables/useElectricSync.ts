@@ -261,6 +261,41 @@ export const useElectricSync = () => {
     }
   }
 
+  /**
+   * Get the PGlite database instance
+   */
+  const getDB = async () => {
+    if (!state.db) {
+      await initialize()
+    }
+    return state.db
+  }
+
+  /**
+   * Watch a query for live updates (reactive)
+   * Similar to useLiveQuery but returns a reactive ref
+   */
+  const watchQuery = async <T = any>(
+    sql: string,
+    params: any[] = []
+  ) => {
+    const data = ref<T[]>([])
+    
+    // Initial query
+    const result = await query<T>(sql, params)
+    data.value = result
+
+    // Set up live query with useLiveQuery
+    const liveResult = useLiveQuery<T>(sql, params)
+    
+    // Watch for changes
+    watch(liveResult.data, (newData) => {
+      data.value = newData
+    }, { deep: true })
+
+    return data
+  }
+
   return {
     // State
     isConnected,
@@ -275,6 +310,10 @@ export const useElectricSync = () => {
     useLiveQuery,
     getSyncStatus,
     unsubscribeShape,
+    
+    // Database access
+    getDB,
+    watchQuery,
   }
 }
 

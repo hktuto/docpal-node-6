@@ -19,10 +19,16 @@ export default defineEventHandler(async (event) => {
     await db.execute(sql`DROP PUBLICATION IF EXISTS electric_publication`)
     console.log('[Electric Setup] Dropped existing publication')
 
-    // 2. Create publication for workspaces table
-    // Note: Add more tables here as needed
-    await db.execute(sql`CREATE PUBLICATION electric_publication FOR TABLE workspaces`)
-    console.log('[Electric Setup] Created publication for workspaces')
+    // 2. Create publication for all tables that need syncing
+    await db.execute(sql`
+      CREATE PUBLICATION electric_publication FOR TABLE 
+        users,
+        companies,
+        workspaces,
+        data_tables,
+        data_table_columns
+    `)
+    console.log('[Electric Setup] Created publication for: users, companies, workspaces, data_tables, data_table_columns')
 
     // 3. Grant replication permission (if not already set)
     try {

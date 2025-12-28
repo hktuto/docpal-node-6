@@ -15,32 +15,33 @@ export const useSecureElectricSync = () => {
   /**
    * Sync a table with automatic security filtering
    * 
-   * @param shapeName - Unique name for this shape
-   * @param tableName - Name of the local table
-   * @param remoteTable - Name of the remote table (usually same as tableName)
+   * @param tableName - Name of the table to sync (used for both shape name and table name)
    * @param additionalParams - Additional query params (offset, live, etc)
    */
   const syncTable = async (
-    shapeName: string,
     tableName: string,
-    remoteTable: string = tableName,
     additionalParams: Record<string, string> = {}
   ) => {
+    if (!tableName) {
+      throw new Error('[Secure Sync] Table name is required')
+    }
+
     // Build proxy URL
     const params = new URLSearchParams({
-      table: remoteTable,
+      table: tableName,
       offset: '-1',
       ...additionalParams
     })
 
     const proxyUrl = `/api/electric/shape?${params.toString()}`
 
-    console.log(`[Secure Sync] Syncing ${shapeName} via proxy`)
+    console.log(`[Secure Sync] Syncing ${tableName} via proxy`)
 
     // Sync through proxy (server handles auth & filtering)
-    await electric.syncShape(shapeName, tableName, proxyUrl)
+    // Use table name as both shape name and local table name
+    await electric.syncShape(tableName, tableName, proxyUrl)
 
-    return { shapeName, tableName }
+    return { tableName }
   }
 
   /**
@@ -52,13 +53,13 @@ export const useSecureElectricSync = () => {
     console.log('[Secure Sync] Starting full workspace sync...')
 
     // Sync workspaces
-    await syncTable('workspaces', 'workspaces')
+    await syncTable('workspaces')
     console.log('[Secure Sync] ✓ Workspaces synced')
 
     // TODO: Add more tables as needed
-    // await syncTable('data_tables', 'data_tables')
-    // await syncTable('data_table_columns', 'data_table_columns')
-    // await syncTable('data_table_views', 'data_table_views')
+    // await syncTable('data_tables')
+    // await syncTable('data_table_columns')
+    // await syncTable('data_table_views')
 
     console.log('[Secure Sync] ✓ Full workspace sync complete')
 
@@ -76,7 +77,7 @@ export const useSecureElectricSync = () => {
 
     // Sync tables for this workspace
     // Server will filter by company_id automatically
-    await syncTable('data_tables', 'data_tables')
+    await syncTable('data_tables')
 
     // Optionally add workspace-specific filtering in the future
     // The server can be enhanced to support workspace_id filtering
@@ -116,8 +117,12 @@ export const useSecureElectricSync = () => {
     isInitializing: electric.isInitializing,
     error: electric.error,
     
+    // Database access
+    getDB: electric.getDB,
+    
     // Query methods
     query: electric.query,
+    watchQuery: electric.watchQuery,
     useLiveQuery: electric.useLiveQuery,
   }
 }

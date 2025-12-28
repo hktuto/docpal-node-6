@@ -146,7 +146,16 @@ export default defineEventHandler(async (event) => {
     try {
       console.log('[Seed] Setting up Electric publication...')
       await db.execute(sql`DROP PUBLICATION IF EXISTS electric_publication`)
-      await db.execute(sql`CREATE PUBLICATION electric_publication FOR TABLE workspaces`)
+      
+      // Create publication for all tables that need syncing
+      await db.execute(sql`
+        CREATE PUBLICATION electric_publication FOR TABLE 
+          users,
+          companies,
+          workspaces,
+          data_tables,
+          data_table_columns
+      `)
       
       // Grant replication permission (ignore if already set)
       try {
@@ -155,7 +164,7 @@ export default defineEventHandler(async (event) => {
         // Already has permission or insufficient privileges
       }
       
-      console.log('✓ Electric publication created for workspaces table')
+      console.log('✓ Electric publication created for: users, companies, workspaces, data_tables, data_table_columns')
     } catch (electricError) {
       console.warn('⚠️  Could not create Electric publication:', electricError)
       // Don't fail the seed if Electric setup fails

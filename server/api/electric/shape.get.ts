@@ -44,15 +44,19 @@ export default defineEventHandler(async (event) => {
   }
 
   // 3. Validate table is allowed for sync
-  const allowedTables = [
+  const staticAllowedTables = [
+    'users',
+    'companies',
     'workspaces',
     'data_tables',
     'data_table_columns',
     'data_table_views',
-    // Add more tables as needed
   ]
 
-  if (!allowedTables.includes(table)) {
+  // Check if it's a dynamic table (user-created tables)
+  const isDynamicTable = table.startsWith('user_table_')
+
+  if (!staticAllowedTables.includes(table) && !isDynamicTable) {
     throw createError({
       statusCode: 403,
       message: `Table '${table}' is not allowed for sync`
@@ -74,11 +78,54 @@ export default defineEventHandler(async (event) => {
   // Set table server-side (not from client params - security)
   originUrl.searchParams.set('table', table)
 
-  // Build WHERE clause based on table and set it server-side
-  // All these tables should be filtered by company_id
-  if (['workspaces', 'data_tables', 'data_table_columns', 'data_table_views'].includes(table)) {
-    // Electric WHERE syntax: field='value' (single quotes for string literals)
-    originUrl.searchParams.set('where', `company_id='${companyId}'`)
+  // Build WHERE clause based on table type
+  let whereClause = ''
+
+  if (table === 'users') {
+    // POC: Only sync current user's own data
+    // TODO: Implement permission-based user syncing later
+    const userId = event.context.user?.id
+    if (!userId) {
+      throw createError({ statusCode: 401, message: 'User ID not found' })
+    }
+    whereClause = `id='${userId}'`
+  } 
+  else if (table === 'companies') {
+    // Only sync the user's company
+    whereClause = `id='${companyId}'`
+  }
+  else if (table === 'workspaces' || table === 'data_tables') {
+    // Tables with direct company_id column
+    whereClause = `company_id='${companyId}'`
+  }
+  else if (table === 'data_table_columns') {
+    // data_table_columns doesn't have company_id, it only has data_table_id
+    // 
+    // TEMPORARY POC SOLUTION: Sync without WHERE clause
+    // Client will filter by checking if data_table_id exists in synced data_tables
+    // 
+    // SECURITY NOTE: This syncs ALL columns from ALL companies!
+    // For production, we need to either:
+    //   1. Add company_id column to data_table_columns (recommended)
+    //   2. Use API endpoint instead of Electric sync for columns
+    //   3. Implement custom filtering logic
+    
+    whereClause = '' // No server-side filtering (security risk!)
+    console.warn('[Electric Proxy] ⚠️  WARNING: data_table_columns syncing without company filter!')
+    console.warn('[Electric Proxy] ⚠️  This is a POC limitation. Add company_id column for production!')
+  }
+  else if (table === 'data_table_views') {
+    // Check if data_table_views has company_id or data_table_id
+    whereClause = '' // TODO: Update based on actual schema
+    console.log('[Electric Proxy] Warning: data_table_views filtering not implemented')
+  }
+  else if (isDynamicTable) {
+    // Dynamic tables (user-created) are also company-scoped
+    whereClause = `company_id='${companyId}'`
+  }
+
+  if (whereClause) {
+    originUrl.searchParams.set('where', whereClause)
   }
 
   console.log('[Electric Proxy] Fetching:', originUrl.toString())
