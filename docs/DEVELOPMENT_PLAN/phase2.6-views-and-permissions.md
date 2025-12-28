@@ -25,12 +25,19 @@ Build a complete views system with filtering, sorting, bulk operations, and perm
 
 ## Goals
 
-### Views System (Phase 2.6.1) ✅ 75% COMPLETE
+### Views System (Phase 2.6.1) ✅ 85% COMPLETE
 - [x] ✅ Multiple views per table with filters and sorting (Backend complete)
 - [x] ✅ Visual query builder for filters (FilterBuilder.vue complete)
 - [x] ✅ Personal vs shared views (Backend complete)
 - [x] ✅ View permissions (Backend complete)
-- [ ] 🔴 Frontend integration (20% - needs ViewToolbar wiring)
+- [x] ✅ View tabs with URL hash routing (Complete)
+- [x] ✅ Pin views to menu (Complete)
+- [x] ✅ View detail pages (Complete)
+- [x] ✅ Temporary filters/sorts (Complete)
+- [x] ✅ **Kanban view** (Complete - Dec 28, 2025) 🎉
+- [ ] 🟡 Calendar view (In Progress)
+- [ ] 🔴 Gallery view (Not started)
+- [ ] 🔴 Form view (Not started)
 
 ### Workspace Management (Phase 2.6.2) 🔴 NOT STARTED
 - [ ] 🔴 Full workspace CRUD operations
@@ -165,15 +172,124 @@ Build a complete views system with filtering, sorting, bulk operations, and perm
   - [x] ✅ Remove sort
   - [x] ✅ Clear all sorts
 
-#### View Integration 🟡 20% COMPLETE
-- [ ] 🔴 Integrate ViewToolbar in table page
-- [ ] 🔴 Wire up view switching
-- [ ] 🔴 Wire up filter changes to API
-- [ ] 🔴 Wire up sort changes to API
-- [ ] 🔴 Wire up view CRUD actions
+#### View Integration ✅ 100% COMPLETE
+- [x] ✅ Tab-based view switching with URL hash routing
+- [x] ✅ Wire up view switching (el-tabs)
+- [x] ✅ Wire up filter changes to API (ViewToolbar)
+- [x] ✅ Wire up sort changes to API (SortBuilder)
+- [x] ✅ Wire up view CRUD actions (ViewSettingsDialog)
 - [x] ✅ Show active view data (already working)
 - [x] ✅ Use view's visible columns (already working)
 - [x] ✅ Query via view API (already working)
+- [x] ✅ Default filters/sorts vs temporary filters/sorts
+- [x] ✅ Pin views to menu
+- [x] ✅ View detail pages
+- [x] ✅ Menu item actions (rename, delete, duplicate, unpin)
+
+---
+
+## Phase 2.6.1b: View Types Implementation 🟡 IN PROGRESS
+
+### View Types Overview
+DocPal supports 5 view types for different data visualization needs:
+
+1. **Grid View** ✅ - Default table view with sorting, filtering, and column management
+2. **Kanban View** ✅ - Card-based workflow visualization (COMPLETE)
+3. **Calendar View** 🟡 - Date-based event visualization (TODO)
+4. **Gallery View** 🔴 - Image-focused card layout (TODO)
+5. **Form View** 🔴 - Single-record editing interface (TODO)
+
+### Kanban View ✅ COMPLETE (Dec 28, 2025)
+
+#### Features Implemented
+- [x] ✅ Dynamic lane generation based on grouping column
+- [x] ✅ Support for multiple column types (select, relation, text, number, date, boolean, user, formula, lookup, rollup)
+- [x] ✅ Drag-and-drop cards between lanes
+- [x] ✅ Per-lane data fetching with pagination
+- [x] ✅ Color-coded lane headers (from select field options)
+- [x] ✅ Card counts in lane headers
+- [x] ✅ Empty lane support
+- [x] ✅ Optimistic UI updates
+- [x] ✅ Relation field display value lookup
+- [x] ✅ Integration with view filtering/sorting
+
+#### Backend API
+- [x] ✅ `POST /api/query/views/[viewId]/group-options` - Get grouping options
+- [x] ✅ `POST /api/query/views/[viewId]/rows` - Enhanced with `additionalFilters`
+- [x] ✅ `server/utils/generateGroupOptions.ts` - Generate options by column type
+- [x] ✅ `server/utils/mergeFilters.ts` - Merge base and additional filters
+
+#### Frontend Component
+- [x] ✅ `app/components/app/views/KanbanBoard.vue` - Full Kanban implementation
+- [x] ✅ Integrated into `ViewTab.vue`
+- [x] ✅ View settings support for groupBy configuration
+
+#### Technical Highlights
+- **Per-Lane Fetching**: Each lane makes independent API calls for better flexibility
+- **Bulk Relation Lookups**: Single query for all display values (efficient)
+- **Smart Type Detection**: Checks column schema before building SQL queries
+- **Filter Merging**: Additive filters preserve view defaults while adding lane-specific filters
+- **JSONB Handling**: Correct extraction for both JSONB and native PostgreSQL columns
+
+### Calendar View 🟡 TODO
+
+#### Planned Features
+- [ ] 🔴 Month/Week/Day view modes
+- [ ] 🔴 Event creation by clicking date
+- [ ] 🔴 Drag-and-drop to reschedule
+- [ ] 🔴 Multi-day event support
+- [ ] 🔴 Color coding by field value
+- [ ] 🔴 Event details popover
+- [ ] 🔴 Integration with date/datetime fields
+
+#### Backend Requirements
+- [ ] 🔴 Date range queries for efficient loading
+- [ ] 🔴 Recurring event support (optional)
+- [ ] 🔴 Time zone handling
+
+#### Frontend Component
+- [ ] 🔴 `app/components/app/views/CalendarView.vue`
+- [ ] 🔴 Integration with date field picker in ViewSettings
+
+### Gallery View 🔴 TODO
+
+#### Planned Features
+- [ ] 🔴 Card-based layout with images
+- [ ] 🔴 Configurable card size (small, medium, large)
+- [ ] 🔴 Image field selection
+- [ ] 🔴 Title and description fields
+- [ ] 🔴 Lightbox for image preview
+- [ ] 🔴 Masonry or grid layout
+- [ ] 🔴 Filtering and sorting
+
+#### Backend Requirements
+- [ ] 🔴 Image optimization (thumbnails)
+- [ ] 🔴 Lazy loading support
+
+#### Frontend Component
+- [ ] 🔴 `app/components/app/views/GalleryView.vue`
+- [ ] 🔴 Integration with attachment field settings
+
+### Form View 🔴 TODO
+
+#### Planned Features
+- [ ] 🔴 Single-record editing interface
+- [ ] 🔴 Public form sharing (for data collection)
+- [ ] 🔴 Custom form layout
+- [ ] 🔴 Field visibility controls
+- [ ] 🔴 Validation and required fields
+- [ ] 🔴 Success message customization
+- [ ] 🔴 Submission notifications
+
+#### Backend Requirements
+- [ ] 🔴 Public form access without auth
+- [ ] 🔴 Form submission endpoint
+- [ ] 🔴 CAPTCHA integration (optional)
+
+#### Frontend Component
+- [ ] 🔴 `app/components/app/views/FormView.vue`
+- [ ] 🔴 Public form page
+- [ ] 🔴 Form builder in ViewSettings
 
 ---
 
