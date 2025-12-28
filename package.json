@@ -17,6 +17,8 @@
     "docker:logs": "docker compose -f docker-compose.dev.yml logs -f",
     "docker:restart": "pnpm docker:down && pnpm docker:up",
     "postgis:enable": "bash scripts/enable-postgis.sh",
+    "electric:setup": "bash scripts/setup-electric.sh",
+    "electric:api-setup": "curl -X POST http://localhost:3001/api/electric/setup",
     "db:seed-company": "docker exec -i docpal-postgres psql -U docpal -d docpal < scripts/seed-dummy-company.sql",
     "db:reset": "bash scripts/reset-db.sh",
     "setup": "pnpm docker:up && pnpm db:generate && pnpm db:migrate && pnpm db:seed-company",
@@ -28,6 +30,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.3.14",
+    "@electric-sql/pglite-sync": "^0.4.0",
     "@nuxt/icon": "2.1.1",
     "@nuxthub/core": "^0.10.3",
     "@tiptap/pm": "^3.14.0",

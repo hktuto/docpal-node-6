@@ -14,4 +14,26 @@ export default defineNuxtConfig({
     dir: '.data'
   },
   css: ['@/assets/style/main.scss'],
+  
+  // Runtime config
+  runtimeConfig: {
+    // Private server-side config (not exposed to client)
+    electricUrl: process.env.ELECTRIC_URL || 'http://localhost:30000',
+    
+    // Public config (available to client)
+    public: {
+      // No Electric URL needed on client anymore!
+    }
+  },
+  
+  // Vite configuration for ElectricSQL/PGlite
+  vite: {
+    optimizeDeps: {
+      // Exclude PGlite packages from optimization (they contain WASM files)
+      exclude: [
+        '@electric-sql/pglite',
+        '@electric-sql/pglite-sync'
+      ]
+    }
+  }
 })

@@ -140,6 +140,28 @@ export default defineEventHandler(async (event) => {
         ? 'Seed data created successfully' 
         : 'Seed data already exists',
     })
+
+    // Setup Electric publication after seeding (idempotent)
+    // This ensures Electric sync works after seeding
+    try {
+      console.log('[Seed] Setting up Electric publication...')
+      await db.execute(sql`DROP PUBLICATION IF EXISTS electric_publication`)
+      await db.execute(sql`CREATE PUBLICATION electric_publication FOR TABLE workspaces`)
+      
+      // Grant replication permission (ignore if already set)
+      try {
+        await db.execute(sql`ALTER USER docpal WITH REPLICATION`)
+      } catch {
+        // Already has permission or insufficient privileges
+      }
+      
+      console.log('✓ Electric publication created for workspaces table')
+    } catch (electricError) {
+      console.warn('⚠️  Could not create Electric publication:', electricError)
+      // Don't fail the seed if Electric setup fails
+    }
+
+    return result
   } catch (error: any) {
     console.error('Seed error:', error)
     
