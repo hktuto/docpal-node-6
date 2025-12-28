@@ -1,8 +1,8 @@
 <template>
   <div class="electric-poc">
     <div class="poc-header">
-      <h1>⚡ ElectricSQL Sync POC</h1>
-      <p>Real-time workspace sync demonstration</p>
+      <h1>⚡ ElectricSQL SharedWorker POC</h1>
+      <p>True multi-tab sync with single database instance</p>
       
       <!-- Connection Status -->
       <div class="status-bar">
@@ -11,6 +11,10 @@
           <span :class="['status', isConnected ? 'connected' : 'disconnected']">
             {{ isConnected ? '✓ Connected' : '○ Disconnected' }}
           </span>
+        </div>
+        <div class="status-item">
+          <span class="label">Connected Tabs:</span>
+          <span class="status">{{ connectedTabs }}</span>
         </div>
         <div class="status-item">
           <span class="label">Syncing:</span>
@@ -28,14 +32,16 @@
     <div class="poc-content">
       <!-- Instructions -->
       <div class="instructions">
-        <h2>📚 How to Test</h2>
-        <p class="auto-sync-notice">✨ <strong>Sync starts automatically!</strong> No need to click any buttons.</p>
-        <ol>
-          <li>Open this page in <strong>two browser tabs</strong></li>
-          <li>Create or edit a workspace in your app</li>
-          <li>Watch it <strong>automatically appear/update</strong> in both tabs</li>
-          <li>Works <strong>offline</strong> - try disconnecting your network!</li>
-        </ol>
+        <h2>📚 SharedWorker Benefits</h2>
+        <p class="auto-sync-notice">✨ <strong>Sync starts automatically!</strong> Watch it work.</p>
+        <ul>
+          <li><strong>Single Database Instance:</strong> All tabs share one PGlite instance</li>
+          <li><strong>One WebSocket:</strong> Single connection to Electric sync service</li>
+          <li><strong>Efficient Memory:</strong> Much lower memory usage than per-tab DB</li>
+          <li><strong>True Multi-Tab Sync:</strong> Changes appear instantly in all tabs</li>
+          <li><strong>Background Sync:</strong> Continues even if all tabs are inactive</li>
+        </ul>
+        <p><strong>Try it:</strong> Open this page in multiple tabs and watch the "Connected Tabs" counter!</p>
       </div>
 
       <!-- Workspaces List -->
@@ -50,7 +56,7 @@
         <!-- Loading State -->
         <div v-if="loading" class="loading">
           <div class="spinner"></div>
-          <p>Loading workspaces from local database...</p>
+          <p>Loading workspaces from shared database...</p>
         </div>
 
         <!-- Workspaces Grid -->
@@ -87,6 +93,10 @@
         <h3>🔍 Debug Info</h3>
         <div class="debug-grid">
           <div class="debug-item">
+            <span class="debug-label">Mode:</span>
+            <span class="debug-value">SharedWorker (Multi-Tab)</span>
+          </div>
+          <div class="debug-item">
             <span class="debug-label">Database:</span>
             <span class="debug-value">IndexedDB (docpal-electric)</span>
           </div>
@@ -102,6 +112,10 @@
             <span class="debug-label">Last Update:</span>
             <span class="debug-value">{{ lastUpdate }}</span>
           </div>
+          <div class="debug-item">
+            <span class="debug-label">Connected Tabs:</span>
+            <span class="debug-value">{{ connectedTabs }} tab(s)</span>
+          </div>
         </div>
       </div>
     </div>
@@ -109,7 +123,6 @@
 </template>
 
 <script setup lang="ts">
-// Set layout
 definePageMeta({
   layout: 'default',
 })
@@ -125,7 +138,7 @@ interface Workspace {
   updated_at: string
 }
 
-const electric = useElectricSync()
+const electric = useSharedElectricSync()
 
 // State
 const workspaces = ref<Workspace[]>([])
@@ -136,43 +149,37 @@ const lastUpdate = ref('Never')
 const isConnected = computed(() => electric.isConnected.value)
 const isInitializing = computed(() => electric.isInitializing.value)
 const error = computed(() => electric.error.value)
-
-const activeShapes = computed(() => {
-  const status = electric.getSyncStatus()
-  return status.activeShapes
-})
-
-// Electric accessed via secure proxy (no direct access needed)
+const connectedTabs = computed(() => electric.connectedTabs.value)
+const activeShapes = computed(() => electric.activeShapes.value)
 
 /**
- * Start syncing workspaces from Electric
+ * Start syncing workspaces
  */
 const startSync = async () => {
   try {
     isSyncing.value = true
     loading.value = true
 
-    console.log('[POC] Starting Electric sync...')
+    console.log('[SharedWorker POC] Starting sync...')
 
-    // Initialize connection
+    // Initialize if needed
     await electric.initialize()
 
-    // Use secure proxy endpoint (server handles auth & filtering)
-    // No need to expose Electric URL or company_id to client!
+    // Sync via secure proxy (server handles auth & filtering)
     await electric.syncShape(
       'workspaces',
       'workspaces',
       '/api/electric/shape?table=workspaces&offset=-1'
     )
 
-    console.log('[POC] Sync started, setting up live query...')
+    console.log('[SharedWorker POC] Sync started, setting up live query...')
 
     // Start polling for updates
     startLiveQuery()
 
-    ElMessage.success('✓ Sync started! Try opening another tab to see live updates.')
+    ElMessage.success('✓ Sync started! Open another tab to see multi-tab sync in action.')
   } catch (err) {
-    console.error('[POC] Sync failed:', err)
+    console.error('[SharedWorker POC] Sync failed:', err)
     ElMessage.error('Failed to start sync: ' + (err as Error).message)
   } finally {
     isSyncing.value = false
@@ -180,7 +187,7 @@ const startSync = async () => {
 }
 
 /**
- * Set up live query to watch for changes
+ * Set up live query
  */
 const startLiveQuery = () => {
   const queryData = electric.useLiveQuery<Workspace>(
@@ -195,14 +202,14 @@ const startLiveQuery = () => {
       workspaces.value = newData
       lastUpdate.value = new Date().toLocaleTimeString()
       loading.value = false
-      console.log('[POC] Workspaces updated:', newData.length)
+      console.log('[SharedWorker POC] Workspaces updated:', newData.length)
     }
   })
 
   // Watch for errors
   watch(queryData.error, (err) => {
     if (err) {
-      console.error('[POC] Query error:', err)
+      console.error('[SharedWorker POC] Query error:', err)
     }
   })
 
@@ -227,7 +234,10 @@ const formatDate = (date: string | Date) => {
 
 // Auto-start sync on mount
 onMounted(async () => {
-  console.log('[POC] Page mounted, auto-starting sync...')
+  console.log('[SharedWorker POC] Page mounted, auto-starting sync...')
+  
+  // Get initial status
+  await electric.getStatus()
   
   // Wait a bit for UI to settle
   await nextTick()
@@ -333,21 +343,7 @@ onMounted(async () => {
     animation: pulse 2s ease-in-out infinite;
   }
 
-  ol {
-    margin-left: 1.5rem;
-
-    li {
-      margin: 0.75rem 0;
-      font-size: 1.1rem;
-      line-height: 1.6;
-
-      strong {
-        color: #667eea;
-      }
-    }
-  }
-
-  ul {
+  ol, ul {
     margin-left: 1.5rem;
 
     li {
@@ -359,6 +355,10 @@ onMounted(async () => {
         color: #667eea;
       }
     }
+  }
+
+  p {
+    margin: 1rem 0;
   }
 }
 
@@ -541,7 +541,7 @@ onMounted(async () => {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.8;
   }
 }
 </style>

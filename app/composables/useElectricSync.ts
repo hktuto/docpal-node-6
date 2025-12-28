@@ -117,6 +117,16 @@ export const useElectricSync = () => {
     options?: Record<string, any>
   ) => {
     const db = await initialize()
+    
+    // Convert relative URLs to absolute URLs
+    // Electric client requires full URLs
+    let fullUrl = shapeUrl
+    if (shapeUrl.startsWith('/')) {
+      // Relative URL - convert to absolute
+      if (typeof window !== 'undefined') {
+        fullUrl = `${window.location.origin}${shapeUrl}`
+      }
+    }
 
     // Check if already syncing this shape
     if (state.shapes.has(shapeName)) {
@@ -127,13 +137,13 @@ export const useElectricSync = () => {
     try {
       console.log(`[Electric] Starting sync for shape "${shapeName}"...`, {
         table: tableName,
-        url: shapeUrl,
+        url: fullUrl,
       })
 
       // Create the shape subscription
       const shape = await db.electric.syncShapeToTable({
         shape: {
-          url: shapeUrl,
+          url: fullUrl,
           ...options,
         },
         table: tableName,

@@ -1,6 +1,9 @@
 /**
  * Electric Proxy Endpoint
  * 
+ * Following Electric's official proxy auth pattern:
+ * https://electric-sql.com/docs/guides/auth#proxy-auth
+ * 
  * This endpoint acts as a secure proxy between the client and Electric.
  * Benefits:
  * 1. Client doesn't have direct access to Electric
@@ -11,15 +14,27 @@
 
 import { requireCompany } from '~~/server/utils/auth/getCurrentUser'
 
+// Electric protocol query parameters that should be passed through
+// Source: @electric-sql/client ELECTRIC_PROTOCOL_QUERY_PARAMS
+const ELECTRIC_PROTOCOL_PARAMS = [
+  'offset',
+  'handle',
+  'live',
+  'cursor',
+  'replica', 
+  'table',
+  'where',
+]
+
 export default defineEventHandler(async (event) => {
   // 1. Verify authentication
   const user = requireCompany(event)
   const companyId = user.company.id
 
-  // 2. Get requested table from query
+  // 2. Get request URL and params
+  const requestUrl = getRequestURL(event)
   const query = getQuery(event)
   const table = query.table as string
-  const offset = query.offset as string || '-1'
 
   if (!table) {
     throw createError({
@@ -47,36 +62,30 @@ export default defineEventHandler(async (event) => {
   // 4. Build Electric URL with company filter
   const config = useRuntimeConfig()
   const electricUrl = config.electricUrl  // Server-side only!
+  const originUrl = new URL(`${electricUrl}/v1/shape`)
 
-  // Build WHERE clause based on table
-  let whereClause = ''
-  
-  // All these tables should be filtered by company_id
-  if (['workspaces', 'data_tables', 'data_table_columns', 'data_table_views'].includes(table)) {
-    whereClause = `company_id.eq.${companyId}`
-  }
-
-  // Build the Electric shape URL
-  const electricShapeUrl = new URL(`${electricUrl}/v1/shape`)
-  electricShapeUrl.searchParams.set('table', table)
-  electricShapeUrl.searchParams.set('offset', offset)
-  if (whereClause) {
-    electricShapeUrl.searchParams.set('where', whereClause)
-  }
-
-  // 5. Add any additional query params from client (like live, cursor, etc)
-  const allowedParams = ['live', 'cursor', 'handle']
-  for (const param of allowedParams) {
-    if (query[param]) {
-      electricShapeUrl.searchParams.set(param, query[param] as string)
+  // Only pass through Electric protocol parameters
+  for (const [key, value] of Object.entries(query)) {
+    if (ELECTRIC_PROTOCOL_PARAMS.includes(key)) {
+      originUrl.searchParams.set(key, value as string)
     }
   }
 
-  console.log('[Electric Proxy] Fetching:', electricShapeUrl.toString())
+  // Set table server-side (not from client params - security)
+  originUrl.searchParams.set('table', table)
 
-  // 6. Proxy the request to Electric
+  // Build WHERE clause based on table and set it server-side
+  // All these tables should be filtered by company_id
+  if (['workspaces', 'data_tables', 'data_table_columns', 'data_table_views'].includes(table)) {
+    // Electric WHERE syntax: field='value' (single quotes for string literals)
+    originUrl.searchParams.set('where', `company_id='${companyId}'`)
+  }
+
+  console.log('[Electric Proxy] Fetching:', originUrl.toString())
+
+  // 5. Proxy the request to Electric
   try {
-    const response = await fetch(electricShapeUrl.toString(), {
+    const response = await fetch(originUrl.toString(), {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
@@ -84,11 +93,27 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!response.ok) {
-      throw new Error(`Electric returned ${response.status}: ${await response.text()}`)
+      const errorText = await response.text()
+      console.error('[Electric Proxy] Electric error:', response.status, errorText)
+      throw createError({
+        statusCode: response.status,
+        message: errorText || `Electric returned ${response.status}`
+      })
     }
 
-    // 7. Forward Electric's headers to client
-    const headers: Record<string, string> = {}
+    // 6. Process response headers
+    // Important: Fetch decompresses the body but doesn't remove the
+    // content-encoding & content-length headers which would break decoding
+    // in the browser. See: https://github.com/whatwg/fetch/issues/1729
+    const responseHeaders = new Headers(response.headers)
+    responseHeaders.delete('content-encoding')
+    responseHeaders.delete('content-length')
+
+    // Add Vary header for proper cache invalidation when auth changes
+    // This ensures different users get different cached responses
+    responseHeaders.set('Vary', 'Cookie, Authorization')
+
+    // Forward Electric-specific headers
     const headersToForward = [
       'content-type',
       'electric-cursor',
@@ -100,24 +125,29 @@ export default defineEventHandler(async (event) => {
       'etag',
     ]
 
-    headersToForward.forEach(header => {
-      const value = response.headers.get(header)
+    for (const headerName of headersToForward) {
+      const value = responseHeaders.get(headerName)
       if (value) {
-        headers[header] = value
+        setHeader(event, headerName, value)
       }
-    })
-
-    // Set response headers
-    for (const [key, value] of Object.entries(headers)) {
-      setHeader(event, key, value)
     }
 
-    // 8. Return the shape data
+    // Set Vary header
+    setHeader(event, 'Vary', 'Cookie, Authorization')
+
+    // 7. Return the shape data
     const data = await response.json()
     return data
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Electric Proxy] Error:', error)
+    
+    // If it's already an H3 error, re-throw it
+    if (error.statusCode) {
+      throw error
+    }
+
+    // Otherwise, return a 502 Bad Gateway
     throw createError({
       statusCode: 502,
       message: 'Failed to fetch from Electric service'
